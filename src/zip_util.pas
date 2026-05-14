@@ -13,7 +13,7 @@ type
   // Percent: 0..100; reports as bytes are extracted across the whole archive
   TZipProgress = procedure(Percent: Integer; const Status: string) of object;
 
-// extract every entry of ZipPath into DestDir (creates as needed); callback fires per-file on byte progress (nil ok)
+// extract every entry of ZipPath into DestDir (created if needed); callback fires per-file by bytes
 function ExtractZip(const ZipPath, DestDir: string; OnProgress: TZipProgress): Boolean;
 
 implementation
@@ -45,7 +45,7 @@ begin
   Result := False;
   if not DirectoryExists(DestDir) then if not ForceDirectories(DestDir) then Exit;
 
-  // LIFO: UnZip frees first, then Bridge - safe because UnZip drops its OnProgressEx before destruction
+  // LIFO: UnZip frees first, then Bridge - safe because UnZip drops its OnProgressEx handler first
   var Bridge := autofree TProgressBridge.Create;
   var UnZip := autofree TUnZipper.Create;
   Bridge.Cb := OnProgress;

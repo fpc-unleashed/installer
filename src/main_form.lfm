@@ -58,13 +58,13 @@ object MainForm: TMainForm
   end
   object GroupBoxUnleashed: TGroupBox
     Left = 5
-    Height = 130
+    Height = 155
     Top = 81
     Width = 706
     Align = alTop
     BorderSpacing.Around = 5
     Caption = 'fpc-unleashed (compiler)'
-    ClientHeight = 110
+    ClientHeight = 135
     ClientWidth = 702
     TabOrder = 1
     object CheckBoxInstallUnleashed: TCheckBox
@@ -129,14 +129,12 @@ object MainForm: TMainForm
       Width = 39
       Caption = 'Cross:'
     end
-    object CheckBoxCrossWin32: TCheckBox
+    object CheckBoxCrossWin64: TCheckBox
       Left = 80
       Height = 19
       Top = 86
       Width = 180
-      Caption = 'i386-win32 (32-bit Windows)'
-      Checked = True
-      State = cbChecked
+      Caption = 'x86_64-win64 (64-bit Windows)'
       TabOrder = 4
     end
     object CheckBoxCrossLinux64: TCheckBox
@@ -144,29 +142,44 @@ object MainForm: TMainForm
       Height = 19
       Top = 86
       Width = 220
-      Caption = 'x86_64-linux (not yet supported)'
-      Enabled = False
+      Caption = 'x86_64-linux (64-bit Linux)'
       TabOrder = 5
     end
-    object CheckBoxCrossLinux32: TCheckBox
+    object CheckBoxCrossWasm: TCheckBox
       Left = 500
       Height = 19
       Top = 86
       Width = 200
-      Caption = 'i386-linux (not yet supported)'
-      Enabled = False
+      Caption = 'wasm32-wasip1 (WebAssembly)'
       TabOrder = 6
+    end
+    object CheckBoxCrossWin32: TCheckBox
+      Left = 80
+      Height = 19
+      Top = 110
+      Width = 200
+      Caption = 'i386-win32 (32-bit Windows, legacy)'
+      TabOrder = 7
+    end
+    object CheckBoxCrossLinux32: TCheckBox
+      Left = 270
+      Height = 19
+      Top = 110
+      Width = 220
+      Caption = 'i386-linux (32-bit Linux, legacy)'
+      TabOrder = 8
+      OnChange = CheckBoxCrossLinux32Change
     end
   end
   object GroupBoxLazarus: TGroupBox
     Left = 5
-    Height = 100
+    Height = 125
     Top = 186
     Width = 706
     Align = alTop
     BorderSpacing.Around = 5
     Caption = 'lazarus (IDE)'
-    ClientHeight = 80
+    ClientHeight = 105
     ClientWidth = 702
     TabOrder = 2
     object CheckBoxInstallLazarus: TCheckBox
@@ -233,6 +246,23 @@ object MainForm: TMainForm
       State = cbChecked
       TabOrder = 3
       OnChange = CheckBoxLazarusLatestChange
+    end
+    object LabelLazarusAddons: TLabel
+      Left = 12
+      Height = 15
+      Top = 84
+      Width = 47
+      Caption = 'Addons:'
+    end
+    object CheckBoxMinimap: TCheckBox
+      Left = 80
+      Height = 19
+      Top = 82
+      Width = 280
+      Caption = 'Minimap (source editor side panel)'
+      Checked = True
+      State = cbChecked
+      TabOrder = 5
     end
   end
   object PanelButtons: TPanel

@@ -10,16 +10,26 @@ uses
   Classes, SysUtils;
 
 type
-  // snapshot of what got installed; later run compares against UI selection to decide skip vs refresh
+  // a tiny snapshot of what got installed so a later run can decide
+  // whether the user's currently-selected branch/hash matches what is
+  // already on disk and therefore whether to skip or refresh the build.
   TInstallManifest = record
     Present: Boolean;
     FpcBranch: string;
     FpcSha: string;
     LazBranch: string;
     LazSha: string;
-    CrossWin32: Boolean;
-    CrossLinux64: Boolean;
-    CrossLinux32: Boolean;
+    CrossWin64: Boolean;       // cross to x86_64-win64 (only built on linux64 host)
+    CrossWin32: Boolean;       // legacy 32-bit
+    CrossLinux64: Boolean;     // cross to x86_64-linux (only built on win64 host)
+    CrossLinux32: Boolean;     // legacy 32-bit
+    CrossWasm: Boolean;
+    // optional Lazarus IDE addons -- written so a re-run can pre-tick
+    // the right checkboxes
+    InstallMinimap: Boolean;
+    // last launch-after-install state, restored to the checkbox on
+    // re-run so the user does not have to re-tick every time
+    LaunchAfter: Boolean;
     InstalledAt: string;
   end;
 
@@ -67,9 +77,14 @@ begin
   Result.FpcSha       := LowerCase(Lines.Values['fpc-sha']);
   Result.LazBranch    := Lines.Values['lazarus-branch'];
   Result.LazSha       := LowerCase(Lines.Values['lazarus-sha']);
+  Result.CrossWin64   := StrToBoolDefSafe(Lines.Values['cross-x86_64-win64'], False);
   Result.CrossWin32   := StrToBoolDefSafe(Lines.Values['cross-i386-win32'], False);
   Result.CrossLinux64 := StrToBoolDefSafe(Lines.Values['cross-x86_64-linux'], False);
   Result.CrossLinux32 := StrToBoolDefSafe(Lines.Values['cross-i386-linux'], False);
+  // accept both wasip1 (current) and wasi (older manifests) so a re-run reads the historical flag
+  Result.CrossWasm    := StrToBoolDefSafe(Lines.Values['cross-wasm32-wasip1'], StrToBoolDefSafe(Lines.Values['cross-wasm32-wasi'], False));
+  Result.InstallMinimap := StrToBoolDefSafe(Lines.Values['extras-minimap'], False);
+  Result.LaunchAfter  := StrToBoolDefSafe(Lines.Values['launch-after-install'], True);
   Result.InstalledAt  := Lines.Values['installed-at'];
   Result.Present      := True;
 end;
@@ -84,9 +99,13 @@ begin
   Lines.Add('fpc-sha='+LowerCase(M.FpcSha));
   Lines.Add('lazarus-branch='+M.LazBranch);
   Lines.Add('lazarus-sha='+LowerCase(M.LazSha));
+  Lines.Add('cross-x86_64-win64='+BoolFlag(M.CrossWin64));
   Lines.Add('cross-i386-win32='+BoolFlag(M.CrossWin32));
   Lines.Add('cross-x86_64-linux='+BoolFlag(M.CrossLinux64));
   Lines.Add('cross-i386-linux='+BoolFlag(M.CrossLinux32));
+  Lines.Add('cross-wasm32-wasip1='+BoolFlag(M.CrossWasm));
+  Lines.Add('extras-minimap='+BoolFlag(M.InstallMinimap));
+  Lines.Add('launch-after-install='+BoolFlag(M.LaunchAfter));
   Lines.Add('installed-at='+M.InstalledAt);
   try
     Lines.SaveToFile(ManifestPathFor(InstallDir));

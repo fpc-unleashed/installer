@@ -6,7 +6,7 @@ unit shortcut_util;
 
 interface
 
-// create .lnk on user's desktop; WorkingDir = ExtractFilePath(TargetPath); icon from TargetPath
+// create a .lnk on the user's desktop; WorkingDir = ExtractFilePath(TargetPath), icon from TargetPath
 function CreateDesktopShortcut(const TargetPath, Args, ShortcutName: string): Boolean;
 
 implementation
