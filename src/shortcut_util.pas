@@ -6,11 +6,7 @@ unit shortcut_util;
 
 interface
 
-// Place a desktop shortcut for TargetPath with the given launch Args.
-// On Windows writes a .lnk via IShellLinkW COM. On Linux writes a
-// .desktop file to ~/Desktop/ (per the XDG spec) plus a copy to
-// ~/.local/share/applications/ so the IDE shows up in the system
-// menu as well. Returns False on any failure.
+// Windows: .lnk via IShellLinkW COM. Linux: .desktop in ~/Desktop and ~/.local/share/applications.
 function CreateDesktopShortcut(const TargetPath, Args, ShortcutName: string): Boolean;
 
 implementation
@@ -26,9 +22,7 @@ var
   Buf: array[0..MAX_PATH] of AnsiChar;
 begin
   Result := '';
-  // CSIDL_DESKTOPDIRECTORY is the per-user file-system Desktop path.
-  // CSIDL_DESKTOP is the virtual desktop folder (which contains things
-  // like My Computer); we want the physical dir.
+  // CSIDL_DESKTOPDIRECTORY = physical per-user Desktop dir; CSIDL_DESKTOP is the virtual one
   if SHGetFolderPathA(0, CSIDL_DESKTOPDIRECTORY, 0, 0, @Buf[0]) = S_OK then Result := AnsiString(Buf);
 end;
 
@@ -52,8 +46,7 @@ begin
     Link.SetIconLocation(PWideChar(WTarget), 0);
 
     var Persist: IPersistFile := Link as IPersistFile;
-    var WLnkPath: WideString := UTF8Decode(IncludeTrailingPathDelimiter(DesktopDir) +
-      ShortcutName + '.lnk');
+    var WLnkPath: WideString := UTF8Decode(IncludeTrailingPathDelimiter(DesktopDir)+ShortcutName+'.lnk');
     Result := Persist.Save(PWideChar(WLnkPath), True) = S_OK;
   finally
     CoUninitialize;
@@ -62,29 +55,23 @@ end;
 {$endif}
 
 {$ifdef LINUX}
-// build a .desktop file body per XDG Desktop Entry Specification.
-// Categories=Development;IDE; puts the entry under Programming menus
-// on GNOME/KDE/Cinnamon/XFCE.
+// .desktop body per XDG spec; Categories=Development;IDE puts it under Programming menus
 function BuildDesktopEntry(const TargetPath, Args, ShortcutName: string): string;
 begin
   var ExecLine := TargetPath;
-  if Args <> '' then ExecLine := TargetPath + ' ' + Args;
-  // Lazarus ships its own icon at <lazarusdir>/images/ide_icon.png; the
-  // shortcut creator does not know the lazarus dir directly, but
-  // TargetPath is <lazarusdir>/lazarus and ExtractFilePath gives us
-  // <lazarusdir>/ -- good enough.
-  var IconPath := IncludeTrailingPathDelimiter(ExtractFilePath(TargetPath)) +
-                  'images/ide_icon.png';
+  if Args <> '' then ExecLine := TargetPath+' '+Args;
+  // TargetPath is <lazarusdir>/lazarus, so ExtractFilePath gives <lazarusdir>/
+  var IconPath := IncludeTrailingPathDelimiter(ExtractFilePath(TargetPath))+'images/ide_icon.png';
   Result :=
-    '[Desktop Entry]'#10 +
-    'Type=Application'#10 +
-    'Version=1.0'#10 +
-    'Name=' + ShortcutName + #10 +
-    'Comment=Lazarus IDE (FPC Unleashed)'#10 +
-    'Exec=' + ExecLine + #10 +
-    'Icon=' + IconPath + #10 +
-    'Terminal=false'#10 +
-    'Categories=Development;IDE;'#10 +
+    '[Desktop Entry]'#10+
+    'Type=Application'#10+
+    'Version=1.0'#10+
+    'Name='+ShortcutName+#10+
+    'Comment=Lazarus IDE (FPC Unleashed)'#10+
+    'Exec='+ExecLine+#10+
+    'Icon='+IconPath+#10+
+    'Terminal=false'#10+
+    'Categories=Development;IDE;'#10+
     'StartupNotify=false'#10;
 end;
 
@@ -99,11 +86,7 @@ begin
   except
     Exit;
   end;
-  // GNOME 3.34+ requires the .desktop file to be executable for
-  // double-click to launch it; KDE doesn't care. We shell out to
-  // /bin/chmod so we don't have to pull BaseUnix in just for fpchmod.
-  // Best-effort; failure is non-fatal (the file is still parsable for
-  // menu entries, just not double-clickable from the desktop).
+  // GNOME 3.34+ needs +x on .desktop to double-click; shell out to chmod (avoid BaseUnix)
   RunSilent('/bin/chmod', ['0755', Path]);
   Result := True;
 end;
@@ -115,31 +98,23 @@ begin
   if Home = '' then Exit;
 
   var Body := BuildDesktopEntry(TargetPath, Args, ShortcutName);
-  // Sanitize the filename: spaces and parens are fine in Name= but
-  // ugly in the on-disk path. Replace whitespace with '-' and strip
-  // problematic chars; keep ascii letters / digits / dot / dash / underscore.
+  // sanitize filename: keep [A-Za-z0-9._-], whitespace -> '-', drop the rest
   var FileBase: string := '';
   for var i := 1 to Length(ShortcutName) do begin
     var c := ShortcutName[i];
     case c of
-      'A'..'Z', 'a'..'z', '0'..'9', '.', '-', '_':
-        FileBase := FileBase + c;
-      ' ', #9:
-        FileBase := FileBase + '-';
-      // skip anything else
+      'A'..'Z', 'a'..'z', '0'..'9', '.', '-', '_': FileBase := FileBase+c;
+      ' ', #9: FileBase := FileBase+'-';
     end;
   end;
   if FileBase = '' then FileBase := 'lazarus-unleashed';
 
-  var DesktopPath  := IncludeTrailingPathDelimiter(Home) + 'Desktop' +
-                      DirectorySeparator + FileBase + '.desktop';
-  var MenuPath     := IncludeTrailingPathDelimiter(Home) +
-                      '.local/share/applications/' + FileBase + '.desktop';
+  var DesktopPath := IncludeTrailingPathDelimiter(Home)+'Desktop'+DirectorySeparator+FileBase+'.desktop';
+  var MenuPath    := IncludeTrailingPathDelimiter(Home)+'.local/share/applications/'+FileBase+'.desktop';
 
-  // best-effort: write both locations. Desktop entry is the primary;
-  // menu entry is nice-to-have. Succeed if either lands.
+  // best-effort: succeed if either lands
   var WroteDesktop := WriteDesktopFile(DesktopPath, Body);
-  var WroteMenu    := WriteDesktopFile(MenuPath,    Body);
+  var WroteMenu    := WriteDesktopFile(MenuPath, Body);
   Result := WroteDesktop or WroteMenu;
 end;
 {$endif}

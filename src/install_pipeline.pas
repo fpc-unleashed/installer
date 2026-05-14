@@ -447,7 +447,8 @@ begin
   var rangeEnd   := STAGE_END[FStage];
   if Percent < 0 then
     FProgressPct := -1
-  else begin
+  else
+  begin
     if Percent > 100 then Percent := 100;
     FProgressPct := rangeStart + Round((rangeEnd - rangeStart) * Percent / 100);
   end;
@@ -554,7 +555,8 @@ begin
   // the detected value.
   if FHostFpcVersion = '' then
     Result := '3.2.2'
-  else Result := FHostFpcVersion;
+  else
+    Result := FHostFpcVersion;
 end;
 
 function TInstallThread.HostFpcBinDir: string;
@@ -1607,7 +1609,8 @@ const
 begin
   var Base := ExtractFileName(ExcludeTrailingPathDelimiter(FCfg.TargetDir));
   if (Length(Base) > Length(Prefix)) and
-     (LowerCase(Copy(Base, 1, Length(Prefix))) = Prefix) then Delete(Base, 1, Length(Prefix));
+     (LowerCase(Copy(Base, 1, Length(Prefix))) = Prefix) then
+    Delete(Base, 1, Length(Prefix));
   Result := 'Unleashed (' + Base + ')';
 end;
 
@@ -2016,14 +2019,14 @@ begin
     Log('Registering fpc-unleashed addon packages');
     for var i := Low(LAZ_UNLEASHED_PACKAGES) to High(LAZ_UNLEASHED_PACKAGES) do
       if not AddPackage(LAZ_UNLEASHED_PACKAGES[i]) then Exit;
-  end
-  else Log('Skipping minimap addon (not selected)');
+  end else
+    Log('Skipping minimap addon (not selected)');
 
   if FCfg.InstallCPUView then begin
     Log('Registering CPU-View addon (FWHexView + CPUView)');
     if not RegisterCPUViewPackages then Exit;
-  end
-  else Log('Skipping CPU-View addon (not selected)');
+  end else
+    Log('Skipping CPU-View addon (not selected)');
 
   // 3. final IDE build linking everything from staticpackages.inc.
   //    -dKeepInstalledPackages keeps the package list around between
@@ -2421,16 +2424,16 @@ begin
     Result := FetchAndExtract(COMPONENTS_FWHEX_URL, COMPONENTS_FWHEX_SHA,
                               'FWHexView 2.0.16', FwhexDir);
     if not Result then Exit;
-  end
-  else Log('FWHexView already present at ' + FwhexDir + ', skipping fetch');
+  end else
+    Log('FWHexView already present at ' + FwhexDir + ', skipping fetch');
 
   var CpuDir := IncludeTrailingPathDelimiter(Base) + 'CPUView';
   if not DirectoryExists(IncludeTrailingPathDelimiter(CpuDir) + 'src') then begin
     Result := FetchAndExtract(COMPONENTS_CPUVIEW_URL, COMPONENTS_CPUVIEW_SHA,
                               'CPUView 1.0', CpuDir);
     if not Result then Exit;
-  end
-  else Log('CPUView already present at ' + CpuDir + ', skipping fetch');
+  end else
+    Log('CPUView already present at ' + CpuDir + ', skipping fetch');
 end;
 
 function TInstallThread.StepRemoveCrossWin32: Boolean;
@@ -2610,7 +2613,8 @@ begin
     SetStage(isBootstrap);
     if hasBootstrap then
       Log('bootstrap fpc322 already installed, skipping')
-    else begin
+    else
+    begin
       // bootstrap is needed for any make-based build below; only run if
       // we will actually need it (FPC build or cross compiler add)
       if (not hasFpcExe) or
@@ -2626,7 +2630,8 @@ begin
     // user must manually wipe <fpc> to force a rebuild.
     if hasFpcExe then
       Log('native FPC already built at <target>\fpc, skipping source + make all')
-    else begin
+    else
+    begin
       SetStage(isFpcSrc);
       if not StepDownloadFpcSource then Exit;
       if not StepBuildFpcNative then Exit;
@@ -2652,7 +2657,8 @@ begin
     end
     else if hasCrossW32 then
       Log('cross compiler i386-win32 already installed, leaving as is')
-    else Log('skipping cross compiler i386-win32 (not selected)');
+    else
+      Log('skipping cross compiler i386-win32 (not selected)');
 {$endif}
 {$ifdef LINUX}
     // Linux host -> i386-win32: same staged pattern as cross-win64-from-linux,
@@ -2667,7 +2673,8 @@ begin
     end
     else if hasCrossW32 then
       Log('cross compiler i386-win32 already installed, leaving as is')
-    else Log('skipping cross compiler i386-win32 (not selected)');
+    else
+      Log('skipping cross compiler i386-win32 (not selected)');
 {$endif}
 
     // cross wasm32-wasip1: same smart add/remove pattern. WASM has no
@@ -2681,7 +2688,8 @@ begin
     end
     else if hasCrossWasm then
       Log('cross compiler wasm32-wasip1 already installed, leaving as is')
-    else Log('skipping cross compiler wasm32-wasip1 (not selected)');
+    else
+      Log('skipping cross compiler wasm32-wasip1 (not selected)');
 
 {$ifdef LINUX}
     // cross x86_64-win64 from a linux host: uses FPC's internal PE/COFF
@@ -2696,7 +2704,8 @@ begin
     end
     else if hasCrossWin64 then
       Log('cross compiler x86_64-win64 already installed, leaving as is')
-    else Log('skipping cross compiler x86_64-win64 (not selected)');
+    else
+      Log('skipping cross compiler x86_64-win64 (not selected)');
 {$endif}
 
     // cross x86_64-linux: download zips + verify SHA + extract + crossinstall
@@ -2721,8 +2730,8 @@ begin
                     DirectorySeparator + 'lib';
       PatchFpcCfgCrossSection('linux', 'x86_64', BinDir, LibDir,
         'x86_64-linux-gnu-', True);
-    end
-    else Log('skipping cross compiler x86_64-linux (not selected)');
+    end else
+      Log('skipping cross compiler x86_64-linux (not selected)');
 {$endif}
 
     // cross i386-linux: requires ppcross386 from the i386-win32 step
@@ -2743,8 +2752,8 @@ begin
                     DirectorySeparator + 'lib';
       PatchFpcCfgCrossSection('linux', 'i386', BinDir, LibDir,
         'i386-linux-gnu-', True);
-    end
-    else Log('skipping cross compiler i386-linux (not selected)');
+    end else
+      Log('skipping cross compiler i386-linux (not selected)');
 {$endif}
 {$ifdef LINUX}
     // Linux host -> i386-linux: requires ppcross386 (built either here in
@@ -2760,7 +2769,8 @@ begin
     end
     else if hasCrossLinux32 then
       Log('cross compiler i386-linux already installed, leaving as is')
-    else Log('skipping cross compiler i386-linux (not selected)');
+    else
+      Log('skipping cross compiler i386-linux (not selected)');
 {$endif}
 
     if FCfg.InstallLazarus and (not hasLazExe) then begin
@@ -2788,10 +2798,10 @@ begin
       if addonsChanged then begin
         Log('lazarus already built but addon selection changed -- rebuilding IDE');
         if not StepRebuildLazarusForAddons then Exit;
-      end
-      else Log('lazarus already built at <target>\lazarus, no addon delta, skipping');
-    end
-    else Log('skipping Lazarus IDE (not selected)');
+      end else
+        Log('lazarus already built at <target>\lazarus, no addon delta, skipping');
+    end else
+      Log('skipping Lazarus IDE (not selected)');
 
     // record what's now on disk so a later run can compare
     Manifest.Present     := True;
@@ -2823,7 +2833,8 @@ begin
     Manifest.InstalledAt := FormatDateTime('yyyy-mm-dd"T"hh:nn:ss', Now);
     if WriteManifest(FCfg.TargetDir, Manifest) then
       Log('Manifest written: ' + ManifestPathFor(FCfg.TargetDir))
-    else Log('WARNING: could not write manifest at ' + ManifestPathFor(FCfg.TargetDir));
+    else
+      Log('WARNING: could not write manifest at ' + ManifestPathFor(FCfg.TargetDir));
 
     SetStage(isDone);
     Log('--- pipeline done ---');
