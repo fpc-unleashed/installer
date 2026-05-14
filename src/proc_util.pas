@@ -12,19 +12,12 @@ uses
 type
   TLineCallback = procedure(const Line: string) of object;
 
-// run a process with no console window, block until it exits, return exit code.
-// stdout/stderr are dropped. returns -1 on launch failure.
-function RunSilent(const Exe: string; const Args: array of string;
-  const WorkDir: string = ''): Integer;
+// run process silently, block to exit, return exit code; stdout/stderr dropped; -1 on launch fail
+function RunSilent(const Exe: string; const Args: array of string; const WorkDir: string = ''): Integer;
 
-// run a process with stdout+stderr captured line-by-line. each completed line
-// is delivered to OnLine. blocks until exit. ExtraPath is prepended to PATH
-// in the child env (use '' to inherit parent env unchanged). returns exit code,
-// or -1 on launch failure.
+// run process streaming stdout+stderr lines to OnLine; ExtraPath prepended to PATH ('' = inherit); -1 on launch fail
 function RunStream(const Exe: string; const Args: array of string;
-  const WorkDir: string;
-  const ExtraPath: string;
-  OnLine: TLineCallback): Integer;
+  const WorkDir: string; const ExtraPath: string; OnLine: TLineCallback): Integer;
 
 implementation
 
@@ -50,8 +43,7 @@ begin
   end;
 end;
 
-// copy parent env into child, but rewrite PATH= so it has Prefix in front.
-// if Prefix is empty, don't touch Environment at all (inherit parent normally).
+// copy parent env to child but rewrite PATH= with Prefix in front; empty Prefix = inherit untouched
 procedure ApplyEnvWithPathPrefix(P: TProcess; const Prefix: string);
 begin
   if Prefix = '' then Exit;

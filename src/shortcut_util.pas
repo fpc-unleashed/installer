@@ -6,8 +6,7 @@ unit shortcut_util;
 
 interface
 
-// create a .lnk on the user's desktop. WorkingDir defaults to ExtractFilePath
-// of TargetPath. icon comes from TargetPath itself (embedded resource).
+// create .lnk on user's desktop; WorkingDir = ExtractFilePath(TargetPath); icon from TargetPath
 function CreateDesktopShortcut(const TargetPath, Args, ShortcutName: string): Boolean;
 
 implementation
@@ -20,7 +19,7 @@ var
   Buf: array[0..MAX_PATH] of AnsiChar;
 begin
   Result := '';
-  // CSIDL_DESKTOPDIRECTORY = per-user file-system Desktop; CSIDL_DESKTOP is the virtual folder (My Computer etc.)
+  // CSIDL_DESKTOPDIRECTORY = per-user filesystem Desktop path; CSIDL_DESKTOP is the virtual folder
   if SHGetFolderPathA(0, CSIDL_DESKTOPDIRECTORY, 0, 0, @Buf[0]) = S_OK then Result := AnsiString(Buf);
 end;
 

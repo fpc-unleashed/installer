@@ -110,7 +110,7 @@ begin
       Exit;
     end;
     var Arr := TJSONArray(J);
-    // "name=sha" entries: combobox uses Names[i], head SHA lookup via Values[branchName]
+    // store as "name=sha"; combobox uses Names[i], lookups use Values[branchName]
     for var i := 0 to Arr.Count-1 do begin
       var Obj := Arr.Objects[i];
       if Obj <> nil then FBranches.Add(Obj.Get('name', '')+'='+TJSONObject(Obj.Find('commit')).Get('sha', ''));

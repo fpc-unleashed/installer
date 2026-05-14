@@ -23,14 +23,20 @@ type
     CrossWin32:     Boolean;
     CrossLinux64:   Boolean;
     CrossLinux32:   Boolean;
+    // SHA we resolved at the UI layer (head of chosen branch or
+    // user-provided hash). pipeline writes this into the manifest at
+    // end of install so a later run can decide whether to refresh.
+    FpcSelectedSha: string;
+    LazSelectedSha: string;
+    // when True, pipeline appends every Log() line to
+    // <TargetDir>\installer.log (truncated at start of each run).
+    SaveLog: Boolean;
   end;
 
   TInstallLogEvent      = procedure(const msg: string) of object;
   TInstallProgressEvent = procedure(Percent: Integer; const status: string) of object;
 
-  // pipeline stages, ordered. each gets a slice of the 0..100 overall
-  // bar via STAGE_END below. boundaries are tuned to typical wall-clock
-  // proportions: build steps dominate, downloads + cfg are short.
+  // ordered pipeline stages; each gets a slice of 0..100 via STAGE_END; build steps dominate
   TInstallStage = (
     isInit,
     isBootstrap,        //  0..8    download + extract bootstrap zip
@@ -61,12 +67,15 @@ type
     FLogMsg: string;
     FProgressMsg: string;
     FProgressPct: Integer;
+    // optional installer.log writer; nil when save-log off; owned + freed inside Execute
+    FLogStream: TFileStream;
     procedure SyncLog;
     procedure SyncProgress;
     procedure Log(const msg: string);
     procedure Progress(Percent: Integer; const status: string);
     procedure SetStage(s: TInstallStage);
     procedure OnMakeLine(const Line: string);
+    function ResolveLogPath: string;
     function StepBootstrap: Boolean;
     function StepDownloadFpcSource: Boolean;
     function StepBuildFpcNative: Boolean;
@@ -83,47 +92,39 @@ type
     function LazarusDir: string;
     function LazarusPcp: string;
     function ShortcutLabel: string;
-    function RunLazbuild(const Args: array of string;
-      const StepLabel: string): Boolean;
+    function RunLazbuild(const Args: array of string; const StepLabel: string): Boolean;
     function AddPackage(const LpkRel: string; LinkOnly: Boolean = False): Boolean;
     function WriteConfigFile(const FilePath, Content: string): Boolean;
     function ResolveFpcRef: string;
     function MakeWorkDir: string;
     function BootstrapBinDir: string;
-    function RunMake(const Args: array of string;
-      const StepLabel: string): Boolean;
+    function RunMake(const Args: array of string; const StepLabel: string): Boolean;
   protected
     procedure Execute; override;
   public
     constructor Create(const Cfg: TInstallConfig;
-      ALog: TInstallLogEvent; AProgress: TInstallProgressEvent;
-      AOnTerminate: TNotifyEvent);
+      ALog: TInstallLogEvent; AProgress: TInstallProgressEvent; AOnTerminate: TNotifyEvent);
     property Success: Boolean read FSuccess;
     property ErrorMsg: string read FErrorMsg;
   end;
 
 const
-  // portable extract of fpc-3.2.2.i386-win32.exe (Inno Setup), unpacked
-  // off-line to skip registry, PATH, file association, shortcut side effects
-  BOOTSTRAP_URL =
-    'https://github.com/fpc-unleashed/freepascal/releases/download/bootstrappers-v1/fpc-3.2.2-i386-win32-portable.zip';
-  BOOTSTRAP_SHA =
-    '0DFB6E34EC1FB1E89B5EAEA90E3A514B1F37867AE91989FA18143750EB39BF30';
+  // portable extract of fpc-3.2.2.i386-win32.exe, no registry/PATH/shortcut side effects
+  BOOTSTRAP_URL = 'https://github.com/fpc-unleashed/freepascal/releases/download/bootstrappers-v1/fpc-3.2.2-i386-win32-portable.zip';
+  BOOTSTRAP_SHA = '0DFB6E34EC1FB1E89B5EAEA90E3A514B1F37867AE91989FA18143750EB39BF30';
 
   // codeload accepts branch name, tag, full or short SHA in <ref>
-  FPC_SOURCE_URL_PREFIX =
-    'https://codeload.github.com/fpc-unleashed/freepascal/zip/';
-  LAZARUS_SOURCE_URL_PREFIX =
-    'https://codeload.github.com/fpc-unleashed/lazarus/zip/';
+  FPC_SOURCE_URL_PREFIX     = 'https://codeload.github.com/fpc-unleashed/freepascal/zip/';
+  LAZARUS_SOURCE_URL_PREFIX = 'https://codeload.github.com/fpc-unleashed/lazarus/zip/';
 
 implementation
 
 uses
-  download_util, hash_util, zip_util, proc_util, shortcut_util;
+  download_util, hash_util, zip_util, proc_util, shortcut_util,
+  install_manifest;
 
 const
-  // upper bound (on 0..100) of each stage's overall-progress slice.
-  // index 0 (isInit) is implicitly 0; subsequent values are the cap.
+  // upper bound (on 0..100) of each stage's slice; isInit implicit 0, rest are caps
   STAGE_END: array[TInstallStage] of Byte = (
     0,    // isInit
     8,    // isBootstrap
@@ -161,11 +162,8 @@ const
     'done');
 
 const
-  // baked minimal Lazarus environmentoptions.xml. Version 112 / Lazarus
-  // 4.99 matches the current main of fpc-unleashed/lazarus.
-  // ActiveDesktop="default docked" makes the IDE start in single-window
-  // dock layout (anchordockingdsgn handles the runtime when the package
-  // is installed - which we do via lazbuild --add-package).
+  // baked Lazarus environmentoptions.xml. Version 112 matches current main of fpc-unleashed/lazarus.
+  // ActiveDesktop="default docked" -> single-window dock layout via anchordockingdsgn.
   // InitialFPCSrcRescanDone skips the slow first-launch scan over <fpcsrc>.
   ENV_OPTIONS_TEMPLATE: string =
     '<?xml version="1.0" encoding="UTF-8"?>'#13#10 +
@@ -180,17 +178,14 @@ const
     '    <TestBuildDirectory Value="%PROJECTS%"/>'#13#10 +
     '    <InitialFPCSrcRescanDone Value="True"/>'#13#10 +
     '  </EnvironmentOptions>'#13#10 +
-    // explicit Desktop1 + Desktop2 so the IDE has named entries to
-    // activate; DockMaster ties Desktop2 to anchordocking. layout
-    // details (window positions etc.) are filled in on first save.
+    // named Desktop1 + Desktop2 to activate; DockMaster ties Desktop2 to anchordocking
     '  <Desktops Count="2" ActiveDesktop="default docked">'#13#10 +
     '    <Desktop1 Name="default"/>'#13#10 +
     '    <Desktop2 Name="default docked" DockMaster="TIDEAnchorDockMaster"/>'#13#10 +
     '  </Desktops>'#13#10 +
     '</CONFIG>'#13#10;
 
-  // pre-acknowledge the "Enable anchor docking?" prompt. without this
-  // the IDE shows a blocking dialog on first run.
+  // pre-ack "Enable anchor docking?" prompt; without this the IDE shows a blocking dialog on first run
   ANCHOR_DOCKING_OPTIONS: string =
     '<?xml version="1.0" encoding="UTF-8"?>'#13#10 +
     '<CONFIG>'#13#10 +
@@ -204,11 +199,9 @@ const
     '  <DoneAskUserEnableDockedDesigner Value="True"/>'#13#10 +
     '</CONFIG>'#13#10;
 
-  // FpDebug is the user fork's preferred backend (modern, internal, no
-  // external gdb.exe required). without this file the IDE pops the
-  // "Configure Lazarus IDE" wizard on first launch with a red "!" on
-  // the Debugger tab. UID is a fixed GUID matching unleashed21's
-  // reference install.
+  // FpDebug: modern internal backend, no external gdb.exe required.
+  // without this file the IDE pops the "Configure Lazarus IDE" wizard on first launch.
+  // UID is a fixed GUID matching the reference install.
   DEBUGGER_OPTIONS: string =
     '<?xml version="1.0" encoding="UTF-8"?>'#13#10 +
     '<CONFIG>'#13#10 +
@@ -220,8 +213,7 @@ const
     '</CONFIG>'#13#10;
 
 constructor TInstallThread.Create(const Cfg: TInstallConfig;
-  ALog: TInstallLogEvent; AProgress: TInstallProgressEvent;
-  AOnTerminate: TNotifyEvent);
+  ALog: TInstallLogEvent; AProgress: TInstallProgressEvent; AOnTerminate: TNotifyEvent);
 begin
   inherited Create(True);
   FCfg := Cfg;
@@ -244,13 +236,15 @@ end;
 
 procedure TInstallThread.Log(const msg: string);
 begin
+  if FLogStream <> nil then begin
+    var line: AnsiString := AnsiString(FormatDateTime('hh:nn:ss', Now)+'  '+msg+LineEnding);
+    if Length(line) > 0 then FLogStream.WriteBuffer(line[1], Length(line));
+  end;
   FLogMsg := msg;
   Synchronize(@SyncLog);
 end;
 
-// Percent is the LOCAL pct of the current stage (0..100), or -1 for marquee.
-// remap to overall via STAGE_END before sending to UI so the bar climbs
-// monotonically across the whole install.
+// Percent is LOCAL pct of current stage (0..100), or -1 for marquee; remap via STAGE_END for monotonic overall bar
 procedure TInstallThread.Progress(Percent: Integer; const status: string);
 begin
   var rangeStart := if FStage = isInit then 0 else STAGE_END[Pred(FStage)];
@@ -258,7 +252,7 @@ begin
   if Percent < 0 then FProgressPct := -1
   else begin
     if Percent > 100 then Percent := 100;
-    FProgressPct := rangeStart+Round((rangeEnd-rangeStart)*Percent/100);
+    FProgressPct := rangeStart+Round((rangeEnd-rangeStart)*Percent / 100);
   end;
   FProgressMsg := STAGE_NAME[FStage]+': '+status;
   Synchronize(@SyncProgress);
@@ -267,12 +261,17 @@ end;
 procedure TInstallThread.SetStage(s: TInstallStage);
 begin
   FStage := s;
-  // entering stage: park bar at this stage's start (= prev stage end);
-  // status text shows the stage name only until sub-progress arrives
+  // park bar at stage start (= prev stage end); status shows stage name until sub-progress arrives
   Progress(0, '...');
 end;
 
-// pull "[ NN%]" out of a lazbuild --build-ide line and feed it into the current stage's progress bar
+// installer.log alongside installer.ini in the install dir; truncated each run (fmCreate in Execute)
+function TInstallThread.ResolveLogPath: string;
+begin
+  Result := IncludeTrailingPathDelimiter(FCfg.TargetDir)+'installer.log';
+end;
+
+// pull "[ NN%]" out of a lazbuild --build-ide line; False when no usable percent found
 function ExtractLazbuildPercent(const Line: string; out Pct: Integer): Boolean;
 begin
   Result := False;
@@ -286,11 +285,11 @@ end;
 
 procedure TInstallThread.OnMakeLine(const Line: string);
 begin
-  // drop Hint/Note; Warning and above plus structural lines (Compiling, Linking, make[n]:) come through
+  // drop Hint/Note diagnostics; Warning and above still come through, plus Compiling/Linking/make[n]
   if Pos('Hint:', Line) > 0 then Exit;
   if Pos('Note:', Line) > 0 then Exit;
   Log(Line);
-  // lazbuild --build-ide emits "[ NN%] ..." per package; map into current stage's progress slice
+  // lazbuild --build-ide emits "[ NN%] ..." per package; feed into current stage's progress slice
   var Pct: Integer;
   if ExtractLazbuildPercent(Line, Pct) then Progress(Pct, Trim(Copy(Line, Pos('%]', Line)+2, MaxInt)));
 end;
@@ -302,7 +301,7 @@ end;
 
 function TInstallThread.MakeWorkDir: string;
 begin
-  // FPC source tree at <install>\fpcsrc; sibling of fpc/ and lazarus/; referenced by make + lazarus IDE config
+  // FPC source tree at <install>\fpcsrc - sibling of fpc/ and lazarus/; make + IDE config both point here
   Result := IncludeTrailingPathDelimiter(FCfg.TargetDir)+'fpcsrc';
 end;
 
@@ -348,7 +347,7 @@ begin
   Result := True;
 end;
 
-// codeload leaves a single top dir like "freepascal-<sha>"; return its name, or '' if not exactly one
+// codeload extract leaves a single top-level dir like "freepascal-abc123..."; find it in ParentDir, '' if not exactly one
 function FindOnlyTopDir(const ParentDir: string): string;
 var
   SR: TSearchRec;
@@ -376,7 +375,7 @@ begin
   var Url     := FPC_SOURCE_URL_PREFIX+Ref;
   var ZipFile := IncludeTrailingPathDelimiter(GetTempDir)+'fpc-unleashed-source.zip';
   var Target  := MakeWorkDir;
-  // hidden temp parent so FindOnlyTopDir works regardless of siblings (fpc, fpc322, lazarus, ...) in TargetDir
+  // hidden temp parent so FindOnlyTopDir ignores existing siblings (fpc, fpc322, lazarus, ...)
   var TempParent := IncludeTrailingPathDelimiter(FCfg.TargetDir)+'.fpcsrc-extract';
 
   if DirectoryExists(Target) then begin
@@ -419,7 +418,7 @@ begin
   Result := True;
 end;
 
-// run "<bootstrap>\make.exe" from source dir; PATH gets bootstrap bin prepended so binutils (as/ld/ar) resolve
+// run "<bootstrap>\make.exe" with args from the source dir; PATH gets bootstrap bin prepended for binutils (as/ld/ar)
 function TInstallThread.RunMake(const Args: array of string; const StepLabel: string): Boolean;
 begin
   var MakeExe := IncludeTrailingPathDelimiter(BootstrapBinDir)+'make.exe';
@@ -451,7 +450,7 @@ begin
   Log('  bootstrap PP:    '+PpBootstrap);
   Log('  install prefix:  '+FpcInstallPrefix);
 
-  // distclean is brief; bundle it under "make all" stage start
+  // distclean is brief; bundle under "make all" stage start
   SetStage(isFpcMakeAll);
   if not RunMake(['distclean'], 'make distclean') then Exit;
 
@@ -474,9 +473,8 @@ begin
   var FpcInstallPrefix := IncludeTrailingPathDelimiter(FCfg.TargetDir)+'fpc';
 
   Log('--- Building cross-compiler i386-win32 ---');
-  // OPT=-dFPC_SOFT_FPUX80 keeps the cross RTL using soft 80-bit floats (matches windows.yml CI workflow)
-  if not RunMake(
-    ['crossinstall', 'OS_TARGET=win32', 'CPU_TARGET=i386', 'INSTALL_PREFIX='+FpcInstallPrefix, 'PP='+PpSelf, 'OPT=-dFPC_SOFT_FPUX80'],
+  // OPT=-dFPC_SOFT_FPUX80 keeps cross RTL on soft 80-bit floats (matches windows.yml CI)
+  if not RunMake(['crossinstall', 'OS_TARGET=win32', 'CPU_TARGET=i386', 'INSTALL_PREFIX='+FpcInstallPrefix, 'PP='+PpSelf, 'OPT=-dFPC_SOFT_FPUX80'],
     'make crossinstall (i386-win32, ~5 min)') then Exit;
 
   Log('--- Cross-compiler ready: '+FpcInstallPrefix+'\bin\x86_64-win64\ppcross386.exe ---');
@@ -515,7 +513,7 @@ begin
   var Url        := LAZARUS_SOURCE_URL_PREFIX+Ref;
   var ZipFile    := IncludeTrailingPathDelimiter(GetTempDir)+'lazarus-source.zip';
   var Target     := LazarusDir;
-  // hidden temp parent so FindOnlyTopDir works regardless of siblings (fpc, fpc322, src, ...) in TargetDir
+  // hidden temp parent so FindOnlyTopDir ignores siblings (fpc, fpc322, src, ...)
   var TempParent := IncludeTrailingPathDelimiter(FCfg.TargetDir)+'.lazarus-extract';
 
   if DirectoryExists(Target) then begin
@@ -558,9 +556,7 @@ begin
 end;
 
 const
-  // Packages installed into the IDE statically. Base packages first
-  // reduces dep churn (lazbuild resolves but is faster on a clean
-  // queue). Paths relative to <lazarus>\.
+  // packages installed into the IDE statically; base first for cleaner lazbuild dep resolution; paths relative to <lazarus>\
   LAZ_BASE_PACKAGES: array[0..19] of string = (
     'components\lazcontrols\design\lazcontroldsgn.lpk',
     'components\datetimectrls\datetimectrls.lpk',
@@ -583,8 +579,7 @@ const
     'components\externhelp\externhelp.lpk',
     'components\synedit\design\syneditdsgn.lpk');
 
-  // Docked IDE. anchordocking added as link only; its dsgn package
-  // pulls it in for IDE static linkage.
+  // anchordocking added as link only; the dsgn package pulls it for IDE static linkage
   LAZ_DOCKED_LINK_ONLY = 'components\anchordocking\anchordocking.lpk';
   LAZ_DOCKED_PACKAGES: array[0..1] of string = (
     'components\anchordocking\design\anchordockingdsgn.lpk',
@@ -600,7 +595,7 @@ begin
   var FpcBinDir   := IncludeTrailingPathDelimiter(FCfg.TargetDir)+'fpc\bin\x86_64-win64';
   var PathPrefix  := FpcBinDir+';'+BootstrapBinDir;
 
-  // boilerplate so package and IDE builds agree on pcp/cpu/os/lazarusdir
+  // every lazbuild invocation gets identical boilerplate so packages + IDE agree on pcp/cpu/os/lazarusdir
   var ArgsArr: array of string;
   begin
     var ExtArgs := autofree TStringList.Create;
@@ -638,14 +633,14 @@ begin
   var FpcExe     := IncludeTrailingPathDelimiter(FpcBinDir)+'fpc.exe';
   ForceDirectories(LazarusPcp);
 
-  // native fpc.exe before bootstrap so lazbuild's PATH-based compiler detection picks the x86_64 wrapper
+  // native fpc.exe before bootstrap so lazbuild's PATH-based detection picks the x86_64 wrapper; bootstrap stays for make + binutils
   var PathPrefix := FpcBinDir+';'+BootstrapBinDir;
 
   Log('--- Building Lazarus IDE ---');
   Log('  source dir: '+LazarusDir);
   Log('  PP:         '+FpcExe);
 
-  // 1. lazbuild + LCL + prereqs that upcoming --add-package calls compile each package against
+  // 1. build lazbuild + LCL + prereqs that --add-package calls below will compile against
   SetStage(isLazMakelazbuild);
   Progress(-1, 'make lazbuild (LCL + lazbuild, ~3 min)');
   var ExitCode := RunStream(MakeExe, ['lazbuild', 'PP='+FpcExe], LazarusDir, PathPrefix, @OnMakeLine);
@@ -655,18 +650,18 @@ begin
     Exit;
   end;
 
-  // 2. register packages with isolated config_lazarus; lazbuild appends to staticpackages.inc + idemake.cfg
+  // 2. register every package with our isolated config_lazarus; lazbuild appends to staticpackages.inc + idemake.cfg
   SetStage(isLazPackages);
   Log('Registering base packages ('+IntToStr(Length(LAZ_BASE_PACKAGES))+')');
   for var i := Low(LAZ_BASE_PACKAGES) to High(LAZ_BASE_PACKAGES) do begin
     if not AddPackage(LAZ_BASE_PACKAGES[i]) then Exit;
     // smooth-fill the package-registration slice as each lpk lands
-    Progress(Round((i+1)*100/(Length(LAZ_BASE_PACKAGES)+Length(LAZ_DOCKED_PACKAGES)+Length(LAZ_UNLEASHED_PACKAGES)+1)),
-      ExtractFileName(LAZ_BASE_PACKAGES[i]));
+    Progress(Round((i+1)*100 / (Length(LAZ_BASE_PACKAGES)+Length(LAZ_DOCKED_PACKAGES)+Length(LAZ_UNLEASHED_PACKAGES)+1)), ExtractFileName(LAZ_BASE_PACKAGES[i]));
   end;
 
   Log('Registering docked-IDE packages');
-  // anchordocking runtime as link-only: ends up in package list but not in staticpackages.inc; *dsgn statically links it
+  // anchordocking is runtime; IDE statically links *dsgn which depends on it.
+  // add runtime as link only -> in package list but not in staticpackages.inc.
   if not AddPackage(LAZ_DOCKED_LINK_ONLY, True) then Exit;
   for var i := Low(LAZ_DOCKED_PACKAGES) to High(LAZ_DOCKED_PACKAGES) do
     if not AddPackage(LAZ_DOCKED_PACKAGES[i]) then Exit;
@@ -675,8 +670,9 @@ begin
   for var i := Low(LAZ_UNLEASHED_PACKAGES) to High(LAZ_UNLEASHED_PACKAGES) do
     if not AddPackage(LAZ_UNLEASHED_PACKAGES[i]) then Exit;
 
-  // 3. final IDE build from staticpackages.inc; -dKeepInstalledPackages preserves package list,
-  //    -dAddStaticPkgs activates the {$IFDEF} gate in lazarus.pp; OnMakeLine maps lazbuild's "[ NN%]" lines
+  // 3. final IDE build linking from staticpackages.inc.
+  // -dKeepInstalledPackages preserves the list across rebuilds; -dAddStaticPkgs activates the {$IFDEF} in lazarus.pp.
+  // lazbuild emits "[ NN%]" lines that OnMakeLine feeds back into progress.
   SetStage(isLazIde);
   if not RunLazbuild(['--build-ide=-dKeepInstalledPackages -dAddStaticPkgs'], 'lazbuild --build-ide (~5 min)') then Exit;
 
@@ -686,13 +682,12 @@ end;
 
 function TInstallThread.StepPatchLazarusSource: Boolean;
 begin
-  // no-op: explicit "uses lazminimap" in ide\lazarus.pp is what links lazminimap into lazarus.exe;
-  // lazbuild --add-package does not write it into staticpackages.inc (same drop as lazcontroldsgn)
+  // no-op; the explicit "uses lazminimap" in ide\lazarus.pp is what actually links it - leave source untouched
   Log('Lazarus source patch step is currently a no-op.');
   Result := True;
 end;
 
-// write Content to FilePath, return false on error and stash the message.
+// write Content to FilePath, return false on error and stash the message
 function TInstallThread.WriteConfigFile(const FilePath, Content: string): Boolean;
 begin
   Result := False;
@@ -718,11 +713,11 @@ begin
   ForceDirectories(ProjectsDir);
 
   var Xml := ENV_OPTIONS_TEMPLATE;
-  Xml := StringReplace(Xml, '%LAZ%',      LazarusDir,                                                                        [rfReplaceAll]);
-  Xml := StringReplace(Xml, '%FPC%',      IncludeTrailingPathDelimiter(FCfg.TargetDir)+'fpc\bin\x86_64-win64\fpc.exe',       [rfReplaceAll]);
-  Xml := StringReplace(Xml, '%FPCSRC%',   MakeWorkDir,                                                                       [rfReplaceAll]);
-  Xml := StringReplace(Xml, '%MAKE%',     IncludeTrailingPathDelimiter(BootstrapBinDir)+'make.exe',                          [rfReplaceAll]);
-  Xml := StringReplace(Xml, '%PROJECTS%', ProjectsDir,                                                                       [rfReplaceAll]);
+  Xml := StringReplace(Xml, '%LAZ%',      LazarusDir, [rfReplaceAll]);
+  Xml := StringReplace(Xml, '%FPC%',      IncludeTrailingPathDelimiter(FCfg.TargetDir)+'fpc\bin\x86_64-win64\fpc.exe', [rfReplaceAll]);
+  Xml := StringReplace(Xml, '%FPCSRC%',   MakeWorkDir, [rfReplaceAll]);
+  Xml := StringReplace(Xml, '%MAKE%',     IncludeTrailingPathDelimiter(BootstrapBinDir)+'make.exe', [rfReplaceAll]);
+  Xml := StringReplace(Xml, '%PROJECTS%', ProjectsDir, [rfReplaceAll]);
 
   Log('Writing '+LazarusPcp+'\environmentoptions.xml');
   if not WriteConfigFile(IncludeTrailingPathDelimiter(LazarusPcp)+'environmentoptions.xml', Xml) then Exit;
@@ -742,7 +737,7 @@ end;
 function TInstallThread.StepCreateDesktopShortcut: Boolean;
 begin
   var TargetExe := IncludeTrailingPathDelimiter(LazarusDir)+'lazarus.exe';
-  // --pcp tells Lazarus to load our isolated config_lazarus instead of the default %LOCALAPPDATA%\lazarus
+  // --pcp loads our isolated config_lazarus instead of default %LOCALAPPDATA%\lazarus
   var Args := '--pcp="'+LazarusPcp+'"';
   var Name := ShortcutLabel;
   Log('Creating desktop shortcut: '+Name);
@@ -755,7 +750,7 @@ begin
   end;
   Log('Shortcut placed on the desktop.');
   Log('');
-  // 'IMPORTANT' marker is picked up by main_form's owner-draw (yellow background + bold black text)
+  // 'IMPORTANT' marker is picked up by main_form's owner-draw (yellow bg + bold black)
   Log('============================================================');
   Log('IMPORTANT: ALWAYS start Lazarus IDE from the desktop');
   Log('IMPORTANT: shortcut "'+Name+'".');
@@ -772,8 +767,9 @@ begin
   var CfgPath  := IncludeTrailingPathDelimiter(FCfg.TargetDir)+'fpc\bin\x86_64-win64\fpc.cfg';
   var BasePath := IncludeTrailingPathDelimiter(FCfg.TargetDir)+'fpc';
 
-  // make install does not generate fpc.cfg (Inno Setup installer does it as a [Run] post-install step);
-  // without fpc.cfg the compiler cannot find unit search paths beyond rtl. template uses %basepath%.
+  // make install does not generate fpc.cfg (Inno Setup installer does it as [Run] post-install).
+  // without fpc.cfg the compiler can't find unit search paths beyond rtl -> e.g. lazarus "Can't find unit db".
+  // template uses %basepath% to resolve -Fu/-Fl/-FD paths.
   Log('Generating fpc.cfg');
   Progress(-1, 'Generating fpc.cfg');
   var ExitCode := RunSilent(FpcMkCfg, ['-d', 'basepath='+BasePath, '-o', CfgPath, '-s']);
@@ -807,8 +803,8 @@ end;
 
 procedure TInstallThread.StepM3Cleanup;
 begin
-  // crossinstall drops a 32-bit native bin tree alongside cross bits; we only want cross in x86_64-win64\.
-  // fpc322 bootstrap stays - lazarus build still needs make.exe + binutils from there.
+  // crossinstall drops a 32-bit native bin tree next to the cross bits; we only want the cross compiler
+  // in x86_64-win64\, so ditch the 32-bit native bin. fpc322 bootstrap stays (lazarus needs make + binutils).
   var P := IncludeTrailingPathDelimiter(FCfg.TargetDir)+'fpc\bin\i386-win32';
   if DirectoryExists(P) then begin
     Log('Removing '+P);
@@ -818,9 +814,12 @@ begin
 end;
 
 procedure TInstallThread.Execute;
+var
+  Manifest: TInstallManifest;
 begin
   FSuccess := False;
   FErrorMsg := '';
+  FLogStream := nil;
   try
     if not (FCfg.InstallFpc or FCfg.InstallLazarus) then begin
       Log('nothing to install');
@@ -834,8 +833,22 @@ begin
         Exit;
       end;
 
-    // pipeline is idempotent: each step checks its end-state and skips if already done.
-    // 'Reinstall' applies the delta requested via checkboxes (typically add/remove a cross compiler).
+    // open installer.log AFTER target dir exists; fmCreate truncates each run for a clean per-install log
+    if FCfg.SaveLog then
+    try
+      var LogPath := ResolveLogPath;
+      FLogStream := TFileStream.Create(LogPath, fmCreate);
+      Log('installer.log: '+LogPath);
+    except
+      on E: Exception do begin
+        FLogStream := nil;
+        // surface, but don't abort - logging is a nice-to-have
+        FLogMsg := 'WARNING: could not open installer.log: '+E.Message;
+        Synchronize(@SyncLog);
+      end;
+    end;
+
+    // pipeline is idempotent: each step checks end-state and skips if done; SHA mismatch refreshes just that component
     var TargetPrefix := IncludeTrailingPathDelimiter(FCfg.TargetDir);
     var hasFpcExe    := FileExists(TargetPrefix+'fpc\bin\x86_64-win64\fpc.exe');
     var hasLazExe    := FileExists(TargetPrefix+'lazarus\lazarus.exe');
@@ -844,16 +857,46 @@ begin
     Log(Format('current state: fpc=%s laz=%s cross386=%s bootstrap=%s',
       [BoolToStr(hasFpcExe, True), BoolToStr(hasLazExe, True), BoolToStr(hasCrossW32, True), BoolToStr(hasBootstrap, True)]));
 
+    // compare manifest SHAs against UI selection; mismatch -> force refresh of that component
+    Manifest := ReadManifest(FCfg.TargetDir);
+    var wantFpcRefresh := False;
+    var wantLazRefresh := False;
+    if Manifest.Present then begin
+      Log(Format('manifest: fpc=%s@%s laz=%s@%s',
+        [Manifest.FpcBranch, Copy(Manifest.FpcSha, 1, 7), Manifest.LazBranch, Copy(Manifest.LazSha, 1, 7)]));
+      if hasFpcExe and (FCfg.FpcSelectedSha <> '') and (LowerCase(FCfg.FpcSelectedSha) <> Manifest.FpcSha) then begin
+        Log('FPC selection ('+Copy(FCfg.FpcSelectedSha, 1, 7)+') differs from installed ('+Copy(Manifest.FpcSha, 1, 7)+') -> wiping fpcsrc + fpc to force fresh build');
+        wantFpcRefresh := True;
+      end;
+      if hasLazExe and (FCfg.LazSelectedSha <> '') and (LowerCase(FCfg.LazSelectedSha) <> Manifest.LazSha) then begin
+        Log('Lazarus selection ('+Copy(FCfg.LazSelectedSha, 1, 7)+') differs from installed ('+Copy(Manifest.LazSha, 1, 7)+') -> wiping lazarus to force fresh build');
+        wantLazRefresh := True;
+      end;
+    end;
+
+    if wantFpcRefresh then begin
+      Progress(-1, 'Cleaning previous FPC build');
+      RunSilent('cmd.exe', ['/C', 'rmdir', '/S', '/Q', TargetPrefix+'fpc']);
+      RunSilent('cmd.exe', ['/C', 'rmdir', '/S', '/Q', TargetPrefix+'fpcsrc']);
+      hasFpcExe := False;
+      hasCrossW32 := False;
+    end;
+    if wantLazRefresh then begin
+      Progress(-1, 'Cleaning previous Lazarus build');
+      RunSilent('cmd.exe', ['/C', 'rmdir', '/S', '/Q', TargetPrefix+'lazarus']);
+      hasLazExe := False;
+    end;
+
     // bootstrap is needed for any make-based step; only re-fetch if missing
     SetStage(isBootstrap);
     if hasBootstrap then Log('bootstrap fpc322 already installed, skipping')
     else begin
-      // only fetch bootstrap when we actually need it (FPC build or cross compiler add)
+      // bootstrap only runs if we'll need it (FPC build or cross compiler add)
       if (not hasFpcExe) or (FCfg.CrossWin32 and not hasCrossW32) then
         if not StepBootstrap then Exit;
     end;
 
-    // FPC source + native build; skip if FPC binary already there. user must wipe <fpc> to force a rebuild
+    // FPC source + native build - skip if binary already there; user must wipe <fpc> to force a rebuild
     if hasFpcExe then Log('native FPC already built at <target>\fpc, skipping source + make all')
     else begin
       SetStage(isFpcSrc);
@@ -861,7 +904,7 @@ begin
       if not StepBuildFpcNative then Exit;
     end;
 
-    // cross i386-win32: smart add/remove based on checkbox + current state
+    // cross i386-win32: add/remove based on checkbox + current state
     if FCfg.CrossWin32 and (not hasCrossW32) then begin
       SetStage(isFpcCross);
       if not StepBuildFpcCross then Exit;
@@ -891,12 +934,30 @@ begin
     end else if hasLazExe then Log('lazarus already built at <target>\lazarus, skipping')
     else Log('skipping Lazarus IDE (not selected)');
 
+    // record what's now on disk so a later run can compare
+    Manifest.Present     := True;
+    Manifest.FpcBranch   := FCfg.FpcBranch;
+    Manifest.FpcSha      := FCfg.FpcSelectedSha;
+    Manifest.LazBranch   := FCfg.LazBranch;
+    Manifest.LazSha      := FCfg.LazSelectedSha;
+    Manifest.CrossWin32  := FileExists(TargetPrefix+'fpc\bin\x86_64-win64\ppcross386.exe');
+    Manifest.CrossLinux64 := False;
+    Manifest.CrossLinux32 := False;
+    Manifest.InstalledAt := FormatDateTime('yyyy-mm-dd"T"hh:nn:ss', Now);
+    if WriteManifest(FCfg.TargetDir, Manifest) then Log('Manifest written: '+ManifestPathFor(FCfg.TargetDir))
+    else Log('WARNING: could not write manifest at '+ManifestPathFor(FCfg.TargetDir));
+
     SetStage(isDone);
     Log('--- pipeline done ---');
     Progress(100, 'complete');
     FSuccess := True;
   except
     on E: Exception do FErrorMsg := E.ClassName+': '+E.Message;
+  end;
+  // make sure installer.log gets flushed + released regardless of success
+  if FLogStream <> nil then begin
+    FLogStream.Free;
+    FLogStream := nil;
   end;
 end;
 
