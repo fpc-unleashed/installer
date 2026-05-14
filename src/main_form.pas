@@ -8,7 +8,9 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Dialogs,
-  Graphics, Math, LCLType, Menus, Clipbrd, Windows, ShellApi,
+  Graphics, LCLType, Menus, Clipbrd,
+  {$ifdef MSWINDOWS} Windows, ShellApi, {$endif}
+  {$ifdef LINUX} process, {$endif}
   branch_fetch, install_pipeline, install_manifest;
 
 const
@@ -119,23 +121,75 @@ implementation
 
 {$R *.lfm}
 
+const
+  // mirror install_pipeline's per-OS host paths so RefreshTargetState +
+  // LaunchInstalledIde inspect the same files the pipeline creates.
+{$ifdef MSWINDOWS}
+  HostFpcWrapperSub  = 'fpc\bin\x86_64-win64\fpc.exe';
+  LazarusBinarySub   = 'lazarus\lazarus.exe';
+{$endif}
+{$ifdef LINUX}
+  HostFpcWrapperSub  = 'fpc/bin/fpc';
+  LazarusBinarySub   = 'lazarus/lazarus';
+{$endif}
+
+// Filesystem is authoritative for what's installed; the manifest only
+// records intent (a crashed install leaves no manifest). Linux scans
+// for the version dir under fpc/lib/fpc/ since fpc-unleashed reports
+// 3.3.1+ vs the 3.2.2 bootstrap.
+function ProbeCrossInstalled(const dir, target: string): Boolean;
+begin
+  Result := False;
+  if dir = '' then Exit;
+{$ifdef MSWINDOWS}
+  Result := DirectoryExists(IncludeTrailingPathDelimiter(dir)+'fpc\units\'+target);
+{$endif}
+{$ifdef LINUX}
+  var Base := IncludeTrailingPathDelimiter(dir)+'fpc/lib/fpc/';
+  if not DirectoryExists(Base) then Exit;
+  var SR: TSearchRec;
+  if FindFirst(Base+'*', faDirectory, SR) = 0 then
+  try
+    repeat
+      if (SR.Name <> '.') and (SR.Name <> '..') and ((SR.Attr and faDirectory) <> 0) and (Length(SR.Name) > 0) and (SR.Name[1] in ['0'..'9']) and DirectoryExists(Base+SR.Name+'/units/'+target) then begin
+        Result := True;
+        Exit;
+      end;
+    until FindNext(SR) <> 0;
+  finally
+    FindClose(SR);
+  end;
+{$endif}
+end;
+
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
   FFpcBranchShas := TStringList.Create;
   FLazBranchShas := TStringList.Create;
+  // Set the cross checkbox defaults BEFORE assigning EditTargetDir.Text.
+  // Setting .Text fires EditTargetDirChange -> RefreshTargetState, and
+  // that handler does a filesystem probe to set the cross-checkbox state
+  // to match what's actually installed (sets FCrossSyncedFor). If we
+  // override the checkbox defaults AFTER that runs, the explicit
+  // RefreshTargetState below sees FCrossSyncedFor already set, skips the
+  // re-sync, and the overrides win -- producing "checkbox shows ticked
+  // even though nothing's installed".
   {$ifdef LINUX}
-  EditTargetDir.Text := IncludeTrailingPathDelimiter(GetEnvironmentVariable('HOME'))+'fpcunleashed';
-  // host is x86_64-linux; native build covers it, so "cross to linux64" is meaningless.
-  // Cross-to-win64 starts unchecked -- user opts in deliberately to avoid surprise toolchain downloads.
+  // host is x86_64-linux; native build covers it, so a "cross to
+  // linux64" choice is meaningless. The cross-to-win64 checkbox is
+  // left unchecked at startup -- user opts in deliberately so we don't
+  // surprise them with cross-toolchain downloads.
   CheckBoxCrossLinux64.Enabled := False;
   CheckBoxCrossLinux64.Checked := False;
-  CheckBoxCrossLinux64.Caption := 'x86_64-linux (host -- native)';
+  CheckBoxCrossLinux64.Caption := 'x86_64-linux (native)';
+  EditTargetDir.Text := IncludeTrailingPathDelimiter(GetEnvironmentVariable('HOME'))+'fpcunleashed';
   {$else}
-  EditTargetDir.Text := 'C:\fpcunleashed';
-  // host is x86_64-win64; mirror the linux branch above. Cross-to-linux64 also starts unchecked.
+  // host is x86_64-win64; mirror the logic for the other direction.
+  // Cross-to-linux64 also starts unchecked.
   CheckBoxCrossWin64.Enabled := False;
   CheckBoxCrossWin64.Checked := False;
-  CheckBoxCrossWin64.Caption := 'x86_64-win64 (host -- native)';
+  CheckBoxCrossWin64.Caption := 'x86_64-win64 (native)';
+  EditTargetDir.Text := 'C:\fpcunleashed';
   {$endif}
   SetStatus('Ready');
   ApplyUnleashedEnabled;
@@ -156,9 +210,9 @@ end;
 procedure TMainForm.RefreshTargetState;
 begin
   var dir    := IncludeTrailingPathDelimiter(Trim(EditTargetDir.Text));
-  var hasFpc := FileExists(dir+'fpc\bin\x86_64-win64\fpc.exe');
-  var hasLaz := FileExists(dir+'lazarus\lazarus.exe');
-  var hasW32 := FileExists(dir+'fpc\bin\x86_64-win64\ppcross386.exe');
+  var hasFpc := FileExists(dir+HostFpcWrapperSub);
+  var hasLaz := FileExists(dir+LazarusBinarySub);
+  var hasW32 := ProbeCrossInstalled(Trim(EditTargetDir.Text), 'i386-win32');
 
   if not (hasFpc or hasLaz) then begin
     LabelMode.Caption := 'New installation';
@@ -177,56 +231,70 @@ begin
     parts := parts+'i386-win32';
   end;
 
-  // pull last-installed SHAs from manifest and compare to current selection.
-  // typed short hashes match as a prefix in either direction.
+  // pull last-installed SHAs from manifest (if present) and compare to
+  // currently-selected SHAs to decide whether to flag an update.
+  // user-typed short hashes are matched as a prefix of the manifest's
+  // full SHA in either direction (typed-short vs stored-full).
   var m := ReadManifest(Trim(EditTargetDir.Text));
   var updates := '';
-  if m.Present then begin
-    // sync the on-disk cross set into the UI once per target dir so Reinstall does not silently
-    // drop a previously-selected cross. Subsequent calls leave the user's edits alone.
-    if FCrossSyncedFor <> dir then begin
-      FCrossSyncedFor := dir;
-      // CheckBoxCross{Win64,Linux64} only sync on the host where they are not the native target;
-      // on the native host they are disabled at FormCreate.
-      if CheckBoxCrossWin64.Enabled   then CheckBoxCrossWin64.Checked   := m.CrossWin64;
-      if CheckBoxCrossLinux64.Enabled then CheckBoxCrossLinux64.Checked := m.CrossLinux64;
-      CheckBoxCrossWin32.Checked   := m.CrossWin32;
-      CheckBoxCrossLinux32.Checked := m.CrossLinux32;
-      CheckBoxCrossWasm.Checked    := m.CrossWasm;
+  // Sync the checkbox state with what's ACTUALLY on disk when we're
+  // pointed at an existing install. Filesystem is the authoritative
+  // truth (a half-completed prior install may never have written the
+  // manifest); manifest is used for branch/sha/addon restoration only.
+  // Sync once per target dir so subsequent RefreshTargetState calls
+  // (combo change, etc.) leave the user's own checkbox edits alone.
+  if hasFpc and (FCrossSyncedFor <> dir) then begin
+    FCrossSyncedFor := dir;
+    var rawDir := Trim(EditTargetDir.Text);
+    // CheckBoxCross{Win64,Linux64} only get synced on the host where
+    // they are not the native target -- on the other host they are
+    // disabled at FormCreate.
+    if CheckBoxCrossWin64.Enabled   then CheckBoxCrossWin64.Checked   := ProbeCrossInstalled(rawDir, 'x86_64-win64');
+    if CheckBoxCrossLinux64.Enabled then CheckBoxCrossLinux64.Checked := ProbeCrossInstalled(rawDir, 'x86_64-linux');
+    CheckBoxCrossWin32.Checked   := ProbeCrossInstalled(rawDir, 'i386-win32');
+    CheckBoxCrossLinux32.Checked := ProbeCrossInstalled(rawDir, 'i386-linux');
+    CheckBoxCrossWasm.Checked    := ProbeCrossInstalled(rawDir, 'wasm32-wasip1');
+    // Restore last-used non-filesystem-detectable selections (branch,
+    // commit hash, addon ticks, launch-after) from the manifest. These
+    // don't have a filesystem fingerprint so manifest is the only source.
+    if m.Present then begin
       CheckBoxMinimap.Checked      := m.InstallMinimap;
       CheckBoxLaunchAfter.Checked  := m.LaunchAfter;
-      // restore last-used branch + commit hash; empty manifest values mean we never saved anything
       if m.FpcBranch <> '' then begin
         ComboBoxUnleashedBranch.Text := m.FpcBranch;
+        // Always show the last installed SHA in the hash field, even
+        // when latest was selected -- user can see what commit they're
+        // currently on. The hash field stays disabled when latest is
+        // ticked (existing UI behavior) so it's display-only in that
+        // case. Restore CheckBoxLatest from the explicit manifest flag
+        // rather than guessing from an empty SHA: latest=yes still
+        // records a resolved SHA in FpcSha for display purposes.
         EditUnleashedHash.Text       := m.FpcSha;
-        CheckBoxUnleashedLatest.Checked := (m.FpcSha = '');
+        CheckBoxUnleashedLatest.Checked := m.FpcLatest;
       end;
       if m.LazBranch <> '' then begin
         ComboBoxLazarusBranch.Text   := m.LazBranch;
         EditLazarusHash.Text         := m.LazSha;
-        CheckBoxLazarusLatest.Checked := (m.LazSha = '');
+        CheckBoxLazarusLatest.Checked := m.LazLatest;
       end;
     end;
+  end;
+  if m.Present then begin
 
     var selFpc := ResolveSelectedFpcSha;
     var selLaz := ResolveSelectedLazSha;
-    if hasFpc and (selFpc <> '') and (m.FpcSha <> '') and (Pos(selFpc, m.FpcSha) <> 1) and (Pos(m.FpcSha, selFpc) <> 1) then
-      updates := updates+' fpc '+Copy(m.FpcSha, 1, 7)+' -> '+Copy(selFpc, 1, 7);
+    if hasFpc and (selFpc <> '') and (m.FpcSha <> '') and (Pos(selFpc, m.FpcSha) <> 1) and (Pos(m.FpcSha, selFpc) <> 1) then updates := updates+' fpc '+Copy(m.FpcSha, 1, 7)+' -> '+Copy(selFpc, 1, 7);
     if hasLaz and (selLaz <> '') and (m.LazSha <> '') and (Pos(selLaz, m.LazSha) <> 1) and (Pos(m.LazSha, selLaz) <> 1) then
       updates := updates+' lazarus '+Copy(m.LazSha, 1, 7)+' -> '+Copy(selLaz, 1, 7);
-    // addon deltas: StepRebuildLazarusForAddons handles these without a full reinstall
-    if hasLaz and (CheckBoxMinimap.Checked <> m.InstallMinimap) then
-      updates := updates+(if CheckBoxMinimap.Checked then ' +minimap' else ' -minimap');
-    if hasFpc and CheckBoxCrossWin64.Enabled and (CheckBoxCrossWin64.Checked <> m.CrossWin64) then
-      updates := updates+(if CheckBoxCrossWin64.Checked then ' +x86_64-win64' else ' -x86_64-win64');
-    if hasFpc and (CheckBoxCrossWin32.Checked <> m.CrossWin32) then
-      updates := updates+(if CheckBoxCrossWin32.Checked then ' +i386-win32' else ' -i386-win32');
-    if hasFpc and (CheckBoxCrossLinux64.Checked <> m.CrossLinux64) then
-      updates := updates+(if CheckBoxCrossLinux64.Checked then ' +x86_64-linux' else ' -x86_64-linux');
-    if hasFpc and (CheckBoxCrossLinux32.Checked <> m.CrossLinux32) then
-      updates := updates+(if CheckBoxCrossLinux32.Checked then ' +i386-linux' else ' -i386-linux');
-    if hasFpc and (CheckBoxCrossWasm.Checked <> m.CrossWasm) then
-      updates := updates+(if CheckBoxCrossWasm.Checked then ' +wasm32-wasip1' else ' -wasm32-wasip1');
+    // addon deltas. Pipeline's StepRebuildLazarusForAddons handles
+    // these without a full reinstall, but the user needs visual cues
+    // so the Install/Reinstall button labels reflect reality.
+    if hasLaz and (CheckBoxMinimap.Checked <> m.InstallMinimap) then updates := updates+(if CheckBoxMinimap.Checked then ' +minimap' else ' -minimap');
+    if hasFpc and CheckBoxCrossWin64.Enabled and (CheckBoxCrossWin64.Checked <> m.CrossWin64) then updates := updates+(if CheckBoxCrossWin64.Checked then ' +x86_64-win64' else ' -x86_64-win64');
+    if hasFpc and (CheckBoxCrossWin32.Checked <> m.CrossWin32) then updates := updates+(if CheckBoxCrossWin32.Checked then ' +i386-win32' else ' -i386-win32');
+    if hasFpc and (CheckBoxCrossLinux64.Checked <> m.CrossLinux64) then updates := updates+(if CheckBoxCrossLinux64.Checked then ' +x86_64-linux' else ' -x86_64-linux');
+    if hasFpc and (CheckBoxCrossLinux32.Checked <> m.CrossLinux32) then updates := updates+(if CheckBoxCrossLinux32.Checked then ' +i386-linux' else ' -i386-linux');
+    if hasFpc and (CheckBoxCrossWasm.Checked <> m.CrossWasm) then updates := updates+(if CheckBoxCrossWasm.Checked then ' +wasm32-wasip1' else ' -wasm32-wasip1');
   end;
 
   if updates <> '' then begin
@@ -240,7 +308,8 @@ end;
 
 function TMainForm.ResolveSelectedFpcSha: string;
 begin
-  // explicit hash override wins, otherwise head SHA of the selected branch from last fetch
+  // explicit hash override wins, otherwise use the head SHA of the
+  // currently-selected branch as known at the last fetch
   Result := if (not CheckBoxUnleashedLatest.Checked) and (Trim(EditUnleashedHash.Text) <> '') then LowerCase(Trim(EditUnleashedHash.Text))
             else if ComboBoxUnleashedBranch.Text <> '' then LowerCase(FFpcBranchShas.Values[ComboBoxUnleashedBranch.Text])
             else '';
@@ -255,7 +324,9 @@ end;
 
 procedure TMainForm.OnSelectionChange(Sender: TObject);
 begin
-  // keeps LabelMode's '(update available)' hint live as the user picks a different branch or types a different commit
+  // wired to combo + hash edit OnChange events; keeps LabelMode's
+  // '(update available)' hint live as the user picks a different
+  // branch or types a different commit.
   RefreshTargetState;
 end;
 
@@ -268,7 +339,8 @@ end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
-  // worker threads use FreeOnTerminate=True; flag stops their OnTerminate from touching destroyed widgets
+  // worker threads have FreeOnTerminate=True and call us via OnTerminate;
+  // flag stops the callback from touching destroyed widgets
   FShuttingDown := True;
   FFpcBranchShas.Free;
   FLazBranchShas.Free;
@@ -322,8 +394,10 @@ begin
   for var i := 0 to T.Branches.Count-1 do Combo.Items.Add(T.Branches.Names[i]);
 
   Log('Got '+IntToStr(T.Branches.Count)+' branches for '+T.Repo);
-  // prefer the manifest-stored branch if it survived to the new list. FormCreate's earlier
-  // RefreshTargetState could not set Combo.Text because .Items was still empty (fetch is async).
+  // prefer the manifest-stored branch if it survived to the new list.
+  // The earlier RefreshTargetState (in FormCreate) tried to set Combo.Text
+  // to the saved branch, but csDropDownList drops anything not already
+  // in .Items -- and .Items was still empty because the fetch is async.
   var manifestBranch: string := '';
   var m := ReadManifest(Trim(EditTargetDir.Text));
   if m.Present then
@@ -354,11 +428,22 @@ begin
   ComboBoxUnleashedBranch.Enabled := act and FUnleashedReady;
   CheckBoxUnleashedLatest.Enabled := act;
   EditUnleashedHash.Enabled := act and (not CheckBoxUnleashedLatest.Checked);
-  // cross compilers are nested under fpc-unleashed: no FPC install -> no cross compiler
+  // cross compilers are conceptually nested under fpc-unleashed: no
+  // FPC install -> no cross compiler. The host's own native target
+  // (x86_64-win64 on Win host / x86_64-linux on Linux host) was
+  // locked .Enabled=False at FormCreate -- it's not a cross, just
+  // the native install -- and we deliberately don't toggle it here.
   CheckBoxCrossWin32.Enabled   := act;
   CheckBoxCrossWasm.Enabled    := act;
-  CheckBoxCrossLinux64.Enabled := act;
   CheckBoxCrossLinux32.Enabled := act;
+{$ifdef MSWINDOWS}
+  CheckBoxCrossLinux64.Enabled := act;     // cross direction (win -> linux)
+  // CheckBoxCrossWin64 stays disabled (native)
+{$endif}
+{$ifdef LINUX}
+  CheckBoxCrossWin64.Enabled := act;       // cross direction (linux -> win)
+  // CheckBoxCrossLinux64 stays disabled (native)
+{$endif}
   RefreshTargetState;
 end;
 
@@ -369,7 +454,7 @@ begin
   CheckBoxLazarusLatest.Enabled := act;
   CheckBoxLaunchAfter.Enabled := act;
   EditLazarusHash.Enabled := act and (not CheckBoxLazarusLatest.Checked);
-  // addons nested under the IDE install -- no IDE -> no addons
+  // addons are nested under the IDE install -- no IDE -> no addons
   CheckBoxMinimap.Enabled := act;
   RefreshTargetState;
 end;
@@ -396,8 +481,10 @@ end;
 
 procedure TMainForm.CheckBoxCrossLinux32Change(Sender: TObject);
 begin
-  // i386-linux is built using the i386-win32 cross compiler (ppcross386 has soft-x80 baked in
-  // and supports both -Twin32 and -Tlinux). Auto-tick win32 so the user does not have to remember.
+  // i386-linux is built using the i386-win32 cross compiler (ppcross386,
+  // an i386-CPU binary with soft-x80 baked in -- supports both -Twin32
+  // and -Tlinux). Auto-tick win32 so the user does not have to remember
+  // the prerequisite.
   if CheckBoxCrossLinux32.Checked then CheckBoxCrossWin32.Checked := True;
 end;
 
@@ -411,15 +498,18 @@ begin
   var fullText := FormatDateTime('hh:nn:ss', Now)+'  '+msg;
   ListBoxLog.Items.Add(fullText);
 
-  // grow horizontal scrollbar so wide make/lazbuild lines can be revealed; +24 covers left padding
+  // grow the horizontal scrollbar range so wide make/lazbuild lines can
+  // be revealed; +24 covers the per-line left padding
   var lineWidth := ListBoxLog.Canvas.TextWidth(fullText)+24;
   if lineWidth > ListBoxLog.ScrollWidth then ListBoxLog.ScrollWidth := lineWidth;
 
-  // keep last line visible: TopIndex puts that index at the top of the visible area
-  if ListBoxLog.ItemHeight > 0 then begin
-    var vis := ListBoxLog.ClientHeight div ListBoxLog.ItemHeight;
-    ListBoxLog.TopIndex := Max(0, ListBoxLog.Items.Count-vis);
-  end;
+  // keep the last line visible. Just point TopIndex at the new last
+  // item; the LCL setter clamps so the listbox shows as many trailing
+  // items as fit. The earlier ClientHeight-div-ItemHeight math broke
+  // on GTK2 when ClientHeight returned 0 before first paint (vis=0 ->
+  // TopIndex past end -> some old gtk widget versions failed to clamp
+  // and the list froze on the first lines).
+  ListBoxLog.TopIndex := ListBoxLog.Items.Count-1;
 end;
 
 procedure TMainForm.CopySelectedLogLines;
@@ -437,7 +527,7 @@ end;
 
 procedure TMainForm.ListBoxLogKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
-  // listbox eats Ctrl+C otherwise; menu shortcut is also wired
+  // listbox itself eats Ctrl+C otherwise; menu shortcut is also wired
   if (Key = VK_C) and (ssCtrl in Shift) then begin
     CopySelectedLogLines;
     Key := 0;
@@ -449,7 +539,8 @@ begin
   CopySelectedLogLines;
 end;
 
-// first match wins; ordered most-severe to least so "Error: warning" renders red, not olive
+// First match wins; ordered most-severe to least so "Error: warning"
+// renders red, not olive.
 function ColorForLine(const s: string): TColor;
 begin
   if (Pos('Error', s) > 0) or (Pos('Fatal', s) > 0) or (Pos('FAILED', s) > 0) or (Pos('failed:', s) > 0) then Result := clRed
@@ -539,11 +630,35 @@ end;
 
 procedure TMainForm.LaunchInstalledIde;
 begin
-  var ExePath := IncludeTrailingPathDelimiter(FInstallTargetDir)+'lazarus\lazarus.exe';
-  var Args    := '--pcp="'+IncludeTrailingPathDelimiter(FInstallTargetDir)+'config_lazarus"';
+  var ExePath := IncludeTrailingPathDelimiter(FInstallTargetDir)+LazarusBinarySub;
+  var PcpArg  := '--pcp='+IncludeTrailingPathDelimiter(FInstallTargetDir)+'config_lazarus';
   Log('Launching '+ExePath);
-  // detached; let the IDE run independently of installer.exe
+{$ifdef MSWINDOWS}
+  // detached; let the IDE run independently of installer.exe. ShellExecute
+  // wants the args quoted as one string ("--pcp=..."); the quotes around
+  // the pcp value protect spaces in the target dir.
+  var Args := '"'+PcpArg+'"';
   ShellExecute(Handle, 'open', PChar(ExePath), PChar(Args), PChar(ExtractFilePath(ExePath)), SW_SHOWNORMAL);
+{$endif}
+{$ifdef LINUX}
+  // TProcess with poDetached + nothing waiting on Output -> lazarus runs
+  // independently of installer (.desktop double-click works the same way
+  // when the file is +x).
+  var P := TProcess.Create(nil);
+  try
+    P.Executable := ExePath;
+    P.Parameters.Add(PcpArg);
+    P.CurrentDirectory := ExtractFilePath(ExePath);
+    P.Options := [];                    // not poWaitOnExit
+    P.InheritHandles := False;
+    P.Execute;
+  finally
+    // we don't Free here -- once Execute returns, the child is running.
+    // Free would not kill the child but would lose our handle to it.
+    // The OS reaps it once the installer exits.
+    P.Free;
+  end;
+{$endif}
 end;
 
 procedure TMainForm.ButtonInstallClick(Sender: TObject);
@@ -560,8 +675,9 @@ begin
 
   cfg.InstallFpc     := CheckBoxInstallUnleashed.Checked;
   cfg.InstallLazarus := CheckBoxInstallLazarus.Checked;
-  // cross-compiler choice is meaningless without an FPC install (no ppcx64 to drive crossinstall).
-  // force-off so the pipeline never tries to build a cross against a missing FPC.
+  // cross-compiler choice is meaningless without an FPC install (no
+  // ppcx64 to drive the crossinstall make target). force-off here so
+  // the pipeline never tries to build a cross against a missing FPC.
   cfg.CrossWin64     := CheckBoxCrossWin64.Checked   and cfg.InstallFpc;
   cfg.CrossWin32     := CheckBoxCrossWin32.Checked   and cfg.InstallFpc;
   cfg.CrossLinux64   := CheckBoxCrossLinux64.Checked and cfg.InstallFpc;
@@ -571,7 +687,8 @@ begin
   cfg.InstallMinimap := CheckBoxMinimap.Checked      and cfg.InstallLazarus;
   cfg.LaunchAfter    := CheckBoxLaunchAfter.Checked;
 
-  // snapshot launch decision at install start; user may toggle later, we honor the original choice
+  // snapshot launch decision at install start; user may toggle the
+  // checkbox while the install runs, but we honor the original choice
   FLaunchAfterInstall := cfg.InstallLazarus and CheckBoxLaunchAfter.Checked;
   FInstallTargetDir   := cfg.TargetDir;
   cfg.FpcLatest      := CheckBoxUnleashedLatest.Checked;
@@ -580,7 +697,8 @@ begin
   cfg.LazLatest      := CheckBoxLazarusLatest.Checked;
   cfg.LazBranch      := ComboBoxLazarusBranch.Text;
   cfg.LazHash        := Trim(EditLazarusHash.Text);
-  // resolved SHA goes into the manifest for later compares; empty when branch list not yet loaded
+  // resolved SHA goes into the manifest so a later run can compare;
+  // empty when branch list isn't yet loaded - manifest just stores ''
   cfg.FpcSelectedSha := ResolveSelectedFpcSha;
   cfg.LazSelectedSha := ResolveSelectedLazSha;
   cfg.SaveLog        := CheckBoxSaveLog.Checked;

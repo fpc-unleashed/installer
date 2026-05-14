@@ -100,40 +100,40 @@ object MainForm: TMainForm
         Left = 792
         Height = 19
         Top = 30
-        Width = 183
-        Caption = 'x86_64-win64 (64-bit Windows)'
+        Width = 130
+        Caption = 'x86_64-win64'
         TabOrder = 4
       end
       object CheckBoxCrossLinux64: TCheckBox
-        Left = 984
+        Left = 940
         Height = 19
         Top = 30
-        Width = 158
-        Caption = 'x86_64-linux (64-bit Linux)'
+        Width = 130
+        Caption = 'x86_64-linux'
         TabOrder = 5
       end
       object CheckBoxCrossWasm: TCheckBox
-        Left = 1152
+        Left = 1085
         Height = 19
         Top = 30
-        Width = 188
-        Caption = 'wasm32-wasip1 (WebAssembly)'
+        Width = 130
+        Caption = 'wasm32-wasip1'
         TabOrder = 6
       end
       object CheckBoxCrossWin32: TCheckBox
         Left = 792
         Height = 19
         Top = 55
-        Width = 157
-        Caption = 'i386-win32 (32-bit, legacy)'
+        Width = 130
+        Caption = 'i386-win32'
         TabOrder = 7
       end
       object CheckBoxCrossLinux32: TCheckBox
-        Left = 984
+        Left = 940
         Height = 19
         Top = 55
-        Width = 152
-        Caption = 'i386-linux (32-bit, legacy)'
+        Width = 130
+        Caption = 'i386-linux'
         TabOrder = 8
         OnChange = CheckBoxCrossLinux32Change
       end

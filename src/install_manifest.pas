@@ -17,8 +17,16 @@ type
     Present: Boolean;
     FpcBranch: string;
     FpcSha: string;
+    // User's "latest" intent at install time: True means CheckBoxLatest
+    // was ticked (and we resolved the branch head SHA into FpcSha at
+    // that moment). Persisted so a re-open restores the checkbox state
+    // correctly. Without this flag we'd have to guess from FpcSha-empty,
+    // which is wrong: latest=yes also stores the resolved SHA in FpcSha
+    // for display/comparison purposes.
+    FpcLatest: Boolean;
     LazBranch: string;
     LazSha: string;
+    LazLatest: Boolean;
     CrossWin64: Boolean;       // cross to x86_64-win64 (only built on linux64 host)
     CrossWin32: Boolean;       // legacy 32-bit
     CrossLinux64: Boolean;     // cross to x86_64-linux (only built on win64 host)
@@ -75,13 +83,20 @@ begin
   end;
   Result.FpcBranch    := Lines.Values['fpc-branch'];
   Result.FpcSha       := LowerCase(Lines.Values['fpc-sha']);
+  // Older manifests (pre-fpc-latest field) default the flag to True
+  // when no SHA is recorded (legacy "empty SHA == latest" interpretation),
+  // False otherwise. New manifests carry the explicit flag.
+  Result.FpcLatest    := StrToBoolDefSafe(Lines.Values['fpc-latest'], Result.FpcSha = '');
   Result.LazBranch    := Lines.Values['lazarus-branch'];
   Result.LazSha       := LowerCase(Lines.Values['lazarus-sha']);
+  Result.LazLatest    := StrToBoolDefSafe(Lines.Values['lazarus-latest'], Result.LazSha = '');
   Result.CrossWin64   := StrToBoolDefSafe(Lines.Values['cross-x86_64-win64'], False);
   Result.CrossWin32   := StrToBoolDefSafe(Lines.Values['cross-i386-win32'], False);
   Result.CrossLinux64 := StrToBoolDefSafe(Lines.Values['cross-x86_64-linux'], False);
   Result.CrossLinux32 := StrToBoolDefSafe(Lines.Values['cross-i386-linux'], False);
-  // accept wasip1 (current) and wasi (older manifests) so a re-run reads the historical flag
+  // Accept both wasip1 (current) and wasi (older manifests written by
+  // earlier installer versions) so a re-run reads the historical flag
+  // correctly without forcing a clean reinstall.
   Result.CrossWasm    := StrToBoolDefSafe(Lines.Values['cross-wasm32-wasip1'], StrToBoolDefSafe(Lines.Values['cross-wasm32-wasi'], False));
   Result.InstallMinimap := StrToBoolDefSafe(Lines.Values['extras-minimap'], False);
   Result.LaunchAfter  := StrToBoolDefSafe(Lines.Values['launch-after-install'], True);
@@ -97,8 +112,10 @@ begin
   Lines.Add('# Do not edit; the installer relies on these values to detect updates.');
   Lines.Add('fpc-branch='+M.FpcBranch);
   Lines.Add('fpc-sha='+LowerCase(M.FpcSha));
+  Lines.Add('fpc-latest='+BoolFlag(M.FpcLatest));
   Lines.Add('lazarus-branch='+M.LazBranch);
   Lines.Add('lazarus-sha='+LowerCase(M.LazSha));
+  Lines.Add('lazarus-latest='+BoolFlag(M.LazLatest));
   Lines.Add('cross-x86_64-win64='+BoolFlag(M.CrossWin64));
   Lines.Add('cross-i386-win32='+BoolFlag(M.CrossWin32));
   Lines.Add('cross-x86_64-linux='+BoolFlag(M.CrossLinux64));
