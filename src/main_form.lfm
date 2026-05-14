@@ -1,0 +1,320 @@
+object MainForm: TMainForm
+  Left = 300
+  Height = 700
+  Top = 100
+  Width = 716
+  Caption = 'FPC Unleashed Installer'
+  ClientHeight = 700
+  ClientWidth = 716
+  Position = poScreenCenter
+  LCLVersion = '4.99.0.0'
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  OnShow = FormShow
+  object PanelTarget: TPanel
+    Left = 0
+    Height = 76
+    Top = 0
+    Width = 716
+    Align = alTop
+    BevelOuter = bvNone
+    ClientHeight = 76
+    ClientWidth = 716
+    TabOrder = 0
+    object LabelTargetDir: TLabel
+      Left = 12
+      Height = 15
+      Top = 8
+      Width = 84
+      Caption = 'Install directory:'
+    end
+    object EditTargetDir: TEdit
+      Left = 12
+      Height = 23
+      Top = 27
+      Width = 612
+      OnChange = EditTargetDirChange
+      TabOrder = 0
+    end
+    object ButtonBrowse: TButton
+      Left = 628
+      Height = 25
+      Top = 26
+      Width = 80
+      Anchors = [akTop, akRight]
+      Caption = 'Browse...'
+      OnClick = ButtonBrowseClick
+      TabOrder = 1
+    end
+    object LabelMode: TLabel
+      Left = 12
+      Height = 15
+      Top = 56
+      Width = 100
+      Caption = 'New installation'
+      Font.Style = [fsBold]
+      ParentFont = False
+    end
+  end
+  object GroupBoxUnleashed: TGroupBox
+    Left = 5
+    Height = 130
+    Top = 81
+    Width = 706
+    Align = alTop
+    BorderSpacing.Around = 5
+    Caption = 'fpc-unleashed (compiler)'
+    ClientHeight = 110
+    ClientWidth = 702
+    TabOrder = 1
+    object CheckBoxInstallUnleashed: TCheckBox
+      Left = 12
+      Height = 19
+      Top = 6
+      Width = 128
+      Caption = 'Install fpc-unleashed'
+      Checked = True
+      State = cbChecked
+      TabOrder = 0
+      OnChange = CheckBoxInstallUnleashedChange
+    end
+    object LabelUnleashedBranch: TLabel
+      Left = 12
+      Height = 15
+      Top = 35
+      Width = 40
+      Caption = 'Branch:'
+    end
+    object ComboBoxUnleashedBranch: TComboBox
+      Left = 80
+      Height = 23
+      Top = 31
+      Width = 508
+      ItemHeight = 15
+      Style = csDropDownList
+      TabOrder = 1
+    end
+    object LabelUnleashedHash: TLabel
+      Left = 12
+      Height = 15
+      Top = 60
+      Width = 47
+      Caption = 'Commit:'
+    end
+    object EditUnleashedHash: TEdit
+      Left = 80
+      Height = 23
+      Top = 56
+      Width = 410
+      TabOrder = 2
+      TextHint = 'commit hash (full or short)'
+    end
+    object CheckBoxUnleashedLatest: TCheckBox
+      Left = 500
+      Height = 19
+      Top = 59
+      Width = 46
+      Caption = 'latest'
+      Checked = True
+      State = cbChecked
+      TabOrder = 3
+      OnChange = CheckBoxUnleashedLatestChange
+    end
+    object LabelCross: TLabel
+      Left = 12
+      Height = 15
+      Top = 88
+      Width = 39
+      Caption = 'Cross:'
+    end
+    object CheckBoxCrossWin32: TCheckBox
+      Left = 80
+      Height = 19
+      Top = 86
+      Width = 180
+      Caption = 'i386-win32 (32-bit Windows)'
+      Checked = True
+      State = cbChecked
+      TabOrder = 4
+    end
+    object CheckBoxCrossLinux64: TCheckBox
+      Left = 270
+      Height = 19
+      Top = 86
+      Width = 220
+      Caption = 'x86_64-linux (not yet supported)'
+      Enabled = False
+      TabOrder = 5
+    end
+    object CheckBoxCrossLinux32: TCheckBox
+      Left = 500
+      Height = 19
+      Top = 86
+      Width = 200
+      Caption = 'i386-linux (not yet supported)'
+      Enabled = False
+      TabOrder = 6
+    end
+  end
+  object GroupBoxLazarus: TGroupBox
+    Left = 5
+    Height = 100
+    Top = 186
+    Width = 706
+    Align = alTop
+    BorderSpacing.Around = 5
+    Caption = 'lazarus (IDE)'
+    ClientHeight = 80
+    ClientWidth = 702
+    TabOrder = 2
+    object CheckBoxInstallLazarus: TCheckBox
+      Left = 12
+      Height = 19
+      Top = 6
+      Width = 108
+      Caption = 'Install lazarus IDE'
+      Checked = True
+      State = cbChecked
+      TabOrder = 0
+      OnChange = CheckBoxInstallLazarusChange
+    end
+    object CheckBoxLaunchAfter: TCheckBox
+      Left = 160
+      Height = 19
+      Top = 6
+      Width = 220
+      Caption = 'Launch IDE when install finishes'
+      Checked = True
+      State = cbChecked
+      TabOrder = 4
+    end
+    object LabelLazarusBranch: TLabel
+      Left = 12
+      Height = 15
+      Top = 35
+      Width = 40
+      Caption = 'Branch:'
+    end
+    object ComboBoxLazarusBranch: TComboBox
+      Left = 80
+      Height = 23
+      Top = 31
+      Width = 508
+      ItemHeight = 15
+      Style = csDropDownList
+      TabOrder = 1
+    end
+    object LabelLazarusHash: TLabel
+      Left = 12
+      Height = 15
+      Top = 60
+      Width = 47
+      Caption = 'Commit:'
+    end
+    object EditLazarusHash: TEdit
+      Left = 80
+      Height = 23
+      Top = 56
+      Width = 410
+      TabOrder = 2
+      TextHint = 'commit hash (full or short)'
+    end
+    object CheckBoxLazarusLatest: TCheckBox
+      Left = 500
+      Height = 19
+      Top = 59
+      Width = 46
+      Caption = 'latest'
+      Checked = True
+      State = cbChecked
+      TabOrder = 3
+      OnChange = CheckBoxLazarusLatestChange
+    end
+  end
+  object PanelButtons: TPanel
+    Left = 0
+    Height = 60
+    Top = 617
+    Width = 716
+    Align = alBottom
+    BevelOuter = bvNone
+    ClientHeight = 60
+    ClientWidth = 716
+    TabOrder = 5
+    object ProgressBar: TProgressBar
+      Left = 8
+      Height = 20
+      Top = 4
+      Width = 700
+      Anchors = [akTop, akLeft, akRight]
+      TabOrder = 0
+    end
+    object CheckBoxSaveLog: TCheckBox
+      Left = 12
+      Height = 19
+      Top = 33
+      Width = 280
+      Caption = 'Save installation log to installer.log'
+      Checked = True
+      State = cbChecked
+      TabOrder = 1
+    end
+    object ButtonInstall: TButton
+      Left = 432
+      Height = 25
+      Top = 30
+      Width = 95
+      Caption = 'Install'
+      TabOrder = 2
+      OnClick = ButtonInstallClick
+    end
+    object ButtonClose: TButton
+      Left = 532
+      Height = 25
+      Top = 30
+      Width = 95
+      Caption = 'Close'
+      TabOrder = 3
+      OnClick = ButtonCloseClick
+    end
+  end
+  object StatusBar: TStatusBar
+    Left = 0
+    Height = 23
+    Top = 677
+    Width = 716
+    Panels = <>
+    SimpleText = 'Ready'
+  end
+  object ListBoxLog: TListBox
+    Left = 0
+    Height = 241
+    Top = 376
+    Width = 716
+    Align = alClient
+    Font.Height = -12
+    Font.Name = 'Consolas'
+    ItemHeight = 16
+    MultiSelect = True
+    OnDrawItem = ListBoxLogDrawItem
+    OnKeyDown = ListBoxLogKeyDown
+    ParentFont = False
+    PopupMenu = PopupMenuLog
+    ScrollWidth = 800
+    Style = lbOwnerDrawFixed
+    TabOrder = 4
+  end
+  object PopupMenuLog: TPopupMenu
+    Left = 480
+    Top = 480
+    object MenuCopy: TMenuItem
+      Caption = 'Copy'
+      ShortCut = 16451
+      OnClick = MenuCopyClick
+    end
+  end
+  object SelectDirDialog: TSelectDirectoryDialog
+    Left = 304
+    Top = 480
+  end
+end

@@ -1,0 +1,14 @@
+# build artifacts
+*.exe
+/installer
+*.compiled
+*.ppu
+*.o
+src/lib/
+
+# Lazarus session files
+*.lps
+
+# others
+*.log
+*.ini
