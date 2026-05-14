@@ -13,7 +13,8 @@ type
   // Percent: 0..100, or -1 when total size is unknown
   TDownloadProgress = procedure(Percent: Integer; const Status: string) of object;
 
-// download URL to DestPath via WinINet; progress fires per-chunk with throttling
+// downloads URL to DestPath via WinINet (native HTTPS, no external deps).
+// progress fires per-chunk with throttling so the UI is not flooded.
 function DownloadFile(const URL, DestPath: string; OnProgress: TDownloadProgress): Boolean;
 
 implementation
@@ -22,11 +23,10 @@ uses
   Windows, WinInet;
 
 const
-  CHUNK_SIZE     = 32 * 1024;
-  AGENT          = 'UnleashedInstaller/1.0';
-  // emit at most one progress event per ~256 KB of body to keep
-  // Synchronize traffic to the main thread reasonable for big files
-  REPORT_EVERY   = 256 * 1024;
+  CHUNK_SIZE   = 32 * 1024;
+  AGENT        = 'UnleashedInstaller/1.0';
+  // at most one progress event per ~256 KB to keep Synchronize traffic reasonable
+  REPORT_EVERY = 256 * 1024;
 
 function HumanMB(B: Int64): string;
 begin
@@ -53,7 +53,7 @@ begin
       Exit;
     end;
     try
-      // best-effort Content-Length; codeload often omits it (Transfer-Encoding: chunked) - fall back to "X MB" reporting
+      // best-effort Content-Length; codeload chunked-encodes and skips it, then we fall back to "X MB downloaded"
       var ContentLength: Int64 := -1;
       var CLBuf: DWORD;
       var CLSize: DWORD := SizeOf(CLBuf);
@@ -88,7 +88,7 @@ begin
         if Assigned(OnProgress) and ((Total-LastReportTotal >= REPORT_EVERY) or (BytesRead < CHUNK_SIZE)) then begin
           LastReportTotal := Total;
           if ContentLength > 0 then begin
-            var Pct: Integer := Round(Total*100 / ContentLength);
+            var Pct: Integer := Round(Total * 100 / ContentLength);
             if Pct > 100 then Pct := 100;
             if Pct <> LastPct then begin
               LastPct := Pct;

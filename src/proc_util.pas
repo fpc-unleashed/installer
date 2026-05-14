@@ -12,11 +12,13 @@ uses
 type
   TLineCallback = procedure(const Line: string) of object;
 
-// run silently, block until exit, return exit code (-1 on launch failure); stdout/stderr dropped
+// run a process with no console window, block until exit, return exit code.
+// stdout/stderr dropped. returns -1 on launch failure.
 function RunSilent(const Exe: string; const Args: array of string; const WorkDir: string=''): Integer;
 
-// run with stdout+stderr captured line-by-line into OnLine; ExtraPath prepends to child PATH ('' inherits)
-function RunStream(const Exe: string; const Args: array of string; const WorkDir: string; const ExtraPath: string; OnLine: TLineCallback): Integer;
+// run a process with stdout+stderr captured line-by-line. each completed line goes to OnLine.
+// ExtraPath is prepended to PATH in the child env (''=inherit). returns exit code or -1 on launch failure.
+function RunStream(const Exe: string; const Args: array of string; const WorkDir, ExtraPath: string; OnLine: TLineCallback): Integer;
 
 implementation
 
@@ -42,7 +44,7 @@ begin
   end;
 end;
 
-// copy parent env into child, but prepend Prefix onto PATH; empty Prefix -> inherit parent unchanged
+// copy parent env into child, rewriting PATH= so Prefix sits in front. Empty Prefix = inherit unchanged.
 procedure ApplyEnvWithPathPrefix(P: TProcess; const Prefix: string);
 begin
   if Prefix = '' then Exit;
@@ -73,7 +75,7 @@ begin
   until False;
 end;
 
-function RunStream(const Exe: string; const Args: array of string; const WorkDir: string; const ExtraPath: string; OnLine: TLineCallback): Integer;
+function RunStream(const Exe: string; const Args: array of string; const WorkDir, ExtraPath: string; OnLine: TLineCallback): Integer;
 var
   Tmp: array[0..READ_BUF-1] of Byte;
 begin

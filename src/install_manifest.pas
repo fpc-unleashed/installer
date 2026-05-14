@@ -81,7 +81,7 @@ begin
   Result.CrossWin32   := StrToBoolDefSafe(Lines.Values['cross-i386-win32'], False);
   Result.CrossLinux64 := StrToBoolDefSafe(Lines.Values['cross-x86_64-linux'], False);
   Result.CrossLinux32 := StrToBoolDefSafe(Lines.Values['cross-i386-linux'], False);
-  // accept both wasip1 (current) and wasi (older manifests) so a re-run reads the historical flag
+  // accept wasip1 (current) and wasi (older manifests) so a re-run reads the historical flag
   Result.CrossWasm    := StrToBoolDefSafe(Lines.Values['cross-wasm32-wasip1'], StrToBoolDefSafe(Lines.Values['cross-wasm32-wasi'], False));
   Result.InstallMinimap := StrToBoolDefSafe(Lines.Values['extras-minimap'], False);
   Result.LaunchAfter  := StrToBoolDefSafe(Lines.Values['launch-after-install'], True);

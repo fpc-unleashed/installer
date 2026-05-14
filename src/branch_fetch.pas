@@ -43,9 +43,8 @@ begin
   FOwner := AOwner;
   FRepo := ARepo;
   FBranches := TStringList.Create;
-  // OnTerminate runs on main thread via Synchronize after Execute exits;
-  // FreeOnTerminate frees this object after OnTerminate returns - so the
-  // callback must NOT free us itself.
+  // OnTerminate runs on the main thread via Synchronize after Execute;
+  // FreeOnTerminate frees us after that returns - the callback must NOT free us.
   FreeOnTerminate := True;
   OnTerminate := AOnDone;
   Start;
@@ -57,9 +56,7 @@ begin
   inherited Destroy;
 end;
 
-// HTTPS GET via WinINet (built into Windows since XP, native TLS, no
-// external curl.exe). curl.exe was only added to Windows in 1803
-// (April 2018) so XP / 7 / 8 / 8.1 / pre-1803 10 boxes lack it.
+// HTTPS GET via WinINet (native TLS, no external curl.exe -- curl shipped only in Win10 1803+).
 function HttpGet(const URL: string; out Body: string): Boolean;
 var
   Buf: array[0..CHUNK_SIZE-1] of Byte;
@@ -110,7 +107,7 @@ begin
       Exit;
     end;
     var Arr := TJSONArray(J);
-    // store as "name=sha" so callers can build a combo (Names[i]) and look up head SHA (Values[name])
+    // store as "name=sha" -- Names[i] for combobox, Values[name] for O(1) head-SHA lookup
     for var i := 0 to Arr.Count-1 do begin
       var Obj := Arr.Objects[i];
       if Obj <> nil then FBranches.Add(Obj.Get('name', '')+'='+TJSONObject(Obj.Find('commit')).Get('sha', ''));

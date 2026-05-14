@@ -6,7 +6,8 @@ unit shortcut_util;
 
 interface
 
-// create a .lnk on the user's desktop; WorkingDir = ExtractFilePath(TargetPath), icon from TargetPath
+// create a .lnk on the user's desktop. WorkingDir defaults to ExtractFilePath
+// of TargetPath. icon comes from TargetPath itself (embedded resource).
 function CreateDesktopShortcut(const TargetPath, Args, ShortcutName: string): Boolean;
 
 implementation
@@ -19,7 +20,7 @@ var
   Buf: array[0..MAX_PATH] of AnsiChar;
 begin
   Result := '';
-  // CSIDL_DESKTOPDIRECTORY = per-user filesystem Desktop path; CSIDL_DESKTOP is the virtual folder
+  // CSIDL_DESKTOPDIRECTORY = filesystem path; CSIDL_DESKTOP is the virtual folder
   if SHGetFolderPathA(0, CSIDL_DESKTOPDIRECTORY, 0, 0, @Buf[0]) = S_OK then Result := AnsiString(Buf);
 end;
 
@@ -39,7 +40,7 @@ begin
     end;
     var WWorkDir: WideString := UTF8Decode(ExtractFilePath(TargetPath));
     Link.SetWorkingDirectory(PWideChar(WWorkDir));
-    // index 0 = first icon group inside the exe (Lazarus' own icon)
+    // index 0 = first icon group in the exe
     Link.SetIconLocation(PWideChar(WTarget), 0);
 
     var Persist: IPersistFile := Link as IPersistFile;
