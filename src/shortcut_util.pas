@@ -52,7 +52,8 @@ begin
     Link.SetIconLocation(PWideChar(WTarget), 0);
 
     var Persist: IPersistFile := Link as IPersistFile;
-    var WLnkPath: WideString := UTF8Decode(IncludeTrailingPathDelimiter(DesktopDir)+ShortcutName+'.lnk');
+    var WLnkPath: WideString := UTF8Decode(IncludeTrailingPathDelimiter(DesktopDir) +
+      ShortcutName + '.lnk');
     Result := Persist.Save(PWideChar(WLnkPath), True) = S_OK;
   finally
     CoUninitialize;
@@ -67,22 +68,23 @@ end;
 function BuildDesktopEntry(const TargetPath, Args, ShortcutName: string): string;
 begin
   var ExecLine := TargetPath;
-  if Args <> '' then ExecLine := TargetPath+' '+Args;
+  if Args <> '' then ExecLine := TargetPath + ' ' + Args;
   // Lazarus ships its own icon at <lazarusdir>/images/ide_icon.png; the
   // shortcut creator does not know the lazarus dir directly, but
   // TargetPath is <lazarusdir>/lazarus and ExtractFilePath gives us
   // <lazarusdir>/ -- good enough.
-  var IconPath := IncludeTrailingPathDelimiter(ExtractFilePath(TargetPath))+'images/ide_icon.png';
+  var IconPath := IncludeTrailingPathDelimiter(ExtractFilePath(TargetPath)) +
+                  'images/ide_icon.png';
   Result :=
-    '[Desktop Entry]'#10+
-    'Type=Application'#10+
-    'Version=1.0'#10+
-    'Name='+ShortcutName+#10+
-    'Comment=Lazarus IDE (FPC Unleashed)'#10+
-    'Exec='+ExecLine+#10+
-    'Icon='+IconPath+#10+
-    'Terminal=false'#10+
-    'Categories=Development;IDE;'#10+
+    '[Desktop Entry]'#10 +
+    'Type=Application'#10 +
+    'Version=1.0'#10 +
+    'Name=' + ShortcutName + #10 +
+    'Comment=Lazarus IDE (FPC Unleashed)'#10 +
+    'Exec=' + ExecLine + #10 +
+    'Icon=' + IconPath + #10 +
+    'Terminal=false'#10 +
+    'Categories=Development;IDE;'#10 +
     'StartupNotify=false'#10;
 end;
 
@@ -120,15 +122,19 @@ begin
   for var i := 1 to Length(ShortcutName) do begin
     var c := ShortcutName[i];
     case c of
-      'A'..'Z', 'a'..'z', '0'..'9', '.', '-', '_': FileBase := FileBase+c;
-      ' ', #9: FileBase := FileBase+'-';
+      'A'..'Z', 'a'..'z', '0'..'9', '.', '-', '_':
+        FileBase := FileBase + c;
+      ' ', #9:
+        FileBase := FileBase + '-';
       // skip anything else
     end;
   end;
   if FileBase = '' then FileBase := 'lazarus-unleashed';
 
-  var DesktopPath := IncludeTrailingPathDelimiter(Home)+'Desktop'+DirectorySeparator+FileBase+'.desktop';
-  var MenuPath    := IncludeTrailingPathDelimiter(Home)+'.local/share/applications/'+FileBase+'.desktop';
+  var DesktopPath  := IncludeTrailingPathDelimiter(Home) + 'Desktop' +
+                      DirectorySeparator + FileBase + '.desktop';
+  var MenuPath     := IncludeTrailingPathDelimiter(Home) +
+                      '.local/share/applications/' + FileBase + '.desktop';
 
   // best-effort: write both locations. Desktop entry is the primary;
   // menu entry is nice-to-have. Succeed if either lands.

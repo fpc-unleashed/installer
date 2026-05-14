@@ -244,6 +244,30 @@ object MainForm: TMainForm
         State = cbChecked
         TabOrder = 5
       end
+      object CheckBoxCPUView: TCheckBox
+        Left = 792
+        Height = 19
+        Top = 52
+        Width = 16
+        Caption = ''
+        Checked = True
+        State = cbChecked
+        TabOrder = 6
+      end
+      object LabelLinkCPUView: TLabel
+        Left = 812
+        Height = 15
+        Top = 54
+        Width = 200
+        Caption = 'CPU-View (debugger plugin)'
+        Cursor = crHandPoint
+        Font.Color = clBlue
+        Font.Style = [fsUnderline]
+        Hint = 'https://github.com/AlexanderBagel/CPUView'
+        ParentFont = False
+        ShowHint = True
+        OnClick = LabelLinkCPUViewClick
+      end
     end
   end
   object PanelButtons: TPanel
