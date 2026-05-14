@@ -8,8 +8,8 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Dialogs,
-  Graphics, Math, LCLType, Menus, Clipbrd,
-  branch_fetch;
+  Graphics, Math, LCLType, Menus, Clipbrd, Windows, ShellApi,
+  branch_fetch, install_pipeline;
 
 const
   GH_OWNER     = 'fpc-unleashed';
@@ -63,8 +63,10 @@ type
     procedure CheckBoxInstallLazarusChange(Sender: TObject);
     procedure CheckBoxUnleashedLatestChange(Sender: TObject);
     procedure CheckBoxLazarusLatestChange(Sender: TObject);
-    procedure ListBoxLogDrawItem(Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
-    procedure ListBoxLogKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure ListBoxLogDrawItem(Control: TWinControl; Index: Integer;
+      ARect: TRect; State: TOwnerDrawState);
+    procedure ListBoxLogKeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
     procedure MenuCopyClick(Sender: TObject);
   private
     FFetchPending: Integer;
@@ -72,7 +74,10 @@ type
     FShowFired: Boolean;
     FShuttingDown: Boolean;
     FInstalling: Boolean;
+    FLaunchAfterInstall: Boolean;
+    FInstallTargetDir: string;
     procedure CopySelectedLogLines;
+    procedure LaunchInstalledIde;
     procedure RefreshTargetState;
     procedure StartBranchFetch;
     procedure OnUnleashedDone(Sender: TObject);
@@ -81,6 +86,10 @@ type
     procedure FetchTick;
     procedure ApplyUnleashedEnabled;
     procedure ApplyLazarusEnabled;
+    procedure SetInputsEnabled(act: Boolean);
+    procedure OnInstallLog(const msg: string);
+    procedure OnInstallProgress(Percent: Integer; const status: string);
+    procedure OnInstallComplete(Sender: TObject);
     procedure SetStatus(const msg: string);
     procedure Log(const msg: string);
   end;
@@ -110,7 +119,7 @@ begin
   RefreshTargetState;
 end;
 
-// folder inspection drives the UI; commit-comparison support lands later
+// inspect target directory and steer the UI; folder inspection is source of truth for what's installed
 procedure TMainForm.RefreshTargetState;
 begin
   var dir    := IncludeTrailingPathDelimiter(Trim(EditTargetDir.Text));
@@ -147,7 +156,8 @@ end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
-  // worker threads are FreeOnTerminate; flag stops OnTerminate from touching destroyed widgets
+  // worker threads have FreeOnTerminate=True and call us via OnTerminate;
+  // flag stops the callback from touching destroyed widgets
   FShuttingDown := True;
 end;
 
@@ -188,7 +198,7 @@ begin
     Combo.ItemIndex := 0;
     Exit;
   end;
-  // T.Branches stores "name=sha"; take Names[i] for the combo
+  // T.Branches contains "name=sha"; just take Names[i] for the combo
   for var i := 0 to T.Branches.Count-1 do Combo.Items.Add(T.Branches.Names[i]);
 
   Log('Got '+IntToStr(T.Branches.Count)+' branches for '+T.Repo);
@@ -214,7 +224,7 @@ begin
   ComboBoxUnleashedBranch.Enabled := act and FUnleashedReady;
   CheckBoxUnleashedLatest.Enabled := act;
   EditUnleashedHash.Enabled := act and (not CheckBoxUnleashedLatest.Checked);
-  // cross compilers nest under fpc-unleashed; linux placeholders stay disabled at LFM level
+  // cross compilers are nested under fpc-unleashed; linux ones are placeholders, disabled at the LFM level
   CheckBoxCrossWin32.Enabled := act;
   RefreshTargetState;
 end;
@@ -259,11 +269,11 @@ begin
   var fullText := FormatDateTime('hh:nn:ss', Now)+'  '+msg;
   ListBoxLog.Items.Add(fullText);
 
-  // grow horizontal scrollbar so wide make/lazbuild lines are reachable; +24 covers left padding
+  // grow horizontal scrollbar range so wide make/lazbuild lines can be revealed; +24 covers left padding
   var lineWidth := ListBoxLog.Canvas.TextWidth(fullText)+24;
   if lineWidth > ListBoxLog.ScrollWidth then ListBoxLog.ScrollWidth := lineWidth;
 
-  // keep last line visible
+  // keep last line visible: TopIndex puts that index at top of visible area, so set it to (count-visible_lines)
   if ListBoxLog.ItemHeight > 0 then begin
     var vis := ListBoxLog.ClientHeight div ListBoxLog.ItemHeight;
     ListBoxLog.TopIndex := Max(0, ListBoxLog.Items.Count-vis);
@@ -278,14 +288,14 @@ begin
       if s <> '' then s := s+LineEnding;
       s := s+ListBoxLog.Items[i];
     end;
-  // fall back to current item if nothing selected
+  // fall back to current item if nothing explicitly selected
   if (s = '') and (ListBoxLog.ItemIndex >= 0) then s := ListBoxLog.Items[ListBoxLog.ItemIndex];
   if s <> '' then Clipboard.AsText := s;
 end;
 
 procedure TMainForm.ListBoxLogKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
-  // listbox eats Ctrl+C otherwise
+  // listbox itself eats Ctrl+C otherwise; menu shortcut is also wired
   if (Key = VK_C) and (ssCtrl in Shift) then begin
     CopySelectedLogLines;
     Key := 0;
@@ -297,21 +307,15 @@ begin
   CopySelectedLogLines;
 end;
 
-// first match wins; severe-first so "Error: warning..." shows red
+// first match wins; ordered most-severe to least so "Error: warning" renders red, not olive
 function ColorForLine(const s: string): TColor;
 begin
-  if (Pos('Error', s) > 0) or (Pos('Fatal', s) > 0) or (Pos('FAILED', s) > 0) or (Pos('failed:', s) > 0) then
-    Result := clRed
-  else if Pos('Warning', s) > 0 then
-    Result := clOlive
-  else if (Pos('===', s) > 0) or (Pos(' ---', s) > 0) then
-    Result := clNavy
-  else if (Pos('Compiling ', s) > 0) or (Pos('Linking ', s) > 0) or (Pos('Installing ', s) > 0) then
-    Result := TColor($008000) // dark green
-  else if Pos('make[', s) > 0 then
-    Result := clGray
-  else
-    Result := clWindowText;
+  if (Pos('Error', s) > 0) or (Pos('Fatal', s) > 0) or (Pos('FAILED', s) > 0) or (Pos('failed:', s) > 0) then Result := clRed
+  else if Pos('Warning', s) > 0 then Result := clOlive
+  else if (Pos('===', s) > 0) or (Pos(' ---', s) > 0) then Result := clNavy
+  else if (Pos('Compiling ', s) > 0) or (Pos('Linking ', s) > 0) or (Pos('Installing ', s) > 0) then Result := TColor($008000) // dark green
+  else if Pos('make[', s) > 0 then Result := clGray
+  else Result := clWindowText;
 end;
 
 procedure TMainForm.ListBoxLogDrawItem(Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
@@ -323,7 +327,7 @@ begin
     cv.Font.Color := clHighlightText;
     cv.Font.Style := [];
   end else if Pos('IMPORTANT', s) > 0 then begin
-    // banner: bold black on yellow
+    // eye-catching banner: bold black text on yellow background
     cv.Brush.Color := clYellow;
     cv.Font.Color := clBlack;
     cv.Font.Style := [fsBold];
@@ -341,15 +345,107 @@ begin
   if SelectDirDialog.Execute then EditTargetDir.Text := SelectDirDialog.FileName;
 end;
 
+procedure TMainForm.SetInputsEnabled(act: Boolean);
+begin
+  CheckBoxInstallUnleashed.Enabled := act;
+  CheckBoxInstallLazarus.Enabled := act;
+  EditTargetDir.Enabled := act;
+  ButtonBrowse.Enabled := act;
+  ButtonInstall.Enabled := act;
+  ApplyUnleashedEnabled;
+  ApplyLazarusEnabled;
+end;
+
+procedure TMainForm.OnInstallLog(const msg: string);
+begin
+  if FShuttingDown then Exit;
+  Log(msg);
+end;
+
+procedure TMainForm.OnInstallProgress(Percent: Integer; const status: string);
+begin
+  if FShuttingDown then Exit;
+  if Percent < 0 then begin
+    ProgressBar.Style := pbstMarquee;
+    SetStatus(status);
+  end else begin
+    ProgressBar.Style := pbstNormal;
+    if Percent > 100 then Percent := 100;
+    if Percent < 0 then Percent := 0;
+    ProgressBar.Position := Percent;
+    SetStatus(IntToStr(Percent)+'%  '+status);
+  end;
+end;
+
+procedure TMainForm.OnInstallComplete(Sender: TObject);
+begin
+  if FShuttingDown then Exit;
+  var T := TInstallThread(Sender);
+  ProgressBar.Style := pbstNormal;
+  if T.Success then begin
+    Log('=== INSTALL OK ===');
+    SetStatus('Done');
+    if FLaunchAfterInstall then LaunchInstalledIde;
+  end else begin
+    Log('=== INSTALL FAILED: '+T.ErrorMsg+' ===');
+    SetStatus('Failed: '+T.ErrorMsg);
+    ProgressBar.Position := 0;
+  end;
+  FInstalling := False;
+  SetInputsEnabled(True);
+end;
+
+procedure TMainForm.LaunchInstalledIde;
+begin
+  var ExePath := IncludeTrailingPathDelimiter(FInstallTargetDir)+'lazarus\lazarus.exe';
+  var Args    := '--pcp="'+IncludeTrailingPathDelimiter(FInstallTargetDir)+'config_lazarus"';
+  Log('Launching '+ExePath);
+  // detached; let the IDE run independently of installer.exe
+  ShellExecute(Handle, 'open', PChar(ExePath), PChar(Args), PChar(ExtractFilePath(ExePath)), SW_SHOWNORMAL);
+end;
+
 procedure TMainForm.ButtonInstallClick(Sender: TObject);
+var
+  cfg: TInstallConfig;
 begin
   if FInstalling then Exit;
-  if Trim(EditTargetDir.Text) = '' then begin
+
+  cfg.TargetDir := Trim(EditTargetDir.Text);
+  if cfg.TargetDir = '' then begin
     Log('install dir is empty');
     Exit;
   end;
+
+  cfg.InstallFpc     := CheckBoxInstallUnleashed.Checked;
+  cfg.InstallLazarus := CheckBoxInstallLazarus.Checked;
+  // cross-compiler choice requires an FPC install (need ppcx64 for crossinstall); force-off otherwise
+  cfg.CrossWin32     := CheckBoxCrossWin32.Checked   and cfg.InstallFpc;
+  cfg.CrossLinux64   := CheckBoxCrossLinux64.Checked and cfg.InstallFpc;
+  cfg.CrossLinux32   := CheckBoxCrossLinux32.Checked and cfg.InstallFpc;
+
+  // snapshot launch decision at install start; toggling the checkbox mid-install does not override it
+  FLaunchAfterInstall := cfg.InstallLazarus and CheckBoxLaunchAfter.Checked;
+  FInstallTargetDir   := cfg.TargetDir;
+  cfg.FpcLatest      := CheckBoxUnleashedLatest.Checked;
+  cfg.FpcBranch      := ComboBoxUnleashedBranch.Text;
+  cfg.FpcHash        := Trim(EditUnleashedHash.Text);
+  cfg.LazLatest      := CheckBoxLazarusLatest.Checked;
+  cfg.LazBranch      := ComboBoxLazarusBranch.Text;
+  cfg.LazHash        := Trim(EditLazarusHash.Text);
+
   Log('--- install requested ---');
-  Log('TODO: install pipeline lands in the next commit');
+  Log('target dir: '+cfg.TargetDir);
+  if cfg.InstallFpc then Log('install fpc-unleashed: yes ('+cfg.FpcBranch+')')
+  else Log('install fpc-unleashed: no');
+  if cfg.InstallLazarus then Log('install lazarus IDE:  yes ('+cfg.LazBranch+')')
+  else Log('install lazarus IDE:  no');
+
+  FInstalling := True;
+  SetInputsEnabled(False);
+  ProgressBar.Position := 0;
+  ProgressBar.Style := pbstNormal;
+
+  TInstallThread.Create(cfg, @OnInstallLog, @OnInstallProgress, @OnInstallComplete);
 end;
 
 procedure TMainForm.ButtonCloseClick(Sender: TObject);

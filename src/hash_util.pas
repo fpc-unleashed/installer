@@ -9,7 +9,7 @@ interface
 uses
   Classes, SysUtils;
 
-// returns SHA256 of the file as upper-case hex
+// returns SHA256 of the file as a hex string in upper case
 function SHA256OfFile(const Path: string): string;
 
 implementation

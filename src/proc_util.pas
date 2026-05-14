@@ -12,13 +12,19 @@ uses
 type
   TLineCallback = procedure(const Line: string) of object;
 
-// run process with no console, block until exit, return exit code (-1 on launch fail)
-function RunSilent(const Exe: string; const Args: array of string; const WorkDir: string = ''): Integer;
+// run a process with no console window, block until it exits, return exit code.
+// stdout/stderr are dropped. returns -1 on launch failure.
+function RunSilent(const Exe: string; const Args: array of string;
+  const WorkDir: string = ''): Integer;
 
-// run process with stdout+stderr captured line-by-line; ExtraPath prepended to PATH
-// in child env ('' inherits unchanged). returns exit code, -1 on launch fail.
+// run a process with stdout+stderr captured line-by-line. each completed line
+// is delivered to OnLine. blocks until exit. ExtraPath is prepended to PATH
+// in the child env (use '' to inherit parent env unchanged). returns exit code,
+// or -1 on launch failure.
 function RunStream(const Exe: string; const Args: array of string;
-  const WorkDir: string; const ExtraPath: string; OnLine: TLineCallback): Integer;
+  const WorkDir: string;
+  const ExtraPath: string;
+  OnLine: TLineCallback): Integer;
 
 implementation
 
@@ -44,8 +50,8 @@ begin
   end;
 end;
 
-// copy parent env into child, rewriting PATH= to put Prefix in front.
-// Prefix='' means inherit parent env unchanged.
+// copy parent env into child, but rewrite PATH= so it has Prefix in front.
+// if Prefix is empty, don't touch Environment at all (inherit parent normally).
 procedure ApplyEnvWithPathPrefix(P: TProcess; const Prefix: string);
 begin
   if Prefix = '' then Exit;
@@ -62,7 +68,7 @@ begin
   if not pathSeen then P.Environment.Add('PATH='+Prefix);
 end;
 
-// flush completed lines (split on LF; keep trailing partial line)
+// flush completed lines from buffer (split on LF; keep trailing partial line)
 procedure FlushLines(var Buf: string; OnLine: TLineCallback);
 begin
   if not Assigned(OnLine) then begin Buf := ''; Exit; end;
