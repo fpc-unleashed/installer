@@ -26,11 +26,11 @@ uses
   Windows, WinInet;
 
 const
-  CHUNK_SIZE     = 32 * 1024;
+  CHUNK_SIZE     = 32*1024;
   AGENT          = 'UnleashedInstaller/1.0';
   // emit at most one progress event per ~256 KB of body to keep
   // Synchronize traffic to the main thread reasonable for big files
-  REPORT_EVERY   = 256 * 1024;
+  REPORT_EVERY   = 256*1024;
 
 function HumanMB(B: Int64): string;
 begin
@@ -101,8 +101,7 @@ begin
               LastPct := Pct;
               OnProgress(Pct, HumanMB(Total)+' / '+HumanMB(ContentLength));
             end;
-          end else
-            OnProgress(-1, HumanMB(Total)+' downloaded');
+          end else OnProgress(-1, HumanMB(Total)+' downloaded');
         end;
       until False;
 

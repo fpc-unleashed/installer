@@ -29,8 +29,7 @@ begin
   // CSIDL_DESKTOPDIRECTORY is the per-user file-system Desktop path.
   // CSIDL_DESKTOP is the virtual desktop folder (which contains things
   // like My Computer); we want the physical dir.
-  if SHGetFolderPathA(0, CSIDL_DESKTOPDIRECTORY, 0, 0, @Buf[0]) = S_OK then
-    Result := AnsiString(Buf);
+  if SHGetFolderPathA(0, CSIDL_DESKTOPDIRECTORY, 0, 0, @Buf[0]) = S_OK then Result := AnsiString(Buf);
 end;
 
 function CreateDesktopShortcut(const TargetPath, Args, ShortcutName: string): Boolean;
@@ -77,7 +76,11 @@ begin
   // actually exists; Linux .desktop renderers silently fall back to
   // a generic placeholder when Icon= points at a missing file.
   var LazDir := IncludeTrailingPathDelimiter(ExtractFilePath(TargetPath))+'images/';
-  var IconCandidates: array of string := [LazDir+'ide_icon128x128.png', LazDir+'ide_icon48x48.png', LazDir+'ide_icon.png'];
+  var IconCandidates: array of string := [
+    LazDir+'ide_icon128x128.png',
+    LazDir+'ide_icon48x48.png',
+    LazDir+'ide_icon.png'
+  ];
   var IconPath: string := '';
   for var i := Low(IconCandidates) to High(IconCandidates) do
     if FileExists(IconCandidates[i]) then begin
@@ -138,8 +141,8 @@ begin
   end;
   if FileBase = '' then FileBase := 'lazarus-unleashed';
 
-  var DesktopPath  := IncludeTrailingPathDelimiter(Home)+'Desktop'+DirectorySeparator+FileBase+'.desktop';
-  var MenuPath     := IncludeTrailingPathDelimiter(Home)+'.local/share/applications/'+FileBase+'.desktop';
+  var DesktopPath := IncludeTrailingPathDelimiter(Home)+'Desktop'+DirectorySeparator+FileBase+'.desktop';
+  var MenuPath    := IncludeTrailingPathDelimiter(Home)+'.local/share/applications/'+FileBase+'.desktop';
 
   // best-effort: write both locations. Desktop entry is the primary;
   // menu entry is nice-to-have. Succeed if either lands.

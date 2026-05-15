@@ -20,7 +20,8 @@ function RunSilent(const Exe: string; const Args: array of string; const WorkDir
 // is delivered to OnLine. blocks until exit. ExtraPath is prepended to PATH
 // in the child env (use '' to inherit parent env unchanged). returns exit code,
 // or -1 on launch failure.
-function RunStream(const Exe: string; const Args: array of string; const WorkDir: string; const ExtraPath: string; OnLine: TLineCallback): Integer;
+function RunStream(const Exe: string; const Args: array of string; const WorkDir: string;
+  const ExtraPath: string; OnLine: TLineCallback): Integer;
 
 implementation
 
@@ -69,17 +70,16 @@ begin
     var eqPos := Pos('=', envLine);
     if eqPos < 2 then Continue;       // malformed -- no name=value
     var name := UpperCase(Copy(envLine, 1, eqPos-1));
-    if (name = 'MAKEFLAGS') or (name = 'MFLAGS') then Continue;   // scrub: don't propagate to child make
+    if (name = 'MAKEFLAGS') or (name = 'MFLAGS') then Continue;  // scrub: don't propagate to child make
 {$ifdef LINUX}
-    if name = 'PPC_CONFIG_PATH' then Continue;   // re-injected via libc_getenv below
+    if name = 'PPC_CONFIG_PATH' then Continue;  // re-injected via libc_getenv below
 {$endif}
     if name = 'PATH' then begin
       // PathSeparator: ';' on Windows, ':' on Unix-likes
       if Prefix <> '' then P.Environment.Add('PATH='+Prefix+PathSeparator+Copy(envLine, 6, MaxInt))
       else P.Environment.Add(envLine);
       pathSeen := True;
-    end else
-      P.Environment.Add(envLine);
+    end else P.Environment.Add(envLine);
   end;
   if (Prefix <> '') and (not pathSeen) then P.Environment.Add('PATH='+Prefix);
   // Belt + suspenders: even if parent's env has no MAKEFLAGS at all,
@@ -112,7 +112,8 @@ begin
   until False;
 end;
 
-function RunStream(const Exe: string; const Args: array of string; const WorkDir: string; const ExtraPath: string; OnLine: TLineCallback): Integer;
+function RunStream(const Exe: string; const Args: array of string; const WorkDir: string;
+  const ExtraPath: string; OnLine: TLineCallback): Integer;
 var
   Tmp: array[0..READ_BUF-1] of Byte;
 begin
@@ -149,8 +150,7 @@ begin
         Move(Tmp, ErrBuf[Length(ErrBuf)-N+1], N);
         FlushLines(ErrBuf, OnLine);
       end;
-    end else
-      Sleep(20);
+    end else Sleep(20);
   end;
 
   // emit any final partial line that didn't end with LF

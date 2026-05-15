@@ -1,0 +1,122 @@
+name: Windows
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout installer
+        uses: actions/checkout@v4
+
+      - name: Download FPC Unleashed nightly bundle
+        shell: cmd
+        run: |
+          curl -L -o fpc-bundle.zip https://github.com/fpc-unleashed/freepascal/releases/download/nightly/windows-bundle.zip
+
+      - name: Extract FPC Unleashed to C:\fpc
+        shell: cmd
+        run: |
+          powershell -Command "Expand-Archive -Path fpc-bundle.zip -DestinationPath C:\ -Force"
+          dir C:\fpc\bin\x86_64-win64
+
+      - name: Write fpc.cfg
+        shell: powershell
+        run: |
+          $target = "x86_64-win64"
+          $cfg = "C:\fpc\bin\$target\fpc.cfg"
+          $lines = @("# FPC Unleashed minimal config")
+          foreach ($d in Get-ChildItem -Path "C:\fpc\units\$target" -Directory) {
+            $lines += "-Fu$($d.FullName)"
+          }
+          $lines | Set-Content -Encoding ASCII $cfg
+
+      - name: Smoke-test FPC
+        shell: powershell
+        run: |
+          "begin writeln('hello'); end." | Set-Content -Encoding ASCII C:\hello.pas
+          C:\fpc\bin\x86_64-win64\ppcx64.exe -viq C:\hello.pas
+          C:\hello.exe
+
+      - name: Download Lazarus Unleashed nightly bundle
+        shell: cmd
+        run: |
+          curl -L -o laz-bundle.zip https://github.com/fpc-unleashed/lazarus/releases/download/nightly/windows-bundle.zip
+
+      - name: Extract Lazarus Unleashed to C:\laz
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path C:\laz | Out-Null
+          Expand-Archive -Path laz-bundle.zip -DestinationPath C:\laz -Force
+          if (-not (Test-Path C:\laz\lazbuild.exe)) { throw "lazbuild.exe missing after extract" }
+
+      - name: Setup PATH (FPC)
+        shell: powershell
+        run: echo "C:\fpc\bin\x86_64-win64" >> $env:GITHUB_PATH
+
+      - name: Bump BuildNr to run number
+        shell: powershell
+        run: |
+          # Lazarus omits <BuildNr> when it equals the default 0, so the
+          # element may be absent in the committed .lpi. Insert it before
+          # </VersionInfo> when missing, otherwise replace the existing value.
+          $lpi = "src\installer.lpi"
+          $n = $env:GITHUB_RUN_NUMBER
+          $c = Get-Content $lpi -Raw
+          if ($c -match '<BuildNr Value="\d+"/>') {
+            $c = $c -replace '<BuildNr Value="\d+"/>', "<BuildNr Value=""$n""/>"
+          } else {
+            $c = $c -replace '</VersionInfo>', "  <BuildNr Value=""$n""/>`n    </VersionInfo>"
+          }
+          Set-Content -Encoding UTF8 -Path $lpi -Value $c
+          Select-String -Path $lpi -Pattern '<BuildNr'
+
+      - name: Build installer
+        shell: cmd
+        working-directory: ${{ github.workspace }}
+        run: |
+          C:\laz\lazbuild.exe --lazarusdir=C:\laz --build-mode=win64_release src\installer.lpi
+          if not exist installer_win64_x86_64.exe (echo installer_win64_x86_64.exe missing & exit /b 1)
+
+      - name: Upload installer_win64_x86_64.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer_win64_x86_64.exe
+          path: installer_win64_x86_64.exe
+
+      - name: Prepare release
+        shell: powershell
+        run: |
+          $tz = [System.TimeZoneInfo]::FindSystemTimeZoneById("Central European Standard Time")
+          $ts = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $tz).ToString("yyyy-MM-dd HH:mm:ss 'CEST'")
+          echo "TAG=nightly" >> $env:GITHUB_ENV
+          echo "NAME=Unleashed Installer nightly" >> $env:GITHUB_ENV
+          "Unleashed Installer nightly build" | Out-File -FilePath release-body.txt -Encoding UTF8
+          "" | Out-File -Append release-body.txt -Encoding UTF8
+          "Generated from commit: $env:GITHUB_SHA" | Out-File -Append release-body.txt -Encoding UTF8
+          "Build time: $ts" | Out-File -Append release-body.txt -Encoding UTF8
+
+      - name: Update tag
+        uses: richardsimko/update-tag@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: nightly
+
+      - name: Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: installer_win64_x86_64.exe
+          tag: ${{ env.TAG }}
+          name: ${{ env.NAME }}
+          bodyFile: release-body.txt
+          prerelease: true
+          allowUpdates: true

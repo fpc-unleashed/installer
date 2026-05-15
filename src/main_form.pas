@@ -155,9 +155,9 @@ begin
   if FindFirst(Base+'*', faDirectory, SR) = 0 then
   try
     repeat
-      if (SR.Name <> '.') and (SR.Name <> '..') and ((SR.Attr and faDirectory) <> 0)
-         and (Length(SR.Name) > 0) and (SR.Name[1] in ['0'..'9'])
-         and DirectoryExists(Base+SR.Name+'/units/'+target) then begin
+      if (SR.Name <> '.') and (SR.Name <> '..') and ((SR.Attr and faDirectory) <> 0) and
+         (Length(SR.Name) > 0) and (SR.Name[1] in ['0'..'9']) and
+         DirectoryExists(Base+SR.Name+'/units/'+target) then begin
         Result := True;
         Exit;
       end;
@@ -302,8 +302,8 @@ end;
 procedure TMainForm.RefreshTargetState;
 begin
   var dir    := IncludeTrailingPathDelimiter(Trim(EditTargetDir.Text));
-  var hasFpc := FileExists(dir + HostFpcWrapperSub);
-  var hasLaz := FileExists(dir + LazarusBinarySub);
+  var hasFpc := FileExists(dir+HostFpcWrapperSub);
+  var hasLaz := FileExists(dir+LazarusBinarySub);
 
   if not (hasFpc or hasLaz) then begin
     LabelMode.Caption := 'New installation';
@@ -323,10 +323,12 @@ begin
   // full set of cross checkboxes (otherwise users wonder why the
   // "what's installed" summary omits the host platform).
   {$ifdef MSWINDOWS}
-  var crossTargets: TStringArray := ['x86_64-win64', 'x86_64-linux', 'i386-win32', 'i386-linux', 'wasm32-wasip1'];
+  var crossTargets: TStringArray := [
+    'x86_64-win64', 'x86_64-linux', 'i386-win32', 'i386-linux', 'wasm32-wasip1'];
   {$endif}
   {$ifdef LINUX}
-  var crossTargets: TStringArray := ['x86_64-linux', 'x86_64-win64', 'i386-win32', 'i386-linux', 'wasm32-wasip1'];
+  var crossTargets: TStringArray := [
+    'x86_64-linux', 'x86_64-win64', 'i386-win32', 'i386-linux', 'wasm32-wasip1'];
   {$endif}
   for var t in crossTargets do
     if ProbeCrossInstalled(Trim(EditTargetDir.Text), t) then begin
@@ -423,16 +425,22 @@ function TMainForm.ResolveSelectedFpcSha: string;
 begin
   // explicit hash override wins, otherwise use the head SHA of the
   // currently-selected branch as known at the last fetch
-  Result := if (not CheckBoxUnleashedLatest.Checked) and (Trim(EditUnleashedHash.Text) <> '') then LowerCase(Trim(EditUnleashedHash.Text))
-            else if ComboBoxUnleashedBranch.Text <> '' then LowerCase(FFpcBranchShas.Values[ComboBoxUnleashedBranch.Text])
-            else '';
+  Result := if (not CheckBoxUnleashedLatest.Checked) and (Trim(EditUnleashedHash.Text) <> '') then
+              LowerCase(Trim(EditUnleashedHash.Text))
+            else if ComboBoxUnleashedBranch.Text <> '' then
+              LowerCase(FFpcBranchShas.Values[ComboBoxUnleashedBranch.Text])
+            else
+              '';
 end;
 
 function TMainForm.ResolveSelectedLazSha: string;
 begin
-  Result := if (not CheckBoxLazarusLatest.Checked) and (Trim(EditLazarusHash.Text) <> '') then LowerCase(Trim(EditLazarusHash.Text))
-            else if ComboBoxLazarusBranch.Text <> '' then LowerCase(FLazBranchShas.Values[ComboBoxLazarusBranch.Text])
-            else '';
+  Result := if (not CheckBoxLazarusLatest.Checked) and (Trim(EditLazarusHash.Text) <> '') then
+              LowerCase(Trim(EditLazarusHash.Text))
+            else if ComboBoxLazarusBranch.Text <> '' then
+              LowerCase(FLazBranchShas.Values[ComboBoxLazarusBranch.Text])
+            else
+              '';
 end;
 
 procedure TMainForm.OnSelectionChange(Sender: TObject);
@@ -599,7 +607,8 @@ begin
   // an i386-CPU binary with soft-x80 baked in -- supports both -Twin32
   // and -Tlinux). Auto-tick win32 so the user does not have to remember
   // the prerequisite.
-  if CheckBoxCrossLinux32.Checked then CheckBoxCrossWin32.Checked := True;
+  if CheckBoxCrossLinux32.Checked then
+    CheckBoxCrossWin32.Checked := True;
 end;
 
 procedure TMainForm.LabelLinkCPUViewClick(Sender: TObject);
@@ -662,10 +671,12 @@ end;
 // renders red, not olive.
 function ColorForLine(const s: string): TColor;
 begin
-  if (Pos('Error', s) > 0) or (Pos('Fatal', s) > 0) or (Pos('FAILED', s) > 0) or (Pos('failed:', s) > 0) then Result := clRed
+  if (Pos('Error', s) > 0) or (Pos('Fatal', s) > 0) or (Pos('FAILED', s) > 0) or (Pos('failed:', s) > 0) then
+    Result := clRed
   else if Pos('Warning', s) > 0 then Result := clOlive
   else if (Pos('===', s) > 0) or (Pos(' ---', s) > 0) then Result := clNavy
-  else if (Pos('Compiling ', s) > 0) or (Pos('Linking ', s) > 0) or (Pos('Installing ', s) > 0) then Result := TColor($008000) // dark green
+  else if (Pos('Compiling ', s) > 0) or (Pos('Linking ', s) > 0) or (Pos('Installing ', s) > 0) then
+    Result := TColor($008000) // dark green
   else if Pos('make[', s) > 0 then Result := clGray
   else Result := clWindowText;
 end;
