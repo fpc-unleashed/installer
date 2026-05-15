@@ -10,12 +10,19 @@ uses
   Classes, SysUtils;
 
 type
-  // snapshot of installed state for diff vs current selection
+  // a tiny snapshot of what got installed so a later run can decide
+  // whether the user's currently-selected branch/hash matches what is
+  // already on disk and therefore whether to skip or refresh the build.
   TInstallManifest = record
     Present: Boolean;
     FpcBranch: string;
     FpcSha: string;
-    // CheckBoxLatest state at install time; resolved SHA also stored in FpcSha
+    // User's "latest" intent at install time: True means CheckBoxLatest
+    // was ticked (and we resolved the branch head SHA into FpcSha at
+    // that moment). Persisted so a re-open restores the checkbox state
+    // correctly. Without this flag we'd have to guess from FpcSha-empty,
+    // which is wrong: latest=yes also stores the resolved SHA in FpcSha
+    // for display/comparison purposes.
     FpcLatest: Boolean;
     LazBranch: string;
     LazSha: string;
@@ -25,8 +32,12 @@ type
     CrossLinux64: Boolean;     // cross to x86_64-linux (only built on win64 host)
     CrossLinux32: Boolean;     // legacy 32-bit
     CrossWasm: Boolean;
+    // optional Lazarus IDE addons -- written so a re-run can pre-tick
+    // the right checkboxes
     InstallMinimap: Boolean;
     InstallCPUView: Boolean;
+    // last launch-after-install state, restored to the checkbox on
+    // re-run so the user does not have to re-tick every time
     LaunchAfter: Boolean;
     InstalledAt: string;
   end;
@@ -42,7 +53,7 @@ implementation
 
 function ManifestPathFor(const InstallDir: string): string;
 begin
-  Result := IncludeTrailingPathDelimiter(InstallDir)+MANIFEST_FILE;
+  Result := IncludeTrailingPathDelimiter(InstallDir) + MANIFEST_FILE;
 end;
 
 function StrToBoolDefSafe(const S: string; const Def: Boolean): Boolean;
@@ -56,7 +67,6 @@ function BoolFlag(B: Boolean): string;
 begin
   if B then Result := 'yes' else Result := 'no';
 end;
-
 
 function ReadManifest(const InstallDir: string): TInstallManifest;
 begin
@@ -74,7 +84,9 @@ begin
   end;
   Result.FpcBranch    := Lines.Values['fpc-branch'];
   Result.FpcSha       := LowerCase(Lines.Values['fpc-sha']);
-  // legacy manifests (pre-fpc-latest field): "empty SHA == latest"
+  // Older manifests (pre-fpc-latest field) default the flag to True
+  // when no SHA is recorded (legacy "empty SHA == latest" interpretation),
+  // False otherwise. New manifests carry the explicit flag.
   Result.FpcLatest    := StrToBoolDefSafe(Lines.Values['fpc-latest'], Result.FpcSha = '');
   Result.LazBranch    := Lines.Values['lazarus-branch'];
   Result.LazSha       := LowerCase(Lines.Values['lazarus-sha']);
@@ -83,7 +95,9 @@ begin
   Result.CrossWin32   := StrToBoolDefSafe(Lines.Values['cross-i386-win32'], False);
   Result.CrossLinux64 := StrToBoolDefSafe(Lines.Values['cross-x86_64-linux'], False);
   Result.CrossLinux32 := StrToBoolDefSafe(Lines.Values['cross-i386-linux'], False);
-  // accept wasip1 (current) and wasi (older) so a re-run reads historical flag
+  // Accept both wasip1 (current) and wasi (older manifests written by
+  // earlier installer versions) so a re-run reads the historical flag
+  // correctly without forcing a clean reinstall.
   Result.CrossWasm    := StrToBoolDefSafe(Lines.Values['cross-wasm32-wasip1'], StrToBoolDefSafe(Lines.Values['cross-wasm32-wasi'], False));
   Result.InstallMinimap := StrToBoolDefSafe(Lines.Values['extras-minimap'], False);
   Result.InstallCPUView := StrToBoolDefSafe(Lines.Values['extras-cpuview'], False);
@@ -98,25 +112,26 @@ begin
   var Lines := autofree TStringList.Create;
   Lines.Add('# Unleashed Installer manifest - written automatically');
   Lines.Add('# Do not edit; the installer relies on these values to detect updates.');
-  Lines.Add('fpc-branch='+M.FpcBranch);
-  Lines.Add('fpc-sha='+LowerCase(M.FpcSha));
-  Lines.Add('fpc-latest='+BoolFlag(M.FpcLatest));
-  Lines.Add('lazarus-branch='+M.LazBranch);
-  Lines.Add('lazarus-sha='+LowerCase(M.LazSha));
-  Lines.Add('lazarus-latest='+BoolFlag(M.LazLatest));
-  Lines.Add('cross-x86_64-win64='+BoolFlag(M.CrossWin64));
-  Lines.Add('cross-i386-win32='+BoolFlag(M.CrossWin32));
-  Lines.Add('cross-x86_64-linux='+BoolFlag(M.CrossLinux64));
-  Lines.Add('cross-i386-linux='+BoolFlag(M.CrossLinux32));
-  Lines.Add('cross-wasm32-wasip1='+BoolFlag(M.CrossWasm));
-  Lines.Add('extras-minimap='+BoolFlag(M.InstallMinimap));
-  Lines.Add('extras-cpuview='+BoolFlag(M.InstallCPUView));
-  Lines.Add('launch-after-install='+BoolFlag(M.LaunchAfter));
-  Lines.Add('installed-at='+M.InstalledAt);
+  Lines.Add('fpc-branch=' + M.FpcBranch);
+  Lines.Add('fpc-sha=' + LowerCase(M.FpcSha));
+  Lines.Add('fpc-latest=' + BoolFlag(M.FpcLatest));
+  Lines.Add('lazarus-branch=' + M.LazBranch);
+  Lines.Add('lazarus-sha=' + LowerCase(M.LazSha));
+  Lines.Add('lazarus-latest=' + BoolFlag(M.LazLatest));
+  Lines.Add('cross-x86_64-win64=' + BoolFlag(M.CrossWin64));
+  Lines.Add('cross-i386-win32=' + BoolFlag(M.CrossWin32));
+  Lines.Add('cross-x86_64-linux=' + BoolFlag(M.CrossLinux64));
+  Lines.Add('cross-i386-linux=' + BoolFlag(M.CrossLinux32));
+  Lines.Add('cross-wasm32-wasip1=' + BoolFlag(M.CrossWasm));
+  Lines.Add('extras-minimap=' + BoolFlag(M.InstallMinimap));
+  Lines.Add('extras-cpuview=' + BoolFlag(M.InstallCPUView));
+  Lines.Add('launch-after-install=' + BoolFlag(M.LaunchAfter));
+  Lines.Add('installed-at=' + M.InstalledAt);
   try
     Lines.SaveToFile(ManifestPathFor(InstallDir));
     Result := True;
   except
+    // swallow; Result stays False
   end;
 end;
 
