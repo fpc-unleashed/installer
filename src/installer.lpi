@@ -15,9 +15,16 @@
       <UseXPManifest Value="True"/>
       <XPManifest>
         <DpiAware Value="True"/>
+        <TextName Value="fpcunleashed.installer"/>
+        <TextDesc Value="FPC Unleashed Installed"/>
       </XPManifest>
       <Icon Value="0"/>
     </General>
+    <VersionInfo>
+      <UseVersionInfo Value="True"/>
+      <MinorVersionNr Value="1"/>
+      <StringTable Comments="Builds Unleashed Edition FPC + Lazarus from GitHub sources" CompanyName="FPC Unleashed" FileDescription="FPC Unleashed Installer" InternalName="installer" LegalCopyright="© 2026 FPC Unleashed" OriginalFilename="installer.exe" ProductName="FPC Unleashed Installer"/>
+    </VersionInfo>
     <BuildModes Count="4">
       <Item1 Name="win64_debug" Default="True"/>
       <Item2 Name="win64_release">
@@ -25,7 +32,7 @@
           <Version Value="11"/>
           <PathDelim Value="\"/>
           <Target>
-            <Filename Value="..\installer"/>
+            <Filename Value="..\installer_win64_x86_64"/>
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
@@ -60,7 +67,7 @@
           <Version Value="11"/>
           <PathDelim Value="\"/>
           <Target>
-            <Filename Value="..\installer"/>
+            <Filename Value="..\installer_linux_x86_64"/>
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
@@ -88,7 +95,7 @@
           <Version Value="11"/>
           <PathDelim Value="\"/>
           <Target>
-            <Filename Value="..\installer"/>
+            <Filename Value="..\installer_linux_x86_64"/>
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
@@ -181,7 +188,7 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="..\installer"/>
+      <Filename Value="..\installer_win64_x86_64"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>

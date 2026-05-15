@@ -1,6 +1,6 @@
 # build artifacts
 *.exe
-/installer
+/installer_*
 *.compiled
 *.ppu
 *.o
