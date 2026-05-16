@@ -13,10 +13,7 @@ type
   // Percent: 0..100, or -1 when total size is unknown
   TDownloadProgress = procedure(Percent: Integer; const Status: string) of object;
 
-// downloads URL to DestPath. on Windows uses WinINet (built into the OS,
-// native HTTPS, no OpenSSL dep). on Linux shells out to /usr/bin/curl
-// (default-installed on every mainstream distro; gives us HTTPS without
-// having to ship OpenSSL libs alongside the installer).
+// downloads URL to DestPath. Windows uses WinINet (native HTTPS, no OpenSSL dep). Linux shells out to /usr/bin/curl (default on every mainstream distro).
 function DownloadFile(const URL, DestPath: string; OnProgress: TDownloadProgress): Boolean;
 
 implementation
@@ -26,15 +23,14 @@ uses
   Windows, WinInet;
 
 const
-  CHUNK_SIZE     = 32 * 1024;
-  AGENT          = 'UnleashedInstaller/1.0';
-  // emit at most one progress event per ~256 KB of body to keep
-  // Synchronize traffic to the main thread reasonable for big files
-  REPORT_EVERY   = 256 * 1024;
+  CHUNK_SIZE   = 32*1024;
+  AGENT        = 'UnleashedInstaller/1.0';
+  // at most one progress event per ~256 KB of body, to keep Synchronize traffic reasonable for big files
+  REPORT_EVERY = 256*1024;
 
 function HumanMB(B: Int64): string;
 begin
-  Result := Format('%.1f MB', [B / (1024 * 1024)]);
+  Result := Format('%.1f MB', [B/(1024*1024)]);
 end;
 
 function DownloadFile(const URL, DestPath: string; OnProgress: TDownloadProgress): Boolean;
@@ -50,15 +46,14 @@ begin
     Exit;
   end;
   try
-    var Connection := InternetOpenUrl(Session, PChar(URL), nil, 0, INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
+    var Connection := InternetOpenUrl(Session, PChar(URL), nil, 0,
+      INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
     if Connection = nil then begin
       if Assigned(OnProgress) then OnProgress(-1, 'cannot open URL');
       Exit;
     end;
     try
-      // best-effort Content-Length; codeload often uses Transfer-Encoding:
-      // chunked and skips this header, in which case we fall back to
-      // indeterminate "X MB downloaded" reporting.
+      // best-effort Content-Length; codeload often uses Transfer-Encoding: chunked and skips the header -- then we fall back to indeterminate "X MB downloaded"
       var ContentLength: Int64 := -1;
       var CLBuf: DWORD;
       var CLSize: DWORD := SizeOf(CLBuf);
@@ -68,7 +63,7 @@ begin
       try
         Stream := autofree TFileStream.Create(DestPath, fmCreate);
       except
-        if Assigned(OnProgress) then OnProgress(-1, 'cannot create ' + DestPath);
+        if Assigned(OnProgress) then OnProgress(-1, 'cannot create '+DestPath);
         Exit;
       end;
 
@@ -76,10 +71,8 @@ begin
       var LastPct: Integer := -2;
       var LastReportTotal: Int64 := 0;
       if Assigned(OnProgress) then begin
-        if ContentLength > 0 then
-          OnProgress(0, '0 / ' + HumanMB(ContentLength))
-        else
-          OnProgress(-1, 'starting download...');
+        if ContentLength > 0 then OnProgress(0, '0 / '+HumanMB(ContentLength))
+        else OnProgress(-1, 'starting download...');
       end;
 
       repeat
@@ -92,25 +85,23 @@ begin
         Stream.WriteBuffer(Buf[0], BytesRead);
         Inc(Total, BytesRead);
 
-        if Assigned(OnProgress) and ((Total - LastReportTotal >= REPORT_EVERY) or (BytesRead < CHUNK_SIZE)) then begin
+        if Assigned(OnProgress) and ((Total-LastReportTotal >= REPORT_EVERY) or (BytesRead < CHUNK_SIZE)) then begin
           LastReportTotal := Total;
           if ContentLength > 0 then begin
-            var Pct: Integer := Round(Total * 100 / ContentLength);
+            var Pct: Integer := Round(Total*100/ContentLength);
             if Pct > 100 then Pct := 100;
             if Pct <> LastPct then begin
               LastPct := Pct;
-              OnProgress(Pct, HumanMB(Total) + ' / ' + HumanMB(ContentLength));
+              OnProgress(Pct, HumanMB(Total)+' / '+HumanMB(ContentLength));
             end;
           end else
-            OnProgress(-1, HumanMB(Total) + ' downloaded');
+            OnProgress(-1, HumanMB(Total)+' downloaded');
         end;
       until False;
 
       if Assigned(OnProgress) then begin
-        if ContentLength > 0 then
-          OnProgress(100, 'download complete')
-        else
-          OnProgress(-1, HumanMB(Total) + ' downloaded');
+        if ContentLength > 0 then OnProgress(100, 'download complete')
+        else OnProgress(-1, HumanMB(Total)+' downloaded');
       end;
       Result := True;
     finally
@@ -131,14 +122,8 @@ begin
   Result := False;
   if Assigned(OnProgress) then OnProgress(-1, 'downloading...');
 
-  // -f: fail (non-zero exit) on HTTP >= 400 instead of writing an html
-  //     error page to DestPath; -s: silent (no progress meter on stderr);
-  // -S: but DO surface errors on stderr; -L: follow redirects (GitHub
-  //     release assets are 302 -> objects.githubusercontent.com).
-  // No granular per-byte progress -- TProcess + curl --progress-bar
-  // would mean parsing \r-overwritten stderr lines, which is mess for
-  // little gain on these (~70MB max) downloads. UI sits at "downloading
-  // ..." until curl exits.
+  // -fsSL: fail on HTTP>=400, silent meter, surface errors on stderr, follow redirects (GitHub release assets 302 to objects.githubusercontent.com).
+  // No per-byte progress -- parsing \r-overwritten stderr from --progress-bar is messy for the ~70MB max payloads. UI just sits at "downloading..." until curl exits.
   var Code := RunSilent('curl', ['-fsSL', '-o', DestPath, URL]);
 
   if Code = -1 then begin

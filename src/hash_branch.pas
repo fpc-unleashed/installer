@@ -65,7 +65,7 @@ const
 
   function rotl(x: LongWord; r: Byte): LongWord; inline;
   begin
-    Result := (x shl r) or (x shr (32 - r));
+    Result := (x shl r) or (x shr (32-r));
   end;
 
 begin
@@ -73,26 +73,23 @@ begin
   Result := Seed;
   var len := Length(s);
   var i := 1;
-  while i + 3 <= len do begin
-    var k: LongWord :=  LongWord(Byte(s[i]))
-                    or (LongWord(Byte(s[i+1])) shl 8)
-                    or (LongWord(Byte(s[i+2])) shl 16)
-                    or (LongWord(Byte(s[i+3])) shl 24);
-    Result := rotl(Result xor (rotl(k * C1, 15) * C2), 13) * 5 + $e6546b64;
+  while i+3 <= len do begin
+    var k: LongWord := LongWord(Byte(s[i])) or (LongWord(Byte(s[i+1])) shl 8) or (LongWord(Byte(s[i+2])) shl 16) or (LongWord(Byte(s[i+3])) shl 24);
+    Result := rotl(Result xor (rotl(k*C1, 15)*C2), 13)*5+$e6546b64;
     Inc(i, 4);
   end;
-  var rem := len - i + 1;
+  var rem := len-i+1;
   if rem > 0 then begin
     var k: LongWord := LongWord(Byte(s[i]));
     if rem >= 2 then k := k or (LongWord(Byte(s[i+1])) shl 8);
     if rem >= 3 then k := k or (LongWord(Byte(s[i+2])) shl 16);
-    Result := Result xor (rotl(k * C1, 15) * C2);
+    Result := Result xor (rotl(k*C1, 15)*C2);
   end;
   Result := Result xor LongWord(len);
   Result := Result xor (Result shr 16);
-  Result := Result * LongWord($85ebca6b);
+  Result := Result*LongWord($85ebca6b);
   Result := Result xor (Result shr 13);
-  Result := Result * LongWord($c2b2ae35);
+  Result := Result*LongWord($c2b2ae35);
   Result := Result xor (Result shr 16);
   {$pop}
 end;
@@ -110,11 +107,10 @@ begin
   while i <= Length(s) do begin
     if s[i] in ['0'..'9', 'a'..'f', 'A'..'F'] then begin
       var startPos := i;
-      while (i <= Length(s)) and (s[i] in ['0'..'9', 'a'..'f', 'A'..'F']) do
-        Inc(i);
-      if i - startPos >= MinLen then begin
-        SetLength(Result, Length(Result) + 1);
-        Result[High(Result)] := Copy(s, startPos, i - startPos);
+      while (i <= Length(s)) and (s[i] in ['0'..'9', 'a'..'f', 'A'..'F']) do Inc(i);
+      if i-startPos >= MinLen then begin
+        SetLength(Result, Length(Result)+1);
+        Result[High(Result)] := Copy(s, startPos, i-startPos);
       end;
     end else
       Inc(i);
@@ -157,8 +153,8 @@ begin
   if not (blob[pos] in ['0'..'9']) then Exit;
   if blob[pos] = '0' then begin
     // predefined namespace: 1 length digit + 1 hex char index into table
-    if pos + 1 > Length(blob) then Exit;
-    var idx: Integer := HexCharToInt(blob[pos + 1]);
+    if pos+1 > Length(blob) then Exit;
+    var idx: Integer := HexCharToInt(blob[pos+1]);
     if (idx < 0) or (idx > High(PREDEFINED_BRANCHES)) then Exit;
     branchFromCommit := PREDEFINED_BRANCHES[idx];
     Inc(pos, 2);
@@ -166,12 +162,12 @@ begin
     Exit;
   end;
   // hash prefix of length blob[pos] in '1'..'9'. Branch defaults to main.
-  var lenVal: Integer := Ord(blob[pos]) - Ord('0');
-  if pos + lenVal > Length(blob) then Exit;
-  commitHex := LowerCase(Copy(blob, pos + 1, lenVal));
+  var lenVal: Integer := Ord(blob[pos])-Ord('0');
+  if pos+lenVal > Length(blob) then Exit;
+  commitHex := LowerCase(Copy(blob, pos+1, lenVal));
   if not IsAllHex(commitHex) then Exit;
   branchFromCommit := PREDEFINED_BRANCHES[0];  // 'main'
-  Inc(pos, 1 + lenVal);
+  Inc(pos, 1+lenVal);
   Result := True;
 end;
 
@@ -184,11 +180,11 @@ begin
   hashHex := '';
   if pos > Length(blob) then Exit;
   if not (blob[pos] in ['1'..'9']) then Exit;
-  var lenVal: Integer := Ord(blob[pos]) - Ord('0');
-  if pos + lenVal > Length(blob) then Exit;
-  hashHex := LowerCase(Copy(blob, pos + 1, lenVal));
+  var lenVal: Integer := Ord(blob[pos])-Ord('0');
+  if pos+lenVal > Length(blob) then Exit;
+  hashHex := LowerCase(Copy(blob, pos+1, lenVal));
   if not IsAllHex(hashHex) then Exit;
-  Inc(pos, 1 + lenVal);
+  Inc(pos, 1+lenVal);
   Result := True;
 end;
 
@@ -207,8 +203,7 @@ begin
   // Pos 1 (required when Present=True): fpc commit / predefined branch.
   if not ReadCommitField(blob, pos, p.FpcCommit, p.FpcBranchFromCommit) then Exit;
 
-  // Pos 2 (optional): ide commit / predefined branch. When absent, ide
-  // defaults to 'main' / latest -- same as if `00` had been written here.
+  // Pos 2 (optional): ide commit / predefined branch. When absent, ide defaults to 'main' / latest -- same as if `00` had been written here.
   if pos <= Length(blob) then begin
     if not ReadCommitField(blob, pos, p.LazCommit, p.LazBranchFromCommit) then Exit;
   end else
@@ -222,8 +217,7 @@ begin
   if pos <= Length(blob) then
     if not ReadBranchOverrideField(blob, pos, p.LazBranchHashOverride) then Exit;
 
-  // Require complete consumption: any leftover chars means we picked
-  // a candidate run that isn't actually the encoded blob.
+  // require complete consumption: any leftover chars means the candidate run isn't the encoded blob
   if pos <= Length(blob) then Exit;
 
   p.Present := True;
@@ -248,7 +242,7 @@ begin
   Result := '';
   var prefixLen := Length(HexPrefix);
   if prefixLen = 0 then Exit;
-  for var i := 0 to Items.Count - 1 do begin
+  for var i := 0 to Items.Count-1 do begin
     var name := Items[i];
     var hash := LowerCase(IntToHex(Murmur3_32(name), 8));
     if SameText(Copy(hash, 1, prefixLen), HexPrefix) then Exit(name);

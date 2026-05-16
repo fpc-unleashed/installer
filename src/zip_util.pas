@@ -33,12 +33,12 @@ type
 procedure TProgressBridge.OnProgressEx(Sender: TObject; const ATotPos, ATotSize: Int64);
 begin
   if (ATotSize <= 0) or not Assigned(Cb) then Exit;
-  var pct := Round(ATotPos * 100 / ATotSize);
+  var pct := Round(ATotPos*100/ATotSize);
   if pct > 100 then pct := 100;
   if pct < 0 then pct := 0;
   if pct = LastPct then Exit;
   LastPct := pct;
-  Cb(pct, Format('%.1f / %.1f MB', [ATotPos / (1024*1024), ATotSize / (1024*1024)]));
+  Cb(pct, Format('%.1f / %.1f MB', [ATotPos/(1024*1024), ATotSize/(1024*1024)]));
 end;
 
 function ExtractZip(const ZipPath, DestDir: string; OnProgress: TZipProgress): Boolean;
@@ -47,8 +47,7 @@ begin
   if not DirectoryExists(DestDir) then
     if not ForceDirectories(DestDir) then Exit;
 
-  // LIFO: UnZip frees first, then Bridge - safe because UnZip drops its
-  // OnProgressEx handler before destruction
+  // LIFO: UnZip frees first, then Bridge - safe because UnZip drops its OnProgressEx handler before destruction
   var Bridge := autofree TProgressBridge.Create;
   var UnZip := autofree TUnZipper.Create;
   Bridge.Cb := OnProgress;
@@ -60,8 +59,7 @@ begin
     UnZip.UnZipAllFiles;
     Result := True;
   except
-    on E: Exception do
-      Result := False;
+    on E: Exception do Result := False;
   end;
 end;
 
