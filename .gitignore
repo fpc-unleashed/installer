@@ -5,6 +5,7 @@
 *.ppu
 *.o
 src/lib/
+branchhash/lib/
 
 # Lazarus session files
 *.lps
