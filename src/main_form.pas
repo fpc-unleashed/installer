@@ -7,8 +7,7 @@ unit main_form;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Dialogs,
-  Graphics, LCLType, LCLIntf, LResources, Menus, Clipbrd, RegExpr, fileinfo,
+  Classes, SysUtils, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Dialogs, Graphics, LCLType, LCLIntf, LResources, Menus, Clipbrd, RegExpr, fileinfo,
   {$ifdef MSWINDOWS} Windows, ShellApi, {$endif}
   {$ifdef LINUX} process, {$endif}
   branch_fetch, install_pipeline, install_manifest;
@@ -156,8 +155,7 @@ begin
   try
     repeat
       if (SR.Name <> '.') and (SR.Name <> '..') and ((SR.Attr and faDirectory) <> 0) and
-         (Length(SR.Name) > 0) and (SR.Name[1] in ['0'..'9']) and
-         DirectoryExists(Base+SR.Name+'/units/'+target) then begin
+         (Length(SR.Name) > 0) and (SR.Name[1] in ['0'..'9']) and DirectoryExists(Base+SR.Name+'/units/'+target) then begin
         Result := True;
         Exit;
       end;
@@ -396,20 +394,13 @@ begin
     // addon deltas. Pipeline's StepRebuildLazarusForAddons handles
     // these without a full reinstall, but the user needs visual cues
     // so the Install/Reinstall button labels reflect reality.
-    if hasLaz and (CheckBoxMinimap.Checked <> m.InstallMinimap) then
-      updates := updates+(if CheckBoxMinimap.Checked then ' +minimap' else ' -minimap');
-    if hasLaz and (CheckBoxCPUView.Checked <> m.InstallCPUView) then
-      updates := updates+(if CheckBoxCPUView.Checked then ' +cpuview' else ' -cpuview');
-    if hasFpc and CheckBoxCrossWin64.Enabled and (CheckBoxCrossWin64.Checked <> m.CrossWin64) then
-      updates := updates+(if CheckBoxCrossWin64.Checked then ' +x86_64-win64' else ' -x86_64-win64');
-    if hasFpc and (CheckBoxCrossWin32.Checked <> m.CrossWin32) then
-      updates := updates+(if CheckBoxCrossWin32.Checked then ' +i386-win32' else ' -i386-win32');
-    if hasFpc and (CheckBoxCrossLinux64.Checked <> m.CrossLinux64) then
-      updates := updates+(if CheckBoxCrossLinux64.Checked then ' +x86_64-linux' else ' -x86_64-linux');
-    if hasFpc and (CheckBoxCrossLinux32.Checked <> m.CrossLinux32) then
-      updates := updates+(if CheckBoxCrossLinux32.Checked then ' +i386-linux' else ' -i386-linux');
-    if hasFpc and (CheckBoxCrossWasm.Checked <> m.CrossWasm) then
-      updates := updates+(if CheckBoxCrossWasm.Checked then ' +wasm32-wasip1' else ' -wasm32-wasip1');
+    if hasLaz and (CheckBoxMinimap.Checked <> m.InstallMinimap) then updates := updates+(if CheckBoxMinimap.Checked then ' +minimap' else ' -minimap');
+    if hasLaz and (CheckBoxCPUView.Checked <> m.InstallCPUView) then updates := updates+(if CheckBoxCPUView.Checked then ' +cpuview' else ' -cpuview');
+    if hasFpc and CheckBoxCrossWin64.Enabled and (CheckBoxCrossWin64.Checked <> m.CrossWin64) then updates := updates+(if CheckBoxCrossWin64.Checked then ' +x86_64-win64' else ' -x86_64-win64');
+    if hasFpc and (CheckBoxCrossWin32.Checked <> m.CrossWin32) then updates := updates+(if CheckBoxCrossWin32.Checked then ' +i386-win32' else ' -i386-win32');
+    if hasFpc and (CheckBoxCrossLinux64.Checked <> m.CrossLinux64) then updates := updates+(if CheckBoxCrossLinux64.Checked then ' +x86_64-linux' else ' -x86_64-linux');
+    if hasFpc and (CheckBoxCrossLinux32.Checked <> m.CrossLinux32) then updates := updates+(if CheckBoxCrossLinux32.Checked then ' +i386-linux' else ' -i386-linux');
+    if hasFpc and (CheckBoxCrossWasm.Checked <> m.CrossWasm) then updates := updates+(if CheckBoxCrossWasm.Checked then ' +wasm32-wasip1' else ' -wasm32-wasip1');
   end;
 
   if updates <> '' then begin
@@ -426,20 +417,16 @@ begin
   // explicit hash override wins, otherwise use the head SHA of the
   // currently-selected branch as known at the last fetch
   Result := if (not CheckBoxUnleashedLatest.Checked) and (Trim(EditUnleashedHash.Text) <> '') then
-              LowerCase(Trim(EditUnleashedHash.Text))
-            else if ComboBoxUnleashedBranch.Text <> '' then
-              LowerCase(FFpcBranchShas.Values[ComboBoxUnleashedBranch.Text])
-            else
+              LowerCase(Trim(EditUnleashedHash.Text)) else if ComboBoxUnleashedBranch.Text <> '' then
+              LowerCase(FFpcBranchShas.Values[ComboBoxUnleashedBranch.Text]) else
               '';
 end;
 
 function TMainForm.ResolveSelectedLazSha: string;
 begin
   Result := if (not CheckBoxLazarusLatest.Checked) and (Trim(EditLazarusHash.Text) <> '') then
-              LowerCase(Trim(EditLazarusHash.Text))
-            else if ComboBoxLazarusBranch.Text <> '' then
-              LowerCase(FLazBranchShas.Values[ComboBoxLazarusBranch.Text])
-            else
+              LowerCase(Trim(EditLazarusHash.Text)) else if ComboBoxLazarusBranch.Text <> '' then
+              LowerCase(FLazBranchShas.Values[ComboBoxLazarusBranch.Text]) else
               '';
 end;
 
@@ -498,9 +485,7 @@ end;
 procedure TMainForm.FillCombo(Combo: TComboBox; T: TBranchFetchThread);
 begin
   // pick the matching SHA map field by repo so caller code stays simple
-  var shaMap := if T.Repo = REPO_FPC then FFpcBranchShas
-                else if T.Repo = REPO_LAZARUS then FLazBranchShas
-                else nil;
+  var shaMap := if T.Repo = REPO_FPC then FFpcBranchShas else if T.Repo = REPO_LAZARUS then FLazBranchShas else nil;
   if shaMap <> nil then shaMap.Clear;
 
   Combo.Items.Clear;
@@ -521,10 +506,7 @@ begin
   // in .Items -- and .Items was still empty because the fetch is async.
   var manifestBranch: string := '';
   var m := ReadManifest(Trim(EditTargetDir.Text));
-  if m.Present then
-    manifestBranch := if Combo = ComboBoxUnleashedBranch then m.FpcBranch
-                      else if Combo = ComboBoxLazarusBranch then m.LazBranch
-                      else '';
+  if m.Present then manifestBranch := if Combo = ComboBoxUnleashedBranch then m.FpcBranch else if Combo = ComboBoxLazarusBranch then m.LazBranch else '';
 
   var idx := if manifestBranch <> '' then Combo.Items.IndexOf(manifestBranch) else -1;
   if idx < 0 then idx := Combo.Items.IndexOf('main');
@@ -607,8 +589,7 @@ begin
   // an i386-CPU binary with soft-x80 baked in -- supports both -Twin32
   // and -Tlinux). Auto-tick win32 so the user does not have to remember
   // the prerequisite.
-  if CheckBoxCrossLinux32.Checked then
-    CheckBoxCrossWin32.Checked := True;
+  if CheckBoxCrossLinux32.Checked then CheckBoxCrossWin32.Checked := True;
 end;
 
 procedure TMainForm.LabelLinkCPUViewClick(Sender: TObject);
@@ -671,14 +652,13 @@ end;
 // renders red, not olive.
 function ColorForLine(const s: string): TColor;
 begin
-  if (Pos('Error', s) > 0) or (Pos('Fatal', s) > 0) or (Pos('FAILED', s) > 0) or (Pos('failed:', s) > 0) then
-    Result := clRed
-  else if Pos('Warning', s) > 0 then Result := clOlive
-  else if (Pos('===', s) > 0) or (Pos(' ---', s) > 0) then Result := clNavy
-  else if (Pos('Compiling ', s) > 0) or (Pos('Linking ', s) > 0) or (Pos('Installing ', s) > 0) then
+  if (Pos('Error', s) > 0) or (Pos('Fatal', s) > 0) or (Pos('FAILED', s) > 0) or (Pos('failed:', s) > 0) then Result := clRed else if Pos('Warning', s) > 0 then
+    Result := clOlive else if (Pos('===', s) > 0) or (Pos(' ---', s) > 0) then
+    Result := clNavy else if (Pos('Compiling ', s) > 0) or (Pos('Linking ', s) > 0) or (Pos('Installing ', s) > 0) then
     Result := TColor($008000) // dark green
-  else if Pos('make[', s) > 0 then Result := clGray
-  else Result := clWindowText;
+  else if Pos('make[', s) > 0 then
+    Result := clGray else
+    Result := clWindowText;
 end;
 
 procedure TMainForm.ListBoxLogDrawItem(Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
@@ -836,10 +816,10 @@ begin
 
   Log('--- install requested ---');
   Log('target dir: '+cfg.TargetDir);
-  if cfg.InstallFpc then Log('install fpc-unleashed: yes ('+cfg.FpcBranch+')')
-  else Log('install fpc-unleashed: no');
-  if cfg.InstallLazarus then Log('install lazarus IDE:  yes ('+cfg.LazBranch+')')
-  else Log('install lazarus IDE:  no');
+  if cfg.InstallFpc then Log('install fpc-unleashed: yes ('+cfg.FpcBranch+')') else
+    Log('install fpc-unleashed: no');
+  if cfg.InstallLazarus then Log('install lazarus IDE:  yes ('+cfg.LazBranch+')') else
+    Log('install lazarus IDE:  no');
 
   FInstalling := True;
   SetInputsEnabled(False);

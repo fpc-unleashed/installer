@@ -97,12 +97,20 @@ jobs:
         run: |
           $tz = [System.TimeZoneInfo]::FindSystemTimeZoneById("Central European Standard Time")
           $ts = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $tz).ToString("yyyy-MM-dd HH:mm:ss 'CEST'")
+          [xml]$xml = Get-Content "src\installer.lpi"
+          $vi  = $xml.CONFIG.ProjectOptions.VersionInfo
+          $maj = if ($vi.MajorVersionNr) { $vi.MajorVersionNr.Value } else { '0' }
+          $min = if ($vi.MinorVersionNr) { $vi.MinorVersionNr.Value } else { '0' }
+          $rev = if ($vi.RevisionNr)     { $vi.RevisionNr.Value }     else { '0' }
+          $bld = if ($vi.BuildNr)        { $vi.BuildNr.Value }        else { '0' }
+          $ver = "$maj.$min.$rev.$bld"
           echo "TAG=nightly" >> $env:GITHUB_ENV
           echo "NAME=Unleashed Installer nightly" >> $env:GITHUB_ENV
           "Unleashed Installer nightly build" | Out-File -FilePath release-body.txt -Encoding UTF8
           "" | Out-File -Append release-body.txt -Encoding UTF8
           "Generated from commit: $env:GITHUB_SHA" | Out-File -Append release-body.txt -Encoding UTF8
           "Build time: $ts" | Out-File -Append release-body.txt -Encoding UTF8
+          "Version: $ver"   | Out-File -Append release-body.txt -Encoding UTF8
 
       - name: Update tag
         uses: richardsimko/update-tag@v1

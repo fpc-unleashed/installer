@@ -130,6 +130,11 @@ jobs:
       - name: Prepare release
         run: |
           ts=$(TZ=Europe/Berlin date +"%Y-%m-%d %H:%M:%S CEST")
+          maj=$(grep -oP '<MajorVersionNr Value="\K[0-9]+' src/installer.lpi || echo 0)
+          min=$(grep -oP '<MinorVersionNr Value="\K[0-9]+' src/installer.lpi || echo 0)
+          rev=$(grep -oP '<RevisionNr Value="\K[0-9]+'     src/installer.lpi || echo 0)
+          bld=$(grep -oP '<BuildNr Value="\K[0-9]+'        src/installer.lpi || echo 0)
+          ver="${maj}.${min}.${rev}.${bld}"
           echo "TAG=nightly" >> $GITHUB_ENV
           echo "NAME=Unleashed Installer nightly" >> $GITHUB_ENV
           {
@@ -137,6 +142,7 @@ jobs:
             echo
             echo "Generated from commit: $GITHUB_SHA"
             echo "Build time: $ts"
+            echo "Version: $ver"
           } > release-body.txt
 
       - name: Update tag

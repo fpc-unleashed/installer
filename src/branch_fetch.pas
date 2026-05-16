@@ -143,7 +143,8 @@ begin
         Move(Buf, chunk[1], n);
         StderrBuf := StderrBuf+chunk;
       end;
-    end else Sleep(20);
+    end else
+      Sleep(20);
   end;
 
   if P.ExitStatus <> 0 then raise Exception.CreateFmt('curl failed (exit=%d): %s', [P.ExitStatus, Trim(StderrBuf)]);
