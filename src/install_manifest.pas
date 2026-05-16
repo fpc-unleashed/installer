@@ -10,19 +10,18 @@ uses
   Classes, SysUtils;
 
 type
-  // a tiny snapshot of what got installed so a later run can decide
-  // whether the user's currently-selected branch/hash matches what is
-  // already on disk and therefore whether to skip or refresh the build.
+  // a tiny snapshot of what got installed so a later run can decide whether the
+  // user's currently-selected branch/hash matches what is already on disk and
+  // therefore whether to skip or refresh the build.
   TInstallManifest = record
     Present: Boolean;
     FpcBranch: string;
     FpcSha: string;
-    // User's "latest" intent at install time: True means CheckBoxLatest
-    // was ticked (and we resolved the branch head SHA into FpcSha at
-    // that moment). Persisted so a re-open restores the checkbox state
-    // correctly. Without this flag we'd have to guess from FpcSha-empty,
-    // which is wrong: latest=yes also stores the resolved SHA in FpcSha
-    // for display/comparison purposes.
+    // User's "latest" intent at install time: True means CheckBoxLatest was
+    // ticked (and we resolved the branch head SHA into FpcSha at that moment).
+    // Persisted so a re-open restores the checkbox state correctly. Without
+    // this flag we'd have to guess from FpcSha-empty, which is wrong: latest=yes
+    // also stores the resolved SHA in FpcSha for display/comparison purposes.
     FpcLatest: Boolean;
     LazBranch: string;
     LazSha: string;
@@ -32,12 +31,16 @@ type
     CrossLinux64: Boolean;     // cross to x86_64-linux (only built on win64 host)
     CrossLinux32: Boolean;     // legacy 32-bit
     CrossWasm: Boolean;
-    // optional Lazarus IDE addons -- written so a re-run can pre-tick
-    // the right checkboxes
+    // optional Lazarus IDE addons -- written so a re-run can pre-tick the right checkboxes
     InstallMinimap: Boolean;
     InstallCPUView: Boolean;
-    // last launch-after-install state, restored to the checkbox on
-    // re-run so the user does not have to re-tick every time
+    // Windows-only design-time IDE plugin (toggles SetWindowDisplayAffinity on
+    // the IDE main window so screen-capture tools omit it). The field exists on
+    // every host because the manifest is portable -- a Windows-installed value
+    // must survive a re-read on a Linux host without being clobbered.
+    InstallToggleAffinity: Boolean;
+    // last launch-after-install state, restored to the checkbox on re-run so
+    // the user does not have to re-tick every time
     LaunchAfter: Boolean;
     InstalledAt: string;
   end;
@@ -58,7 +61,9 @@ end;
 
 function StrToBoolDefSafe(const S: string; const Def: Boolean): Boolean;
 begin
-  if (S = 'yes') or (S = 'true') or (S = '1') then Result := True else if (S = 'no') or (S = 'false') or (S = '0') then Result := False else Result := Def;
+  if (S = 'yes') or (S = 'true') or (S = '1') then Result := True
+  else if (S = 'no') or (S = 'false') or (S = '0') then Result := False
+  else Result := Def;
 end;
 
 function BoolFlag(B: Boolean): string;
@@ -82,9 +87,9 @@ begin
   end;
   Result.FpcBranch    := Lines.Values['fpc-branch'];
   Result.FpcSha       := LowerCase(Lines.Values['fpc-sha']);
-  // Older manifests (pre-fpc-latest field) default the flag to True
-  // when no SHA is recorded (legacy "empty SHA == latest" interpretation),
-  // False otherwise. New manifests carry the explicit flag.
+  // Older manifests (pre-fpc-latest field) default the flag to True when no SHA
+  // is recorded (legacy "empty SHA == latest" interpretation), False otherwise.
+  // New manifests carry the explicit flag.
   Result.FpcLatest    := StrToBoolDefSafe(Lines.Values['fpc-latest'], Result.FpcSha = '');
   Result.LazBranch    := Lines.Values['lazarus-branch'];
   Result.LazSha       := LowerCase(Lines.Values['lazarus-sha']);
@@ -93,12 +98,13 @@ begin
   Result.CrossWin32   := StrToBoolDefSafe(Lines.Values['cross-i386-win32'], False);
   Result.CrossLinux64 := StrToBoolDefSafe(Lines.Values['cross-x86_64-linux'], False);
   Result.CrossLinux32 := StrToBoolDefSafe(Lines.Values['cross-i386-linux'], False);
-  // Accept both wasip1 (current) and wasi (older manifests written by
-  // earlier installer versions) so a re-run reads the historical flag
-  // correctly without forcing a clean reinstall.
+  // Accept both wasip1 (current) and wasi (older manifests written by earlier
+  // installer versions) so a re-run reads the historical flag correctly
+  // without forcing a clean reinstall.
   Result.CrossWasm    := StrToBoolDefSafe(Lines.Values['cross-wasm32-wasip1'], StrToBoolDefSafe(Lines.Values['cross-wasm32-wasi'], False));
   Result.InstallMinimap := StrToBoolDefSafe(Lines.Values['extras-minimap'], False);
   Result.InstallCPUView := StrToBoolDefSafe(Lines.Values['extras-cpuview'], False);
+  Result.InstallToggleAffinity := StrToBoolDefSafe(Lines.Values['extras-toggle-affinity'], False);
   Result.LaunchAfter  := StrToBoolDefSafe(Lines.Values['launch-after-install'], True);
   Result.InstalledAt  := Lines.Values['installed-at'];
   Result.Present      := True;
@@ -123,6 +129,7 @@ begin
   Lines.Add('cross-wasm32-wasip1='+BoolFlag(M.CrossWasm));
   Lines.Add('extras-minimap='+BoolFlag(M.InstallMinimap));
   Lines.Add('extras-cpuview='+BoolFlag(M.InstallCPUView));
+  Lines.Add('extras-toggle-affinity='+BoolFlag(M.InstallToggleAffinity));
   Lines.Add('launch-after-install='+BoolFlag(M.LaunchAfter));
   Lines.Add('installed-at='+M.InstalledAt);
   try

@@ -1,10 +1,10 @@
 object MainForm: TMainForm
   Left = 300
-  Height = 592
+  Height = 614
   Top = 100
   Width = 1375
   Caption = 'FPC Unleashed Edition Installer'
-  ClientHeight = 592
+  ClientHeight = 614
   ClientWidth = 1375
   Position = poScreenCenter
   LCLVersion = '4.99.0.0'
@@ -141,25 +141,25 @@ object MainForm: TMainForm
   end
   object GroupBoxLazarus: TGroupBox
     Left = 10
-    Height = 109
+    Height = 131
     Top = 233
     Width = 1355
     Align = alTop
     AutoSize = True
     BorderSpacing.Around = 10
     Caption = 'Lazarus Unleashed IDE'
-    ClientHeight = 89
+    ClientHeight = 111
     ClientWidth = 1351
     TabOrder = 1
     object PanelLazarusBody: TPanel
       Left = 5
-      Height = 79
+      Height = 101
       Top = 5
       Width = 1341
       Align = alClient
       BorderSpacing.Around = 5
       BevelOuter = bvNone
-      ClientHeight = 79
+      ClientHeight = 101
       ClientWidth = 1341
       TabOrder = 0
       object CheckBoxInstallLazarus: TCheckBox
@@ -267,6 +267,14 @@ object MainForm: TMainForm
         ParentFont = False
         ShowHint = True
         OnClick = LabelLinkCPUViewClick
+      end
+      object CheckBoxToggleAffinity: TCheckBox
+        Left = 792
+        Height = 19
+        Top = 74
+        Width = 230
+        Caption = 'Toggle Display Affinity (Windows-only)'
+        TabOrder = 7
       end
     end
   end
