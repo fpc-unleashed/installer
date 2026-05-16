@@ -29,8 +29,7 @@ begin
   // CSIDL_DESKTOPDIRECTORY is the per-user file-system Desktop path.
   // CSIDL_DESKTOP is the virtual desktop folder (which contains things
   // like My Computer); we want the physical dir.
-  if SHGetFolderPathA(0, CSIDL_DESKTOPDIRECTORY, 0, 0, @Buf[0]) = S_OK then
-    Result := AnsiString(Buf);
+  if SHGetFolderPathA(0, CSIDL_DESKTOPDIRECTORY, 0, 0, @Buf[0]) = S_OK then Result := AnsiString(Buf);
 end;
 
 function CreateDesktopShortcut(const TargetPath, Args, ShortcutName: string): Boolean;
@@ -68,11 +67,17 @@ end;
 function BuildDesktopEntry(const TargetPath, Args, ShortcutName: string): string;
 begin
   var ExecLine := TargetPath;
-  if Args <> '' then ExecLine := TargetPath+' '+Args;
-  // Lazarus icon filename has drifted: 2.x ide_icon.png, 3.x ide_icon48x48.png, 4.x added ide_icon128x128.png.
-  // Probe candidates and pick the first that exists; renderers silently fall back to a generic icon when Icon= is missing.
-  var LazDir := IncludeTrailingPathDelimiter(ExtractFilePath(TargetPath))+'images/';
-  var IconCandidates: array of string := [LazDir+'ide_icon128x128.png', LazDir+'ide_icon48x48.png', LazDir+'ide_icon.png'];
+  if Args <> '' then ExecLine := TargetPath + ' ' + Args;
+  // Lazarus ships its own icon under <lazarusdir>/images/. The exact
+  // filename has shifted across versions: 2.x had ide_icon.png, 3.x
+  // ide_icon48x48.png, 4.x added ide_icon128x128.png and similar
+  // sizes. TargetPath is <lazarusdir>/lazarus, so ExtractFilePath
+  // gives us the dir. Probe a few candidates and pick the first that
+  // actually exists; Linux .desktop renderers silently fall back to
+  // a generic placeholder when Icon= points at a missing file.
+  var LazDir := IncludeTrailingPathDelimiter(ExtractFilePath(TargetPath)) + 'images/';
+  var IconCandidates: array of string := [
+    LazDir + 'ide_icon128x128.png', LazDir + 'ide_icon48x48.png', LazDir + 'ide_icon.png'];
   var IconPath: string := '';
   for var i := Low(IconCandidates) to High(IconCandidates) do
     if FileExists(IconCandidates[i]) then begin
@@ -80,15 +85,15 @@ begin
       Break;
     end;
   Result :=
-    '[Desktop Entry]'#10+
-    'Type=Application'#10+
-    'Version=1.0'#10+
-    'Name='+ShortcutName+#10+
-    'Comment=Lazarus IDE (FPC Unleashed)'#10+
-    'Exec='+ExecLine+#10+
-    (if IconPath <> '' then 'Icon='+IconPath+#10 else '')+
-    'Terminal=false'#10+
-    'Categories=Development;IDE;'#10+
+    '[Desktop Entry]'#10 +
+    'Type=Application'#10 +
+    'Version=1.0'#10 +
+    'Name=' + ShortcutName + #10 +
+    'Comment=Lazarus IDE (FPC Unleashed)'#10 +
+    'Exec=' + ExecLine + #10 +
+    (if IconPath <> '' then 'Icon=' + IconPath + #10 else '') +
+    'Terminal=false'#10 +
+    'Categories=Development;IDE;'#10 +
     'StartupNotify=false'#10;
 end;
 
@@ -103,8 +108,11 @@ begin
   except
     Exit;
   end;
-  // GNOME 3.34+ requires +x to double-click-launch the .desktop file; KDE doesn't care.
-  // /bin/chmod keeps BaseUnix out of uses just for fpchmod. Failure is non-fatal -- menu entry still parses.
+  // GNOME 3.34+ requires the .desktop file to be executable for
+  // double-click to launch it; KDE doesn't care. We shell out to
+  // /bin/chmod so we don't have to pull BaseUnix in just for fpchmod.
+  // Best-effort; failure is non-fatal (the file is still parsable for
+  // menu entries, just not double-clickable from the desktop).
   RunSilent('/bin/chmod', ['0755', Path]);
   Result := True;
 end;
@@ -116,13 +124,17 @@ begin
   if Home = '' then Exit;
 
   var Body := BuildDesktopEntry(TargetPath, Args, ShortcutName);
-  // sanitize filename: spaces/parens are fine in Name= but ugly on disk; map whitespace to '-', strip everything outside [A-Za-z0-9.-_]
+  // Sanitize the filename: spaces and parens are fine in Name= but
+  // ugly in the on-disk path. Replace whitespace with '-' and strip
+  // problematic chars; keep ascii letters / digits / dot / dash / underscore.
   var FileBase: string := '';
   for var i := 1 to Length(ShortcutName) do begin
     var c := ShortcutName[i];
     case c of
-      'A'..'Z', 'a'..'z', '0'..'9', '.', '-', '_': FileBase := FileBase+c;
-      ' ', #9: FileBase := FileBase+'-';
+      'A'..'Z', 'a'..'z', '0'..'9', '.', '-', '_':
+        FileBase := FileBase + c;
+      ' ', #9:
+        FileBase := FileBase + '-';
       // skip anything else
     end;
   end;
@@ -131,7 +143,8 @@ begin
   var DesktopPath := IncludeTrailingPathDelimiter(Home)+'Desktop'+DirectorySeparator+FileBase+'.desktop';
   var MenuPath    := IncludeTrailingPathDelimiter(Home)+'.local/share/applications/'+FileBase+'.desktop';
 
-  // best-effort: write both locations. Desktop entry is primary, menu entry is nice-to-have. Succeed if either lands.
+  // best-effort: write both locations. Desktop entry is the primary;
+  // menu entry is nice-to-have. Succeed if either lands.
   var WroteDesktop := WriteDesktopFile(DesktopPath, Body);
   var WroteMenu    := WriteDesktopFile(MenuPath,    Body);
   Result := WroteDesktop or WroteMenu;
