@@ -76,15 +76,24 @@ begin
   // actually exists; Linux .desktop renderers silently fall back to
   // a generic placeholder when Icon= points at a missing file.
   var LazDir := IncludeTrailingPathDelimiter(ExtractFilePath(TargetPath))+'images/';
-  var IconCandidates: array of string := [ LazDir+'ide_icon128x128.png', LazDir+'ide_icon48x48.png', LazDir+'ide_icon.png' ];
+  var IconCandidates: array of string := [
+    LazDir+'ide_icon128x128.png', LazDir+'ide_icon48x48.png', LazDir+'ide_icon.png' ];
   var IconPath: string := '';
   for var i := Low(IconCandidates) to High(IconCandidates) do
     if FileExists(IconCandidates[i]) then begin
       IconPath := IconCandidates[i];
       Break;
     end;
-  Result := '[Desktop Entry]'#10+'Type=Application'#10+'Version=1.0'#10+'Name='+ShortcutName + #10+'Comment=Lazarus IDE (FPC Unleashed)'#10+'Exec='+ExecLine + #10 +
-    (if IconPath <> '' then 'Icon='+IconPath + #10 else '')+'Terminal=false'#10+'Categories=Development;IDE;'#10+'StartupNotify=false'#10;
+  Result := '[Desktop Entry]'#10 +
+    'Type=Application'#10 +
+    'Version=1.0'#10 +
+    'Name='+ShortcutName+#10 +
+    'Comment=Lazarus IDE (FPC Unleashed)'#10 +
+    'Exec='+ExecLine+#10 +
+    (if IconPath <> '' then 'Icon='+IconPath+#10 else '') +
+    'Terminal=false'#10 +
+    'Categories=Development;IDE;'#10 +
+    'StartupNotify=false'#10;
 end;
 
 function WriteDesktopFile(const Path, Body: string): Boolean;
@@ -118,14 +127,10 @@ begin
   // ugly in the on-disk path. Replace whitespace with '-' and strip
   // problematic chars; keep ascii letters / digits / dot / dash / underscore.
   var FileBase: string := '';
-  for var i := 1 to Length(ShortcutName) do
-  begin
+  for var i := 1 to Length(ShortcutName) do begin
     var c := ShortcutName[i];
-    case c of
-      'A'..'Z', 'a'..'z', '0'..'9', '.', '-', '_':
-        FileBase := FileBase+c;
-      ' ', #9:
-        FileBase := FileBase+'-';
+    case c of 'A'..'Z', 'a'..'z', '0'..'9', '.', '-', '_': FileBase := FileBase+c;
+      ' ', #9: FileBase := FileBase+'-';
       // skip anything else
     end;
   end;

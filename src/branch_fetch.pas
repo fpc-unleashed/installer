@@ -123,8 +123,7 @@ begin
   try
     P.Execute;
   except
-    on E: Exception do
-      raise Exception.Create('curl not found in PATH (install: apt install curl): '+E.Message);
+    on E: Exception do raise Exception.Create('curl not found in PATH (install: apt install curl): '+E.Message);
   end;
 
   // Drain both pipes until the child exits and there's nothing left.
@@ -132,13 +131,11 @@ begin
   // when curl succeeds thanks to -s, populated on -S errors).
   var StdoutBuf := autofree TMemoryStream.Create;
   var StderrBuf: string := '';
-  while P.Running or (P.Output.NumBytesAvailable > 0) or (P.Stderr.NumBytesAvailable > 0) do
-  begin
+  while P.Running or (P.Output.NumBytesAvailable > 0) or (P.Stderr.NumBytesAvailable > 0) do begin
     if P.Output.NumBytesAvailable > 0 then begin
       n := P.Output.Read(Buf, Length(Buf));
       if n > 0 then StdoutBuf.Write(Buf, n);
-    end
-    else if P.Stderr.NumBytesAvailable > 0 then begin
+    end else if P.Stderr.NumBytesAvailable > 0 then begin
       n := P.Stderr.Read(Buf, Length(Buf));
       if n > 0 then begin
         var chunk: string := '';
@@ -146,8 +143,7 @@ begin
         Move(Buf, chunk[1], n);
         StderrBuf := StderrBuf+chunk;
       end;
-    end else
-      Sleep(20);
+    end else Sleep(20);
   end;
 
   if P.ExitStatus <> 0 then raise Exception.CreateFmt('curl failed (exit=%d): %s', [P.ExitStatus, Trim(StderrBuf)]);
@@ -179,8 +175,7 @@ begin
     // store as "name=sha" so callers can both build a names list for
     // a combobox (Names[i]) and look up the head SHA for a branch
     // (Values[branchName]) in O(1).
-    for var i := 0 to Arr.Count-1 do
-    begin
+    for var i := 0 to Arr.Count-1 do begin
       var Obj := Arr.Objects[i];
       if Obj <> nil then FBranches.Add(Obj.Get('name', '')+'='+TJSONObject(Obj.Find('commit')).Get('sha', ''));
     end;

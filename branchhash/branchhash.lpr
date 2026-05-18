@@ -22,7 +22,7 @@ begin
   var i := 1;
   while i+3 <= len do begin
     var k: LongWord := LongWord(Byte(s[i])) or (LongWord(Byte(s[i+1])) shl 8) or (LongWord(Byte(s[i+2])) shl 16) or (LongWord(Byte(s[i+3])) shl 24);
-    result := rotl(result xor (rotl(k * C1, 15) * C2), 13) * 5 + $e6546b64;
+    result := rotl(result xor (rotl(k * C1, 15) * C2), 13) * 5+$e6546b64;
     inc(i, 4);
   end;
   var rem := len-i+1;
@@ -43,7 +43,8 @@ begin
 end;
 
 const
-  AnsiReset  = #27'[0m'; AnsiRed    = #27'[31m';
+  AnsiReset  = #27'[0m';
+  AnsiRed    = #27'[31m';
 
 begin
   var ldef := 3; // default len

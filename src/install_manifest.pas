@@ -68,9 +68,7 @@ end;
 
 function StrToBoolDefSafe(const S: string; const Def: Boolean): Boolean;
 begin
-  if (S = 'yes') or (S = 'true') or (S = '1') then Result := True
-  else if (S = 'no') or (S = 'false') or (S = '0') then Result := False
-  else Result := Def;
+  if (S = 'yes') or (S = 'true') or (S = '1') then Result := True else if (S = 'no') or (S = 'false') or (S = '0') then Result := False else Result := Def;
 end;
 
 function BoolFlag(B: Boolean): string;

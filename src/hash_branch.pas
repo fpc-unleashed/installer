@@ -73,13 +73,12 @@ begin
   Result := Seed;
   var len := Length(s);
   var i := 1;
-  while i+3 <= len do
-  begin
+  while i+3 <= len do begin
     var k: LongWord :=  LongWord(Byte(s[i]))
                     or (LongWord(Byte(s[i+1])) shl 8)
                     or (LongWord(Byte(s[i+2])) shl 16)
                     or (LongWord(Byte(s[i+3])) shl 24);
-    Result := rotl(Result xor (rotl(k * C1, 15) * C2), 13) * 5 + $e6546b64;
+    Result := rotl(Result xor (rotl(k * C1, 15) * C2), 13) * 5+$e6546b64;
     Inc(i, 4);
   end;
   var rem := len-i+1;
@@ -108,8 +107,7 @@ function CollectHexRuns(const s: string; MinLen: Integer): array of string;
 begin
   SetLength(Result, 0);
   var i := 1;
-  while i <= Length(s) do
-  begin
+  while i <= Length(s) do begin
     if s[i] in ['0'..'9', 'a'..'f', 'A'..'F'] then begin
       var startPos := i;
       while (i <= Length(s)) and (s[i] in ['0'..'9', 'a'..'f', 'A'..'F']) do
@@ -118,8 +116,7 @@ begin
         SetLength(Result, Length(Result)+1);
         Result[High(Result)] := Copy(s, startPos, i-startPos);
       end;
-    end else
-      Inc(i);
+    end else Inc(i);
   end;
 end;
 
@@ -137,10 +134,8 @@ end;
 // or chaining Ord arithmetic three times at every call site.
 function HexCharToInt(c: Char): Integer;
 begin
-  if (c >= '0') and (c <= '9') then Result := Ord(c)-Ord('0')
-  else if (c >= 'a') and (c <= 'f') then Result := Ord(c)-Ord('a')+10
-  else if (c >= 'A') and (c <= 'F') then Result := Ord(c)-Ord('A')+10
-  else Result := -1;
+  if (c >= '0') and (c <= '9') then Result := Ord(c)-Ord('0') else if (c >= 'a') and (c <= 'f') then Result := Ord(c)-Ord('a')+10
+  else if (c >= 'A') and (c <= 'F') then Result := Ord(c)-Ord('A')+10 else Result := -1;
 end;
 
 // Read one commit-position field (pos 1 or 2 in the blob).
@@ -150,7 +145,8 @@ end;
 //                  prefix pin; branch from this field is implicitly 'main'
 // Returns False on any malformed / EOF / out-of-range case. On success
 // pos is advanced and commitHex / branchFromCommit are populated.
-function ReadCommitField(const blob: string; var pos: Integer; out commitHex, branchFromCommit: string): Boolean;
+function ReadCommitField(const blob: string; var pos: Integer;
+  out commitHex, branchFromCommit: string): Boolean;
 begin
   Result := False;
   commitHex := '';
@@ -180,7 +176,8 @@ end;
 // Read one branch-override field (pos 3 or 4 in the blob). These slots
 // are *hash-only*: predefined entries are not allowed (use pos 1/2 if you
 // want predefined). Length digit must be '1'..'9'; '0' rejects.
-function ReadBranchOverrideField(const blob: string; var pos: Integer; out hashHex: string): Boolean;
+function ReadBranchOverrideField(const blob: string; var pos: Integer;
+  out hashHex: string): Boolean;
 begin
   Result := False;
   hashHex := '';
@@ -213,8 +210,7 @@ begin
   // defaults to 'main' / latest -- same as if `00` had been written here.
   if pos <= Length(blob) then begin
     if not ReadCommitField(blob, pos, p.LazCommit, p.LazBranchFromCommit) then Exit;
-  end else
-    p.LazBranchFromCommit := PREDEFINED_BRANCHES[0];
+  end else p.LazBranchFromCommit := PREDEFINED_BRANCHES[0];
 
   // Pos 3 (optional): fpc branch hash override. Hash-only (1..9 hex chars).
   if pos <= Length(blob) then
@@ -250,8 +246,7 @@ begin
   Result := '';
   var prefixLen := Length(HexPrefix);
   if prefixLen = 0 then Exit;
-  for var i := 0 to Items.Count-1 do
-  begin
+  for var i := 0 to Items.Count-1 do begin
     var name := Items[i];
     var hash := LowerCase(IntToHex(Murmur3_32(name), 8));
     if SameText(Copy(hash, 1, prefixLen), HexPrefix) then Exit(name);
