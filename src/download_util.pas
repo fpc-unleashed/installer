@@ -17,8 +17,7 @@ type
 // native HTTPS, no OpenSSL dep). on Linux shells out to /usr/bin/curl
 // (default-installed on every mainstream distro; gives us HTTPS without
 // having to ship OpenSSL libs alongside the installer).
-function DownloadFile(const URL, DestPath: string;
-  OnProgress: TDownloadProgress): Boolean;
+function DownloadFile(const URL, DestPath: string; OnProgress: TDownloadProgress): Boolean;
 
 implementation
 
@@ -38,8 +37,7 @@ begin
   Result := Format('%.1f MB', [B / (1024 * 1024)]);
 end;
 
-function DownloadFile(const URL, DestPath: string;
-  OnProgress: TDownloadProgress): Boolean;
+function DownloadFile(const URL, DestPath: string; OnProgress: TDownloadProgress): Boolean;
 var
   Buf: array[0..CHUNK_SIZE-1] of Byte;
   Stream: TFileStream;
@@ -53,7 +51,8 @@ begin
   end;
   try
     var Connection := InternetOpenUrl(Session, PChar(URL), nil, 0,
-      INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
+      INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or
+      INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
     if Connection = nil then begin
       if Assigned(OnProgress) then OnProgress(-1, 'cannot open URL');
       Exit;
@@ -79,7 +78,8 @@ begin
       var LastPct: Integer := -2;
       var LastReportTotal: Int64 := 0;
       if Assigned(OnProgress) then begin
-        if ContentLength > 0 then OnProgress(0, '0 / '+HumanMB(ContentLength))
+        if ContentLength > 0 then
+          OnProgress(0, '0 / '+HumanMB(ContentLength))
         else OnProgress(-1, 'starting download...');
       end;
 
@@ -93,21 +93,25 @@ begin
         Stream.WriteBuffer(Buf[0], BytesRead);
         Inc(Total, BytesRead);
 
-        if Assigned(OnProgress) and ((Total-LastReportTotal >= REPORT_EVERY) or (BytesRead < CHUNK_SIZE)) then begin
+        if Assigned(OnProgress) and
+           ((Total-LastReportTotal >= REPORT_EVERY) or
+            (BytesRead < CHUNK_SIZE)) then begin
           LastReportTotal := Total;
           if ContentLength > 0 then begin
-            var Pct: Integer := Round(Total*100/ContentLength);
+            var Pct: Integer := Round(Total * 100 / ContentLength);
             if Pct > 100 then Pct := 100;
             if Pct <> LastPct then begin
               LastPct := Pct;
               OnProgress(Pct, HumanMB(Total)+' / '+HumanMB(ContentLength));
             end;
-          end else OnProgress(-1, HumanMB(Total)+' downloaded');
+          end else
+            OnProgress(-1, HumanMB(Total)+' downloaded');
         end;
       until False;
 
       if Assigned(OnProgress) then begin
-        if ContentLength > 0 then OnProgress(100, 'download complete')
+        if ContentLength > 0 then
+          OnProgress(100, 'download complete')
         else OnProgress(-1, HumanMB(Total)+' downloaded');
       end;
       Result := True;
@@ -124,8 +128,7 @@ end;
 uses
   proc_util;
 
-function DownloadFile(const URL, DestPath: string;
-  OnProgress: TDownloadProgress): Boolean;
+function DownloadFile(const URL, DestPath: string; OnProgress: TDownloadProgress): Boolean;
 begin
   Result := False;
   if Assigned(OnProgress) then OnProgress(-1, 'downloading...');
@@ -155,4 +158,3 @@ end;
 {$endif}
 
 end.
-

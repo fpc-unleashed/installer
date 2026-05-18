@@ -97,10 +97,10 @@ begin
   // Older manifests (pre-fpc-latest field) default the flag to True
   // when no SHA is recorded (legacy "empty SHA == latest" interpretation),
   // False otherwise. New manifests carry the explicit flag.
-  Result.FpcLatest    := StrToBoolDefSafe(Lines.Values['fpc-latest'], Result.FpcSha = '');
+  Result.FpcLatest := StrToBoolDefSafe(Lines.Values['fpc-latest'], Result.FpcSha = '');
   Result.LazBranch    := Lines.Values['lazarus-branch'];
   Result.LazSha       := LowerCase(Lines.Values['lazarus-sha']);
-  Result.LazLatest    := StrToBoolDefSafe(Lines.Values['lazarus-latest'], Result.LazSha = '');
+  Result.LazLatest := StrToBoolDefSafe(Lines.Values['lazarus-latest'], Result.LazSha = '');
   Result.CrossWin64   := StrToBoolDefSafe(Lines.Values['cross-x86_64-win64'], False);
   Result.CrossWin32   := StrToBoolDefSafe(Lines.Values['cross-i386-win32'], False);
   Result.CrossLinux64 := StrToBoolDefSafe(Lines.Values['cross-x86_64-linux'], False);
@@ -108,7 +108,7 @@ begin
   // Accept both wasip1 (current) and wasi (older manifests written by
   // earlier installer versions) so a re-run reads the historical flag
   // correctly without forcing a clean reinstall.
-  Result.CrossWasm    := StrToBoolDefSafe(Lines.Values['cross-wasm32-wasip1'], StrToBoolDefSafe(Lines.Values['cross-wasm32-wasi'], False));
+  Result.CrossWasm := StrToBoolDefSafe(Lines.Values['cross-wasm32-wasip1'], StrToBoolDefSafe(Lines.Values['cross-wasm32-wasi'], False));
   Result.InstallMinimap := StrToBoolDefSafe(Lines.Values['extras-minimap'], False);
   Result.InstallCPUView := StrToBoolDefSafe(Lines.Values['extras-cpuview'], False);
   Result.InstallToggleAffinity := StrToBoolDefSafe(Lines.Values['extras-toggle-affinity'], False);
@@ -150,4 +150,3 @@ begin
 end;
 
 end.
-

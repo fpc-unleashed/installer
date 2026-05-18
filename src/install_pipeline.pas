@@ -139,12 +139,9 @@ type
     function StepBuildFpcCrossLinux32FromLinux: Boolean;
     function StepRemoveCrossLinux32FromLinux: Boolean;
     function DownloadAndVerify(const Url, Sha, DestZip, StepLabel: string): Boolean;
-    function UnpackLinuxCross(const Tag, BinUrl, BinSha,
-      LibUrl, LibSha, BinDir, LibDir: string): Boolean;
-    function LinuxCommonMakeArgs(const TargetCpu, BinDir, LibDir,
-      BinPrefix: string): TStringArray;
-    function PatchFpcCfgCrossSection(const TargetOs, TargetCpu,
-      BinDir, LibDir, BinPrefix: string; Add: Boolean): Boolean;
+    function UnpackLinuxCross(const Tag, BinUrl, BinSha, LibUrl, LibSha, BinDir, LibDir: string): Boolean;
+    function LinuxCommonMakeArgs(const TargetCpu, BinDir, LibDir, BinPrefix: string): TStringArray;
+    function PatchFpcCfgCrossSection(const TargetOs, TargetCpu, BinDir, LibDir, BinPrefix: string; Add: Boolean): Boolean;
     procedure StepM3Cleanup;
     function StepGenerateFpcCfg: Boolean;
     function StepDownloadComponents: Boolean;
@@ -158,8 +155,7 @@ type
     function LazarusDir: string;
     function LazarusPcp: string;
     function ShortcutLabel: string;
-    function RunLazbuild(const Args: array of string;
-      const StepLabel: string): Boolean;
+    function RunLazbuild(const Args: array of string; const StepLabel: string): Boolean;
     function AddPackage(const LpkRel: string; LinkOnly: Boolean = False): Boolean;
     function AddPackageAbs(const LpkAbs: string; LinkOnly: Boolean = False): Boolean;
     function RegisterCPUViewPackages: Boolean;
@@ -179,14 +175,11 @@ type
     procedure RemoveDir(const Path: string);
     procedure EnsureCompilerSymlinks;
     procedure InstallFpcWrapper;
-    function RunMake(const Args: array of string;
-      const StepLabel: string): Boolean;
+    function RunMake(const Args: array of string; const StepLabel: string): Boolean;
   protected
     procedure Execute; override;
   public
-    constructor Create(const Cfg: TInstallConfig;
-      ALog: TInstallLogEvent; AProgress: TInstallProgressEvent;
-      AOnTerminate: TNotifyEvent);
+    constructor Create(const Cfg: TInstallConfig; ALog: TInstallLogEvent; AProgress: TInstallProgressEvent; AOnTerminate: TNotifyEvent);
     property Success: Boolean read FSuccess;
     property ErrorMsg: string read FErrorMsg;
   end;
@@ -437,9 +430,7 @@ const
     '  </Debugger>'#13#10 +
     '</CONFIG>'#13#10;
 
-constructor TInstallThread.Create(const Cfg: TInstallConfig;
-  ALog: TInstallLogEvent; AProgress: TInstallProgressEvent;
-  AOnTerminate: TNotifyEvent);
+constructor TInstallThread.Create(const Cfg: TInstallConfig; ALog: TInstallLogEvent; AProgress: TInstallProgressEvent; AOnTerminate: TNotifyEvent);
 begin
   inherited Create(True);
   FCfg := Cfg;
@@ -477,7 +468,8 @@ procedure TInstallThread.Progress(Percent: Integer; const status: string);
 begin
   var rangeStart := if FStage = isInit then 0 else STAGE_END[Pred(FStage)];
   var rangeEnd   := STAGE_END[FStage];
-  if Percent < 0 then FProgressPct := -1
+  if Percent < 0 then
+    FProgressPct := -1
   else begin
     if Percent > 100 then Percent := 100;
     FProgressPct := rangeStart+Round((rangeEnd-rangeStart) * Percent / 100);
@@ -583,29 +575,28 @@ begin
   // until make install lands the real version on disk. Real callers
   // (HostFpcBinDir et al.) invoke us after make install, so they get
   // the detected value.
-  if FHostFpcVersion = '' then Result := '3.2.2' else Result := FHostFpcVersion;
+  if FHostFpcVersion = '' then
+    Result := '3.2.2'
+  else Result := FHostFpcVersion;
 end;
 
 function TInstallThread.HostFpcBinDir: string;
 begin
 {$ifdef MSWINDOWS}
-  Result := IncludeTrailingPathDelimiter(
-    IncludeTrailingPathDelimiter(FCfg.TargetDir)+HostFpcBinSubdir);
+  Result := IncludeTrailingPathDelimiter( IncludeTrailingPathDelimiter(FCfg.TargetDir)+HostFpcBinSubdir);
 {$endif}
 {$ifdef LINUX}
   // Layout is <install>/fpc/lib/fpc/<detected-version>/. Version is
   // probed at runtime by HostFpcVersion -- can't hardcode because the
   // freshly-built unleashed compiler reports its own version (3.3.1+),
   // not the bootstrap's (3.2.2).
-  Result := IncludeTrailingPathDelimiter(
-    IncludeTrailingPathDelimiter(FCfg.TargetDir)+'fpc/lib/fpc/'+HostFpcVersion);
+  Result := IncludeTrailingPathDelimiter( IncludeTrailingPathDelimiter(FCfg.TargetDir)+'fpc/lib/fpc/'+HostFpcVersion);
 {$endif}
 end;
 
 function TInstallThread.HostFpcUtilDir: string;
 begin
-  Result := IncludeTrailingPathDelimiter(
-    IncludeTrailingPathDelimiter(FCfg.TargetDir)+HostFpcUtilSubdir);
+  Result := IncludeTrailingPathDelimiter( IncludeTrailingPathDelimiter(FCfg.TargetDir)+HostFpcUtilSubdir);
 end;
 
 // Where the cross RTL units land per target:
@@ -616,8 +607,7 @@ end;
 function TInstallThread.HostFpcUnitsDir: string;
 begin
 {$ifdef MSWINDOWS}
-  Result := IncludeTrailingPathDelimiter(
-    IncludeTrailingPathDelimiter(FCfg.TargetDir)+'fpc')+'units'+PathDelim;
+  Result := IncludeTrailingPathDelimiter( IncludeTrailingPathDelimiter(FCfg.TargetDir)+'fpc')+'units'+PathDelim;
 {$endif}
 {$ifdef LINUX}
   Result := HostFpcBinDir+'units'+DirectorySeparator;
@@ -696,7 +686,8 @@ begin
   if FindFirst(HostFpcBinDir+'ppc*', faAnyFile, SR) = 0 then
   try
     repeat
-      if (SR.Name <> '.') and (SR.Name <> '..') and ((SR.Attr and faDirectory) = 0) then RunSilent('/bin/ln', ['-sf', '../lib/fpc/'+Ver+'/'+SR.Name, HostFpcUtilDir+SR.Name]);
+      if (SR.Name <> '.') and (SR.Name <> '..') and ((SR.Attr and faDirectory) = 0) then
+        RunSilent('/bin/ln', ['-sf', '../lib/fpc/'+Ver+'/'+SR.Name, HostFpcUtilDir+SR.Name]);
     until FindNext(SR) <> 0;
   finally
     FindClose(SR);
@@ -755,14 +746,11 @@ begin
   // +x on every file under bin/ (fpc wrapper, fpcmkcfg, fpcres, ...) and
   // on the compiler binary in lib/fpc/3.2.2/. -R + glob covers all the
   // bin/ utilities in one shot.
-  RunSilent('/bin/chmod', ['-R', '+x',
-    IncludeTrailingPathDelimiter(BootstrapDir)+'bin']);
-  RunSilent('/bin/chmod', ['+x',
-    IncludeTrailingPathDelimiter(BootstrapDir)+'lib/fpc/3.2.2/ppcx64']);
+  RunSilent('/bin/chmod', ['-R', '+x', IncludeTrailingPathDelimiter(BootstrapDir)+'bin']);
+  RunSilent('/bin/chmod', ['+x', IncludeTrailingPathDelimiter(BootstrapDir)+'lib/fpc/3.2.2/ppcx64']);
 {$endif}
 
-  Log('Bootstrap ready: '+IncludeTrailingPathDelimiter(BootstrapBinDir) +
-      BootstrapPpName+ExeExt);
+  Log('Bootstrap ready: '+IncludeTrailingPathDelimiter(BootstrapBinDir)+BootstrapPpName+ExeExt);
   Result := True;
 end;
 
@@ -847,8 +835,7 @@ end;
 // bootstrap bin dir to PATH. On Linux we use the system `make`
 // (build-essential) from PATH and rely on system binutils (also in
 // PATH already); the FPC linux bootstrap zip does not bundle GNU make.
-function TInstallThread.RunMake(const Args: array of string;
-  const StepLabel: string): Boolean;
+function TInstallThread.RunMake(const Args: array of string; const StepLabel: string): Boolean;
 begin
 {$ifdef MSWINDOWS}
   var MakeExe    := IncludeTrailingPathDelimiter(BootstrapBinDir)+'make.exe';
@@ -873,8 +860,8 @@ begin
   if not FLoggedMakeDiag then begin
     FLoggedMakeDiag := True;
     Log('  diag: parent MAKEFLAGS='+GetEnvironmentVariable('MAKEFLAGS'));
-    Log('  diag: parent MFLAGS='+GetEnvironmentVariable('MFLAGS'));
-    Log('  diag: parent PATH='+Copy(GetEnvironmentVariable('PATH'), 1, 200)+'...');
+    Log('  diag: parent MFLAGS='    + GetEnvironmentVariable('MFLAGS'));
+    Log('  diag: parent PATH='      + Copy(GetEnvironmentVariable('PATH'), 1, 200)+'...');
     // try to resolve which `make` will be picked from PATH
     var WhichOut := autofree TStringList.Create;
     var TmpFile  := GetTempFileName(GetTempDir(False), 'unl-which');
@@ -1043,8 +1030,7 @@ end;
 // download a zip to DestZip and verify its SHA256 matches the pinned Sha.
 // Body of the network IO + hash check shared between cross-Linux 64/32
 // (each pulls two zips: BIN binutils + LIB glibc/runtime).
-function TInstallThread.DownloadAndVerify(const Url, Sha, DestZip,
-  StepLabel: string): Boolean;
+function TInstallThread.DownloadAndVerify(const Url, Sha, DestZip, StepLabel: string): Boolean;
 begin
   Result := False;
   Log('Downloading '+StepLabel);
@@ -1071,8 +1057,7 @@ end;
 // strip the previous version cleanly without accumulating duplicates.
 // Add=False simply removes any existing tagged block (used by
 // StepRemoveCrossLinux*).
-function TInstallThread.PatchFpcCfgCrossSection(const TargetOs, TargetCpu,
-  BinDir, LibDir, BinPrefix: string; Add: Boolean): Boolean;
+function TInstallThread.PatchFpcCfgCrossSection(const TargetOs, TargetCpu, BinDir, LibDir, BinPrefix: string; Add: Boolean): Boolean;
 begin
   Result := False;
   var CfgPath := HostFpcBinDir+'fpc.cfg';
@@ -1098,11 +1083,9 @@ begin
   while i < Lines.Count do begin
     if Pos('# BEGIN '+Tag, Lines[i]) > 0 then begin
       var endIdx := i;
-      while (endIdx < Lines.Count) and (Pos('# END '+Tag, Lines[endIdx]) = 0) do
-        Inc(endIdx);
+      while (endIdx < Lines.Count) and (Pos('# END '+Tag, Lines[endIdx]) = 0) do Inc(endIdx);
       if endIdx < Lines.Count then begin
-        for var k := endIdx downto i do
-          Lines.Delete(k);
+        for var k := endIdx downto i do Lines.Delete(k);
         Continue;
       end;
     end;
@@ -1137,8 +1120,7 @@ end;
 // host triple from PP -- without them, an i386 PP makes make think the
 // source platform is i386, which breaks the host fpmkunit bootstrap
 // during packages_all.
-function TInstallThread.LinuxCommonMakeArgs(const TargetCpu, BinDir, LibDir,
-  BinPrefix: string): TStringArray;
+function TInstallThread.LinuxCommonMakeArgs(const TargetCpu, BinDir, LibDir, BinPrefix: string): TStringArray;
 begin
   Result := [
     'OS_TARGET=linux',
@@ -1157,8 +1139,7 @@ end;
 
 // Shared download+extract for both Linux cross zips. Returns False on
 // any failure with FErrorMsg set; the caller logs context.
-function TInstallThread.UnpackLinuxCross(const Tag, BinUrl, BinSha,
-  LibUrl, LibSha, BinDir, LibDir: string): Boolean;
+function TInstallThread.UnpackLinuxCross(const Tag, BinUrl, BinSha, LibUrl, LibSha, BinDir, LibDir: string): Boolean;
 begin
   Result := False;
   ForceDirectories(BinDir);
@@ -1633,9 +1614,7 @@ const
   Prefix = 'unleashed-';
 begin
   var Base := ExtractFileName(ExcludeTrailingPathDelimiter(FCfg.TargetDir));
-  if (Length(Base) > Length(Prefix)) and
-     (LowerCase(Copy(Base, 1, Length(Prefix))) = Prefix) then
-    Delete(Base, 1, Length(Prefix));
+  if (Length(Base) > Length(Prefix)) and (LowerCase(Copy(Base, 1, Length(Prefix))) = Prefix) then Delete(Base, 1, Length(Prefix));
   Result := 'Unleashed ('+Base+')';
 end;
 
@@ -1719,13 +1698,10 @@ const
   // Docked IDE. anchordocking added as link only; its dsgn package
   // pulls it in for IDE static linkage.
   LAZ_DOCKED_LINK_ONLY = 'components\anchordocking\anchordocking.lpk';
-  LAZ_DOCKED_PACKAGES: array[0..1] of string = (
-    'components\anchordocking\design\anchordockingdsgn.lpk',
-    'components\dockedformeditor\dockedformeditor.lpk');
+  LAZ_DOCKED_PACKAGES: array[0..1] of string = ( 'components\anchordocking\design\anchordockingdsgn.lpk', 'components\dockedformeditor\dockedformeditor.lpk');
 
   // user fork's custom IDE addon
-  LAZ_UNLEASHED_PACKAGES: array[0..0] of string = (
-    'components\minimap\lazminimap.lpk');
+  LAZ_UNLEASHED_PACKAGES: array[0..0] of string = ( 'components\minimap\lazminimap.lpk');
 
   // Optional CPU-View add-on lives outside the lazarus checkout to keep
   // the lazarus repo small (sources are downloaded on demand from the
@@ -1761,8 +1737,7 @@ const
   COMPONENTS_METADARK_RUNTIME_LPK = 'components-extra\MetaDarkStyle\metadarkstyle.lpk';
   COMPONENTS_METADARK_DESIGN_LPK  = 'components-extra\MetaDarkStyle\metadarkstyledsgn.lpk';
 
-function TInstallThread.RunLazbuild(const Args: array of string;
-  const StepLabel: string): Boolean;
+function TInstallThread.RunLazbuild(const Args: array of string; const StepLabel: string): Boolean;
 begin
   var LazbuildExe := IncludeTrailingPathDelimiter(LazarusDir)+'lazbuild'+ExeExt;
   // Linux fpc post-install splits compiler binary (lib/fpc/<ver>/) from
@@ -1784,11 +1759,9 @@ begin
     ExtArgs.Add('--lazarusdir='+LazarusDir);
     ExtArgs.Add('--cpu=x86_64');
     ExtArgs.Add('--os='+HostTargetOs);
-    for var i := Low(Args) to High(Args) do
-      ExtArgs.Add(Args[i]);
+    for var i := Low(Args) to High(Args) do ExtArgs.Add(Args[i]);
     SetLength(ArgsArr, ExtArgs.Count);
-    for var i := 0 to ExtArgs.Count-1 do
-      ArgsArr[i] := ExtArgs[i];
+    for var i := 0 to ExtArgs.Count-1 do ArgsArr[i] := ExtArgs[i];
   end;
 
   Log('Running: lazbuild '+StepLabel);
@@ -1802,13 +1775,11 @@ begin
   end;
 end;
 
-function TInstallThread.AddPackage(const LpkRel: string;
-  LinkOnly: Boolean): Boolean;
+function TInstallThread.AddPackage(const LpkRel: string; LinkOnly: Boolean): Boolean;
 begin
   var LpkPath := IncludeTrailingPathDelimiter(LazarusDir)+LpkRel;
   var Mode    := if LinkOnly then '--add-package-link' else '--add-package';
-  Result := RunLazbuild([Mode, LpkPath],
-    Mode+' '+ExtractFileName(LpkRel));
+  Result := RunLazbuild([Mode, LpkPath], Mode+' '+ExtractFileName(LpkRel));
 end;
 
 // Same as AddPackage but for packages outside LazarusDir (the optional
@@ -1816,12 +1787,10 @@ end;
 // not care where the .lpk lives, only that it can resolve required
 // packages -- which it does via the per-user pcp's known-package list,
 // populated by `--add-package` / `--add-package-link` itself.
-function TInstallThread.AddPackageAbs(const LpkAbs: string;
-  LinkOnly: Boolean): Boolean;
+function TInstallThread.AddPackageAbs(const LpkAbs: string; LinkOnly: Boolean): Boolean;
 begin
   var Mode := if LinkOnly then '--add-package-link' else '--add-package';
-  Result := RunLazbuild([Mode, LpkAbs],
-    Mode+' '+ExtractFileName(LpkAbs));
+  Result := RunLazbuild([Mode, LpkAbs], Mode+' '+ExtractFileName(LpkAbs));
 end;
 
 // Register the CPU-View triple: FWHexView.LCL (runtime dep, link-only so
@@ -1991,8 +1960,7 @@ begin
     Cfg.SetValue(Base+'Button'+IntToStr(Cnt+1)+'/Name', ButtonName);
     Cfg.SetValue(Base+'Count', Cnt+1);
     Touched := True;
-    Log('  added CPU-View toolbar button to Desktop'+IntToStr(d) +
-        ' (now '+IntToStr(Cnt+1)+' buttons)');
+    Log(' added CPU-View toolbar button to Desktop'+IntToStr(d)+' (now '+IntToStr(Cnt+1)+' buttons)');
   end;
 
   if Touched then Cfg.Flush;
@@ -2034,9 +2002,7 @@ begin
 
     // shift Button{Found+1..Cnt} down by one, drop the last slot.
     for var i := Found to Cnt-1 do
-      Cfg.SetValue(Base+'Button'+IntToStr(i)+'/Name',
-                   Cfg.GetValue(Base+'Button'+IntToStr(i+1)+'/Name',
-                                EmptyStr));
+      Cfg.SetValue(Base+'Button'+IntToStr(i)+'/Name', Cfg.GetValue(Base+'Button'+IntToStr(i+1)+'/Name', EmptyStr));
     Cfg.DeletePath(Base+'Button'+IntToStr(Cnt));
     Cfg.SetValue(Base+'Count', Cnt-1);
     Touched := True;
@@ -2089,9 +2055,7 @@ begin
   for var i := Low(LAZ_BASE_PACKAGES) to High(LAZ_BASE_PACKAGES) do begin
     if not AddPackage(LAZ_BASE_PACKAGES[i]) then Exit;
     // smooth-fill the package-registration slice as each lpk lands
-    Progress(Round((i+1) * 100 / (Length(LAZ_BASE_PACKAGES) +
-      Length(LAZ_DOCKED_PACKAGES)+Length(LAZ_UNLEASHED_PACKAGES)+1)),
-      ExtractFileName(LAZ_BASE_PACKAGES[i]));
+    Progress(Round((i+1) * 100 / (Length(LAZ_BASE_PACKAGES)+Length(LAZ_DOCKED_PACKAGES)+Length(LAZ_UNLEASHED_PACKAGES)+1)), ExtractFileName(LAZ_BASE_PACKAGES[i]));
   end;
 
   Log('Registering docked-IDE packages');
@@ -2099,13 +2063,11 @@ begin
   // *dsgn variant which depends on the runtime. add the runtime as a
   // link only so it ends up in package list but not in staticpackages.inc.
   if not AddPackage(LAZ_DOCKED_LINK_ONLY, True) then Exit;
-  for var i := Low(LAZ_DOCKED_PACKAGES) to High(LAZ_DOCKED_PACKAGES) do
-    if not AddPackage(LAZ_DOCKED_PACKAGES[i]) then Exit;
+  for var i := Low(LAZ_DOCKED_PACKAGES) to High(LAZ_DOCKED_PACKAGES) do if not AddPackage(LAZ_DOCKED_PACKAGES[i]) then Exit;
 
   if FCfg.InstallMinimap then begin
     Log('Registering fpc-unleashed addon packages');
-    for var i := Low(LAZ_UNLEASHED_PACKAGES) to High(LAZ_UNLEASHED_PACKAGES) do
-      if not AddPackage(LAZ_UNLEASHED_PACKAGES[i]) then Exit;
+    for var i := Low(LAZ_UNLEASHED_PACKAGES) to High(LAZ_UNLEASHED_PACKAGES) do if not AddPackage(LAZ_UNLEASHED_PACKAGES[i]) then Exit;
   end else
     Log('Skipping minimap addon (not selected)');
 
@@ -2159,8 +2121,7 @@ begin
   // addon-delta path inside StepRebuildLazarusForAddons, where the file
   // already exists and the user genuinely flipped the addon state.
 
-  Log('--- Lazarus ready: '+IncludeTrailingPathDelimiter(LazarusDir) +
-      'lazarus'+ExeExt+' ---');
+  Log('--- Lazarus ready: '+IncludeTrailingPathDelimiter(LazarusDir)+'lazarus'+ExeExt+' ---');
   Result := True;
 end;
 
@@ -2187,8 +2148,7 @@ procedure TInstallThread.UnregisterIdePackage(const PkgName: string);
     if Found < 1 then Exit;
     // shift remaining items down by one
     for var i := Found to Cnt-1 do
-      Cfg.SetValue(KeyStart+'Item'+IntToStr(i)+'/'+ValuePath,
-                   Cfg.GetValue(KeyStart+'Item'+IntToStr(i+1)+'/'+ValuePath, EmptyStr));
+      Cfg.SetValue(KeyStart+'Item'+IntToStr(i)+'/'+ValuePath, Cfg.GetValue(KeyStart+'Item'+IntToStr(i+1)+'/'+ValuePath, EmptyStr));
     Cfg.DeletePath(KeyStart+'Item'+IntToStr(Cnt));
     Cfg.SetValue(KeyStart+'Count', Cnt-1);
     Cfg.Flush;
@@ -2198,14 +2158,10 @@ begin
   var Pcp := IncludeTrailingPathDelimiter(LazarusPcp);
   // miscellaneousoptions.xml controls what gets statically linked into
   // the IDE on `lazbuild --build-ide`.
-  RemoveIndexedItem(Pcp+'miscellaneousoptions.xml',
-    'MiscellaneousOptions/BuildLazarusOptions/StaticAutoInstallPackages/',
-    'Value');
+  RemoveIndexedItem(Pcp+'miscellaneousoptions.xml', 'MiscellaneousOptions/BuildLazarusOptions/StaticAutoInstallPackages/', 'Value');
   // packagefiles.xml is the IDE's known-packages list (used by
   // Package menu, Open Package... etc).
-  RemoveIndexedItem(Pcp+'packagefiles.xml',
-    'UserPkgLinks/',
-    'Name/Value');
+  RemoveIndexedItem(Pcp+'packagefiles.xml', 'UserPkgLinks/', 'Name/Value');
 end;
 
 // "Reinstall" with a flipped addon checkbox does not need to redo the
@@ -2221,9 +2177,9 @@ begin
 
   if FCfg.InstallMinimap and (not Prev.InstallMinimap) then begin
     Log('Adding minimap addon');
-    for var i := Low(LAZ_UNLEASHED_PACKAGES) to High(LAZ_UNLEASHED_PACKAGES) do
-      if not AddPackage(LAZ_UNLEASHED_PACKAGES[i]) then Exit;
-  end else if (not FCfg.InstallMinimap) and Prev.InstallMinimap then begin
+    for var i := Low(LAZ_UNLEASHED_PACKAGES) to High(LAZ_UNLEASHED_PACKAGES) do if not AddPackage(LAZ_UNLEASHED_PACKAGES[i]) then Exit;
+  end
+  else if (not FCfg.InstallMinimap) and Prev.InstallMinimap then begin
     Log('Removing minimap addon');
     UnregisterIdePackage('lazminimap');
   end;
@@ -2244,7 +2200,8 @@ begin
     // should already carry EditorToolBarOptions blocks the IDE wrote on
     // first launch -- the helper picks them up and appends CPU-View.
     RegisterCPUViewToolbarButton;
-  end else if (not FCfg.InstallCPUView) and Prev.InstallCPUView then begin
+  end
+  else if (not FCfg.InstallCPUView) and Prev.InstallCPUView then begin
     Log('Removing CPU-View addon');
     UnregisterCPUViewPackages;
     UnregisterCPUViewToolbarButton;
@@ -2256,7 +2213,8 @@ begin
     if not StepDownloadComponents then Exit;
     SetStage(isLazPackages);
     if not RegisterMetaDarkStylePackages then Exit;
-  end else if (not FCfg.InstallMetaDarkStyle) and Prev.InstallMetaDarkStyle then begin
+  end
+  else if (not FCfg.InstallMetaDarkStyle) and Prev.InstallMetaDarkStyle then begin
     Log('Removing MetaDarkStyle addon');
     UnregisterMetaDarkStylePackages;
   end;
@@ -2275,7 +2233,8 @@ begin
       IncludeTrailingPathDelimiter(FCfg.TargetDir)+COMPONENTS_TOGGLE_LPK,
       '\', DirectorySeparator, [rfReplaceAll]);
     if not AddPackageAbs(TogglePath) then Exit;
-  end else if (not FCfg.InstallToggleAffinity) and Prev.InstallToggleAffinity then begin
+  end
+  else if (not FCfg.InstallToggleAffinity) and Prev.InstallToggleAffinity then begin
     Log('Removing Toggle Display Affinity addon');
     UnregisterIdePackage('ToggleDisplayAffinity');
   end;
@@ -2467,8 +2426,7 @@ begin
     CfgSl.SaveToFile(CfgPath);
     Log('  appended -FD '+ExcludeTrailingPathDelimiter(HostFpcUtilDir));
   except
-    on E: Exception do
-      Log('  WARN: could not append -FD to fpc.cfg: '+E.Message);
+    on E: Exception do Log('  WARN: could not append -FD to fpc.cfg: '+E.Message);
   end;
   // FPC's config-file search prefers ~/.fpc.cfg over <compiler-dir>/fpc.cfg
   // if BOTH exist (compiler-relative is the last-resort fallback, not the
@@ -2567,16 +2525,14 @@ begin
     // RequiredPkgs lists FWHexView.LCL). Fetch it first.
     var FwhexDir := IncludeTrailingPathDelimiter(Base)+'FWHexView';
     if not DirectoryExists(IncludeTrailingPathDelimiter(FwhexDir)+'src') then begin
-      Result := FetchAndExtract(COMPONENTS_FWHEX_URL, COMPONENTS_FWHEX_SHA,
-                                'FWHexView 2.0.16', FwhexDir);
+      Result := FetchAndExtract(COMPONENTS_FWHEX_URL, COMPONENTS_FWHEX_SHA, 'FWHexView 2.0.16', FwhexDir);
       if not Result then Exit;
     end else
       Log('FWHexView already present at '+FwhexDir+', skipping fetch');
 
     var CpuDir := IncludeTrailingPathDelimiter(Base)+'CPUView';
     if not DirectoryExists(IncludeTrailingPathDelimiter(CpuDir)+'src') then begin
-      Result := FetchAndExtract(COMPONENTS_CPUVIEW_URL, COMPONENTS_CPUVIEW_SHA,
-                                'CPUView 1.0', CpuDir);
+      Result := FetchAndExtract(COMPONENTS_CPUVIEW_URL, COMPONENTS_CPUVIEW_SHA, 'CPUView 1.0', CpuDir);
       if not Result then Exit;
     end else
       Log('CPUView already present at '+CpuDir+', skipping fetch');
@@ -2590,8 +2546,7 @@ begin
     var ToggleDir := IncludeTrailingPathDelimiter(Base)+'ToggleDisplayAffinity';
     if not FileExists(IncludeTrailingPathDelimiter(ToggleDir) +
                       'toggledisplayaffinity.lpk') then begin
-      Result := FetchAndExtract(COMPONENTS_TOGGLE_URL, COMPONENTS_TOGGLE_SHA,
-                                'ToggleDisplayAffinity 1.0', ToggleDir);
+      Result := FetchAndExtract(COMPONENTS_TOGGLE_URL, COMPONENTS_TOGGLE_SHA, 'ToggleDisplayAffinity 1.0', ToggleDir);
       if not Result then Exit;
     end else
       Log('ToggleDisplayAffinity already present at '+ToggleDir+', skipping fetch');
@@ -2605,8 +2560,7 @@ begin
     var MetaDir := IncludeTrailingPathDelimiter(Base)+'MetaDarkStyle';
     if not FileExists(IncludeTrailingPathDelimiter(MetaDir) +
                       'metadarkstyledsgn.lpk') then begin
-      Result := FetchAndExtract(COMPONENTS_METADARK_URL, COMPONENTS_METADARK_SHA,
-                                'MetaDarkStyle 0.9', MetaDir);
+      Result := FetchAndExtract(COMPONENTS_METADARK_URL, COMPONENTS_METADARK_SHA, 'MetaDarkStyle 0.9', MetaDir);
       if not Result then Exit;
     end else
       Log('MetaDarkStyle already present at '+MetaDir+', skipping fetch');
@@ -2745,21 +2699,15 @@ begin
     var wantFpcRefresh := False;
     var wantLazRefresh := False;
     if Manifest.Present then begin
-      Log(Format('manifest: fpc=%s@%s laz=%s@%s',
-        [Manifest.FpcBranch, Copy(Manifest.FpcSha, 1, 7),
-         Manifest.LazBranch, Copy(Manifest.LazSha, 1, 7)]));
+      Log(Format('manifest: fpc=%s@%s laz=%s@%s', [Manifest.FpcBranch, Copy(Manifest.FpcSha, 1, 7), Manifest.LazBranch, Copy(Manifest.LazSha, 1, 7)]));
       if hasFpcExe and (FCfg.FpcSelectedSha <> '') and
          (LowerCase(FCfg.FpcSelectedSha) <> Manifest.FpcSha) then begin
-        Log('FPC selection ('+Copy(FCfg.FpcSelectedSha, 1, 7) +
-            ') differs from installed ('+Copy(Manifest.FpcSha, 1, 7) +
-            ') -> wiping fpcsrc + fpc to force fresh build');
+        Log('FPC selection ('+Copy(FCfg.FpcSelectedSha, 1, 7)+') differs from installed ('+Copy(Manifest.FpcSha, 1, 7)+') -> wiping fpcsrc + fpc to force fresh build');
         wantFpcRefresh := True;
       end;
       if hasLazExe and (FCfg.LazSelectedSha <> '') and
          (LowerCase(FCfg.LazSelectedSha) <> Manifest.LazSha) then begin
-        Log('Lazarus selection ('+Copy(FCfg.LazSelectedSha, 1, 7) +
-            ') differs from installed ('+Copy(Manifest.LazSha, 1, 7) +
-            ') -> wiping lazarus to force fresh build');
+        Log('Lazarus selection ('+Copy(FCfg.LazSelectedSha, 1, 7)+') differs from installed ('+Copy(Manifest.LazSha, 1, 7)+') -> wiping lazarus to force fresh build');
         wantLazRefresh := True;
       end;
     end;
@@ -2788,7 +2736,8 @@ begin
 
     // bootstrap is needed for any make-based step; only re-fetch if missing
     SetStage(isBootstrap);
-    if hasBootstrap then Log('bootstrap fpc322 already installed, skipping')
+    if hasBootstrap then
+      Log('bootstrap fpc322 already installed, skipping')
     else begin
       // bootstrap is needed for any make-based build below; only run if
       // we will actually need it (FPC build or cross compiler add)
@@ -2797,13 +2746,13 @@ begin
          (FCfg.CrossWasm      and not hasCrossWasm) or
          (FCfg.CrossLinux64   and not hasCrossLinux64) or
          (FCfg.CrossLinux32   and not hasCrossLinux32) or
-         (FCfg.CrossWin64     and not hasCrossWin64) then
-        if not StepBootstrap then Exit;
+         (FCfg.CrossWin64     and not hasCrossWin64) then if not StepBootstrap then Exit;
     end;
 
     // FPC source + native build - skip if FPC binary already there.
     // user must manually wipe <fpc> to force a rebuild.
-    if hasFpcExe then Log('native FPC already built at <target>\fpc, skipping source + make all')
+    if hasFpcExe then
+      Log('native FPC already built at <target>\fpc, skipping source + make all')
     else begin
       SetStage(isFpcSrc);
       if not StepDownloadFpcSource then Exit;
@@ -2824,9 +2773,12 @@ begin
       SetStage(isFpcCross);
       if not StepBuildFpcCross then Exit;
       StepM3Cleanup;
-    end else if (not FCfg.CrossWin32) and hasCrossW32 then begin
+    end
+    else if (not FCfg.CrossWin32) and hasCrossW32 then begin
       if not StepRemoveCrossWin32 then Exit;
-    end else if hasCrossW32 then Log('cross compiler i386-win32 already installed, leaving as is')
+    end
+    else if hasCrossW32 then
+      Log('cross compiler i386-win32 already installed, leaving as is')
     else Log('skipping cross compiler i386-win32 (not selected)');
 {$endif}
 {$ifdef LINUX}
@@ -2836,9 +2788,12 @@ begin
     if FCfg.CrossWin32 and (not hasCrossW32) then begin
       SetStage(isFpcCross);
       if not StepBuildFpcCrossWin32FromLinux then Exit;
-    end else if (not FCfg.CrossWin32) and hasCrossW32 then begin
+    end
+    else if (not FCfg.CrossWin32) and hasCrossW32 then begin
       if not StepRemoveCrossWin32FromLinux then Exit;
-    end else if hasCrossW32 then Log('cross compiler i386-win32 already installed, leaving as is')
+    end
+    else if hasCrossW32 then
+      Log('cross compiler i386-win32 already installed, leaving as is')
     else Log('skipping cross compiler i386-win32 (not selected)');
 {$endif}
 
@@ -2847,9 +2802,12 @@ begin
     if FCfg.CrossWasm and (not hasCrossWasm) then begin
       SetStage(isFpcCrossWasm);
       if not StepBuildFpcCrossWasm then Exit;
-    end else if (not FCfg.CrossWasm) and hasCrossWasm then begin
+    end
+    else if (not FCfg.CrossWasm) and hasCrossWasm then begin
       if not StepRemoveCrossWasm then Exit;
-    end else if hasCrossWasm then Log('cross compiler wasm32-wasip1 already installed, leaving as is')
+    end
+    else if hasCrossWasm then
+      Log('cross compiler wasm32-wasip1 already installed, leaving as is')
     else Log('skipping cross compiler wasm32-wasip1 (not selected)');
 
 {$ifdef LINUX}
@@ -2859,9 +2817,12 @@ begin
     if FCfg.CrossWin64 and (not hasCrossWin64) then begin
       SetStage(isFpcCrossLinux64);   // reuse slot for cross stage progress
       if not StepBuildFpcCrossWin64FromLinux then Exit;
-    end else if (not FCfg.CrossWin64) and hasCrossWin64 then begin
+    end
+    else if (not FCfg.CrossWin64) and hasCrossWin64 then begin
       if not StepRemoveCrossWin64FromLinux then Exit;
-    end else if hasCrossWin64 then Log('cross compiler x86_64-win64 already installed, leaving as is')
+    end
+    else if hasCrossWin64 then
+      Log('cross compiler x86_64-win64 already installed, leaving as is')
     else Log('skipping cross compiler x86_64-win64 (not selected)');
 {$endif}
 
@@ -2875,16 +2836,17 @@ begin
     if FCfg.CrossLinux64 and (not hasCrossLinux64) then begin
       SetStage(isFpcCrossLinux64);
       if not StepBuildFpcCrossLinux64 then Exit;
-    end else if (not FCfg.CrossLinux64) and hasCrossLinux64 then begin
+    end
+    else if (not FCfg.CrossLinux64) and hasCrossLinux64 then begin
       if not StepRemoveCrossLinux64 then Exit;
-    end else if hasCrossLinux64 then begin
+    end
+    else if hasCrossLinux64 then begin
       Log('cross compiler x86_64-linux already installed, refreshing fpc.cfg block');
       var BinDir := TargetPrefix+'cross'+DirectorySeparator+'x86_64-linux' +
                     DirectorySeparator+'bin';
       var LibDir := TargetPrefix+'cross'+DirectorySeparator+'x86_64-linux' +
                     DirectorySeparator+'lib';
-      PatchFpcCfgCrossSection('linux', 'x86_64', BinDir, LibDir,
-        'x86_64-linux-gnu-', True);
+      PatchFpcCfgCrossSection('linux', 'x86_64', BinDir, LibDir, 'x86_64-linux-gnu-', True);
     end else
       Log('skipping cross compiler x86_64-linux (not selected)');
 {$endif}
@@ -2895,16 +2857,17 @@ begin
     if FCfg.CrossLinux32 and (not hasCrossLinux32) then begin
       SetStage(isFpcCrossLinux32);
       if not StepBuildFpcCrossLinux32 then Exit;
-    end else if (not FCfg.CrossLinux32) and hasCrossLinux32 then begin
+    end
+    else if (not FCfg.CrossLinux32) and hasCrossLinux32 then begin
       if not StepRemoveCrossLinux32 then Exit;
-    end else if hasCrossLinux32 then begin
+    end
+    else if hasCrossLinux32 then begin
       Log('cross compiler i386-linux already installed, refreshing fpc.cfg block');
       var BinDir := TargetPrefix+'cross'+DirectorySeparator+'i386-linux' +
                     DirectorySeparator+'bin';
       var LibDir := TargetPrefix+'cross'+DirectorySeparator+'i386-linux' +
                     DirectorySeparator+'lib';
-      PatchFpcCfgCrossSection('linux', 'i386', BinDir, LibDir,
-        'i386-linux-gnu-', True);
+      PatchFpcCfgCrossSection('linux', 'i386', BinDir, LibDir, 'i386-linux-gnu-', True);
     end else
       Log('skipping cross compiler i386-linux (not selected)');
 {$endif}
@@ -2916,9 +2879,12 @@ begin
     if FCfg.CrossLinux32 and (not hasCrossLinux32) then begin
       SetStage(isFpcCrossLinux32);
       if not StepBuildFpcCrossLinux32FromLinux then Exit;
-    end else if (not FCfg.CrossLinux32) and hasCrossLinux32 then begin
+    end
+    else if (not FCfg.CrossLinux32) and hasCrossLinux32 then begin
       if not StepRemoveCrossLinux32FromLinux then Exit;
-    end else if hasCrossLinux32 then Log('cross compiler i386-linux already installed, leaving as is')
+    end
+    else if hasCrossLinux32 then
+      Log('cross compiler i386-linux already installed, leaving as is')
     else Log('skipping cross compiler i386-linux (not selected)');
 {$endif}
 
@@ -2936,7 +2902,8 @@ begin
       if not StepGenerateLazarusConfig then Exit;
       SetStage(isShortcut);
       if not StepCreateDesktopShortcut then Exit;
-    end else if hasLazExe and FCfg.InstallLazarus then begin
+    end
+    else if hasLazExe and FCfg.InstallLazarus then begin
       // Lazarus is already built. Check whether the user changed any
       // addon selection vs what the manifest recorded last time -- if
       // so, run a smaller "add packages + rebuild IDE" step instead of
@@ -2992,7 +2959,8 @@ begin
 {$endif}
     Manifest.LaunchAfter := FCfg.LaunchAfter;
     Manifest.InstalledAt := FormatDateTime('yyyy-mm-dd"T"hh:nn:ss', Now);
-    if WriteManifest(FCfg.TargetDir, Manifest) then Log('Manifest written: '+ManifestPathFor(FCfg.TargetDir))
+    if WriteManifest(FCfg.TargetDir, Manifest) then
+      Log('Manifest written: '+ManifestPathFor(FCfg.TargetDir))
     else Log('WARNING: could not write manifest at '+ManifestPathFor(FCfg.TargetDir));
 
     SetStage(isDone);
@@ -3000,8 +2968,7 @@ begin
     Progress(100, 'complete');
     FSuccess := True;
   except
-    on E: Exception do
-      FErrorMsg := E.ClassName+': '+E.Message;
+    on E: Exception do FErrorMsg := E.ClassName+': '+E.Message;
   end;
   // make sure installer.log gets flushed + released regardless of success
   if FLogStream <> nil then begin
@@ -3011,4 +2978,3 @@ begin
 end;
 
 end.
-

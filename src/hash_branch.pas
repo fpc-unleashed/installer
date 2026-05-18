@@ -74,8 +74,11 @@ begin
   var len := Length(s);
   var i := 1;
   while i+3 <= len do begin
-    var k: LongWord := LongWord(Byte(s[i])) or (LongWord(Byte(s[i+1])) shl 8) or (LongWord(Byte(s[i+2])) shl 16) or (LongWord(Byte(s[i+3])) shl 24);
-    Result := rotl(Result xor (rotl(k*C1, 15)*C2), 13)*5+$e6546b64;
+    var k: LongWord :=  LongWord(Byte(s[i]))
+                    or (LongWord(Byte(s[i+1])) shl 8)
+                    or (LongWord(Byte(s[i+2])) shl 16)
+                    or (LongWord(Byte(s[i+3])) shl 24);
+    Result := rotl(Result xor (rotl(k * C1, 15) * C2), 13) * 5 + $e6546b64;
     Inc(i, 4);
   end;
   var rem := len-i+1;
@@ -83,7 +86,7 @@ begin
     var k: LongWord := LongWord(Byte(s[i]));
     if rem >= 2 then k := k or (LongWord(Byte(s[i+1])) shl 8);
     if rem >= 3 then k := k or (LongWord(Byte(s[i+2])) shl 16);
-    Result := Result xor (rotl(k*C1, 15)*C2);
+    Result := Result xor (rotl(k * C1, 15) * C2);
   end;
   Result := Result xor LongWord(len);
   Result := Result xor (Result shr 16);
@@ -112,7 +115,8 @@ begin
         SetLength(Result, Length(Result)+1);
         Result[High(Result)] := Copy(s, startPos, i-startPos);
       end;
-    end else Inc(i);
+    end else
+      Inc(i);
   end;
 end;
 
@@ -120,8 +124,7 @@ function IsAllHex(const s: string): Boolean;
 begin
   Result := False;
   if s = '' then Exit;
-  for var i := 1 to Length(s) do
-    if not (s[i] in ['0'..'9', 'a'..'f', 'A'..'F']) then Exit;
+  for var i := 1 to Length(s) do if not (s[i] in ['0'..'9', 'a'..'f', 'A'..'F']) then Exit;
   Result := True;
 end;
 
@@ -206,7 +209,8 @@ begin
   // defaults to 'main' / latest -- same as if `00` had been written here.
   if pos <= Length(blob) then begin
     if not ReadCommitField(blob, pos, p.LazCommit, p.LazBranchFromCommit) then Exit;
-  end else p.LazBranchFromCommit := PREDEFINED_BRANCHES[0];
+  end else
+    p.LazBranchFromCommit := PREDEFINED_BRANCHES[0];
 
   // Pos 3 (optional): fpc branch hash override. Hash-only (1..9 hex chars).
   if pos <= Length(blob) then if not ReadBranchOverrideField(blob, pos, p.FpcBranchHashOverride) then Exit;
@@ -248,4 +252,3 @@ begin
 end;
 
 end.
-

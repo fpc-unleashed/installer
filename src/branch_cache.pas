@@ -25,9 +25,7 @@ const
 // those fields, '' otherwise. On True, caller compares AgeMinutes to
 // CACHE_TTL_MINUTES to decide fresh-use vs stale-fallback. The lists
 // are always cleared first; on False they end up empty.
-function LoadCache(FpcBranches, IdeBranches: TStringList;
-  out AgeMinutes: Double;
-  out FpcMainSha, IdeMainSha: string): Boolean;
+function LoadCache(FpcBranches, IdeBranches: TStringList; out AgeMinutes: Double; out FpcMainSha, IdeMainSha: string): Boolean;
 
 // Write both branch lists plus per-repo HEAD-of-`main` SHAs to the
 // cache file with the current local timestamp. Source lists must be
@@ -57,7 +55,8 @@ const
   // it sits in the header block with the rule-of-thumb message so a
   // user reading the file sees both together.
   TS_PREFIX       = '# Cached at: ';
-  HEADER          = '# We recently checked repos branches, give them a rest for at least 5 minutes.';
+  HEADER          = '# We recently checked repos branches, give them a rest ' +
+                    'for at least 5 minutes.';
   TS_FORMAT       = 'yyyy-mm-dd hh:nn:ss';
   MAIN_BRANCH     = 'main';
 
@@ -84,9 +83,7 @@ begin
   end;
 end;
 
-function LoadCache(FpcBranches, IdeBranches: TStringList;
-  out AgeMinutes: Double;
-  out FpcMainSha, IdeMainSha: string): Boolean;
+function LoadCache(FpcBranches, IdeBranches: TStringList; out AgeMinutes: Double; out FpcMainSha, IdeMainSha: string): Boolean;
 begin
   Result := False;
   AgeMinutes := 1e9;
@@ -124,9 +121,12 @@ begin
       Continue;
     end;
     if ln[1] = '#' then Continue;
-    if Pos(FPC_PREFIX, ln) = 1 then fpcLine := Copy(ln, Length(FPC_PREFIX)+1, MaxInt)
-    else if Pos(IDE_PREFIX, ln) = 1 then ideLine := Copy(ln, Length(IDE_PREFIX)+1, MaxInt)
-    else if Pos(FPC_HASH_PREFIX, ln) = 1 then FpcMainSha := LowerCase(Trim(Copy(ln, Length(FPC_HASH_PREFIX)+1, MaxInt)))
+    if Pos(FPC_PREFIX, ln) = 1 then
+      fpcLine := Copy(ln, Length(FPC_PREFIX)+1, MaxInt)
+    else if Pos(IDE_PREFIX, ln) = 1 then
+      ideLine := Copy(ln, Length(IDE_PREFIX)+1, MaxInt)
+    else if Pos(FPC_HASH_PREFIX, ln) = 1 then
+      FpcMainSha := LowerCase(Trim(Copy(ln, Length(FPC_HASH_PREFIX)+1, MaxInt)))
     else if Pos(IDE_HASH_PREFIX, ln) = 1 then IdeMainSha := LowerCase(Trim(Copy(ln, Length(IDE_HASH_PREFIX)+1, MaxInt)));
   end;
 
@@ -187,4 +187,3 @@ begin
 end;
 
 end.
-
