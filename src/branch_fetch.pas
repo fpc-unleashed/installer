@@ -45,7 +45,9 @@ begin
   FOwner := AOwner;
   FRepo := ARepo;
   FBranches := TStringList.Create;
-  // OnTerminate fires on main thread via Synchronize, then FreeOnTerminate frees us; callback must NOT free
+  // OnTerminate runs on main thread via Synchronize after Execute exits;
+  // FreeOnTerminate frees this object after OnTerminate returns - so the
+  // callback must NOT free us itself.
   FreeOnTerminate := True;
   OnTerminate := AOnDone;
   Start;
@@ -58,7 +60,9 @@ begin
 end;
 
 {$ifdef MSWINDOWS}
-// HTTPS GET via WinINet; curl.exe didn't ship on Windows until 1803 so we avoid it
+// HTTPS GET via WinINet (built into Windows since XP, native TLS, no
+// external curl.exe). curl.exe was only added to Windows in 1803
+// (April 2018) so XP / 7 / 8 / 8.1 / pre-1803 10 boxes lack it.
 function HttpGet(const URL: string; out Body: string): Boolean;
 var
   Buf: array[0..CHUNK_SIZE-1] of Byte;
@@ -69,7 +73,8 @@ begin
   var Session := InternetOpen(AGENT, INTERNET_OPEN_TYPE_PRECONFIG, nil, nil, 0);
   if Session = nil then Exit;
   try
-    var Connection := InternetOpenUrl(Session, PChar(URL), PChar(HEADERS), Length(HEADERS), INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
+    var Connection := InternetOpenUrl(Session, PChar(URL), PChar(HEADERS), Length(HEADERS),
+      INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
     if Connection = nil then Exit;
     try
       var Stream := autofree TMemoryStream.Create;
@@ -94,7 +99,9 @@ end;
 {$endif}
 
 {$ifdef LINUX}
-// HTTPS GET via curl; --retry 3 covers transient NAT/TLS/DNS hiccups, stderr folded into raised exception
+// HTTPS GET via curl (no OpenSSL bundling; curl is on every mainstream
+// distro). --retry 3 covers transient NAT/TLS/DNS hiccups; stderr is
+// folded into the raised exception on non-zero exit.
 function HttpGet(const URL: string; out Body: string): Boolean;
 var
   Buf: array[0..4095] of Byte;
@@ -119,7 +126,9 @@ begin
     on E: Exception do raise Exception.Create('curl not found in PATH (install: apt install curl): '+E.Message);
   end;
 
-  // drain both pipes until exit; stdout = JSON, stderr = error text from -S
+  // Drain both pipes until the child exits and there's nothing left.
+  // stdout collects the JSON body; stderr collects error text (silent
+  // when curl succeeds thanks to -s, populated on -S errors).
   var StdoutBuf := autofree TMemoryStream.Create;
   var StderrBuf: string := '';
   while P.Running or (P.Output.NumBytesAvailable > 0) or (P.Stderr.NumBytesAvailable > 0) do begin
@@ -163,7 +172,9 @@ begin
       Exit;
     end;
     var Arr := TJSONArray(J);
-    // store as "name=sha" so callers can build a names list (Names[i]) and look up head SHA (Values[name]) in O(1)
+    // store as "name=sha" so callers can both build a names list for
+    // a combobox (Names[i]) and look up the head SHA for a branch
+    // (Values[branchName]) in O(1).
     for var i := 0 to Arr.Count-1 do begin
       var Obj := Arr.Objects[i];
       if Obj <> nil then FBranches.Add(Obj.Get('name', '')+'='+TJSONObject(Obj.Find('commit')).Get('sha', ''));
@@ -171,7 +182,8 @@ begin
   except
     on E: Exception do FError := E.ClassName+': '+E.Message;
   end;
-  // OnTerminate fires via Synchronize once Execute exits
+  // OnTerminate fires automatically via Synchronize once Execute exits
 end;
 
 end.
+

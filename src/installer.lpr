@@ -6,7 +6,10 @@ program installer;
 
 uses
   {$ifdef UNIX}
-  // cthreads must be first on unix; without it TThread hits RTE 232 at startup
+  // cthreads MUST be the first unit in the main program on unix-like
+  // OSes -- without it TThread (used by TInstallThread + TBranchFetchThread)
+  // hits "This binary has no thread support compiled in" with Runtime
+  // error 232 at startup.
   cthreads,
   {$endif}
   Interfaces,
@@ -23,3 +26,4 @@ begin
   Application.CreateForm(TMainForm, MainForm);
   Application.Run;
 end.
+

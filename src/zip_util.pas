@@ -46,7 +46,8 @@ begin
   Result := False;
   if not DirectoryExists(DestDir) then if not ForceDirectories(DestDir) then Exit;
 
-  // LIFO: UnZip frees first, then Bridge - safe because UnZip drops OnProgressEx before destruction
+  // LIFO: UnZip frees first, then Bridge - safe because UnZip drops its
+  // OnProgressEx handler before destruction
   var Bridge := autofree TProgressBridge.Create;
   var UnZip := autofree TUnZipper.Create;
   Bridge.Cb := OnProgress;
@@ -63,3 +64,4 @@ begin
 end;
 
 end.
+

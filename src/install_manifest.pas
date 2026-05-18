@@ -10,12 +10,19 @@ uses
   Classes, SysUtils;
 
 type
-  // snapshot of what got installed so a later run can compare against the UI selection
+  // a tiny snapshot of what got installed so a later run can decide
+  // whether the user's currently-selected branch/hash matches what is
+  // already on disk and therefore whether to skip or refresh the build.
   TInstallManifest = record
     Present: Boolean;
     FpcBranch: string;
     FpcSha: string;
-    // CheckBoxLatest state at install time; FpcSha holds the resolved head SHA either way
+    // User's "latest" intent at install time: True means CheckBoxLatest
+    // was ticked (and we resolved the branch head SHA into FpcSha at
+    // that moment). Persisted so a re-open restores the checkbox state
+    // correctly. Without this flag we'd have to guess from FpcSha-empty,
+    // which is wrong: latest=yes also stores the resolved SHA in FpcSha
+    // for display/comparison purposes.
     FpcLatest: Boolean;
     LazBranch: string;
     LazSha: string;
@@ -25,10 +32,22 @@ type
     CrossLinux64: Boolean;     // cross to x86_64-linux (only built on win64 host)
     CrossLinux32: Boolean;     // legacy 32-bit
     CrossWasm: Boolean;
+    // optional Lazarus IDE addons -- written so a re-run can pre-tick
+    // the right checkboxes
     InstallMinimap: Boolean;
     InstallCPUView: Boolean;
-    // win-only IDE plugin; field exists on every host so the manifest stays portable
+    // Windows-only design-time IDE plugin (toggles
+    // SetWindowDisplayAffinity on the IDE main window so screen-capture
+    // tools omit it). The field exists on every host because the manifest
+    // is portable -- a Windows-installed value must survive a re-read on
+    // a Linux host without being clobbered.
     InstallToggleAffinity: Boolean;
+    // Cross-platform dark style for the Lazarus IDE. Two packages travel
+    // together: MetaDarkStyle (runtime, link-only) + metadarkstyledsgn
+    // (design-time, IDE plugin).
+    InstallMetaDarkStyle: Boolean;
+    // last launch-after-install state, restored to the checkbox on
+    // re-run so the user does not have to re-tick every time
     LaunchAfter: Boolean;
     InstalledAt: string;
   end;
@@ -75,7 +94,9 @@ begin
   end;
   Result.FpcBranch    := Lines.Values['fpc-branch'];
   Result.FpcSha       := LowerCase(Lines.Values['fpc-sha']);
-  // pre-fpc-latest manifests: empty SHA implied latest=true
+  // Older manifests (pre-fpc-latest field) default the flag to True
+  // when no SHA is recorded (legacy "empty SHA == latest" interpretation),
+  // False otherwise. New manifests carry the explicit flag.
   Result.FpcLatest    := StrToBoolDefSafe(Lines.Values['fpc-latest'], Result.FpcSha = '');
   Result.LazBranch    := Lines.Values['lazarus-branch'];
   Result.LazSha       := LowerCase(Lines.Values['lazarus-sha']);
@@ -84,11 +105,14 @@ begin
   Result.CrossWin32   := StrToBoolDefSafe(Lines.Values['cross-i386-win32'], False);
   Result.CrossLinux64 := StrToBoolDefSafe(Lines.Values['cross-x86_64-linux'], False);
   Result.CrossLinux32 := StrToBoolDefSafe(Lines.Values['cross-i386-linux'], False);
-  // accept both wasip1 (current) and legacy wasi key
+  // Accept both wasip1 (current) and wasi (older manifests written by
+  // earlier installer versions) so a re-run reads the historical flag
+  // correctly without forcing a clean reinstall.
   Result.CrossWasm    := StrToBoolDefSafe(Lines.Values['cross-wasm32-wasip1'], StrToBoolDefSafe(Lines.Values['cross-wasm32-wasi'], False));
   Result.InstallMinimap := StrToBoolDefSafe(Lines.Values['extras-minimap'], False);
   Result.InstallCPUView := StrToBoolDefSafe(Lines.Values['extras-cpuview'], False);
   Result.InstallToggleAffinity := StrToBoolDefSafe(Lines.Values['extras-toggle-affinity'], False);
+  Result.InstallMetaDarkStyle  := StrToBoolDefSafe(Lines.Values['extras-metadarkstyle'], False);
   Result.LaunchAfter  := StrToBoolDefSafe(Lines.Values['launch-after-install'], True);
   Result.InstalledAt  := Lines.Values['installed-at'];
   Result.Present      := True;
@@ -114,6 +138,7 @@ begin
   Lines.Add('extras-minimap='+BoolFlag(M.InstallMinimap));
   Lines.Add('extras-cpuview='+BoolFlag(M.InstallCPUView));
   Lines.Add('extras-toggle-affinity='+BoolFlag(M.InstallToggleAffinity));
+  Lines.Add('extras-metadarkstyle='+BoolFlag(M.InstallMetaDarkStyle));
   Lines.Add('launch-after-install='+BoolFlag(M.LaunchAfter));
   Lines.Add('installed-at='+M.InstalledAt);
   try
@@ -125,3 +150,4 @@ begin
 end;
 
 end.
+

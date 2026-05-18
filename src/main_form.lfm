@@ -449,10 +449,19 @@ object MainForm: TMainForm
           State = cbChecked
           TabOrder = 0
         end
-        object CheckBoxToggleAffinity: TCheckBox
+        object CheckBoxMetaDarkStyle: TCheckBox
           Left = 0
           Height = 19
           Top = 63
+          Width = 293
+          Align = alTop
+          Caption = 'MetaDarkStyle (dark IDE theme)'
+          TabOrder = 3
+        end
+        object CheckBoxToggleAffinity: TCheckBox
+          Left = 0
+          Height = 19
+          Top = 82
           Width = 293
           Align = alTop
           Caption = 'Toggle Display Affinity (Windows-only)'
@@ -472,7 +481,7 @@ object MainForm: TMainForm
         object Bevel2: TBevel
           Left = 0
           Height = 10
-          Top = 82
+          Top = 101
           Width = 293
           Align = alTop
           Shape = bsBottomLine
