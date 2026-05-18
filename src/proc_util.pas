@@ -43,7 +43,8 @@ function RunSilent(const Exe: string; const Args: array of string; const WorkDir
 begin
   var P := autofree TProcess.Create(nil);
   P.Executable := Exe;
-  for var i := Low(Args) to High(Args) do P.Parameters.Add(Args[i]);
+  for var i := Low(Args) to High(Args) do
+    P.Parameters.Add(Args[i]);
   if WorkDir <> '' then P.CurrentDirectory := WorkDir;
   P.Options := [poNoConsole, poWaitOnExit];
   P.ShowWindow := swoHide;
@@ -63,21 +64,23 @@ end;
 procedure ApplyEnvWithPathPrefix(P: TProcess; const Prefix: string);
 begin
   var pathSeen := False;
-  for var i := 0 to GetEnvironmentVariableCount-1 do begin
+  for var i := 0 to GetEnvironmentVariableCount-1 do
+  begin
     var envLine := GetEnvironmentString(i);
     if envLine = '' then Continue;
     var eqPos := Pos('=', envLine);
     if eqPos < 2 then Continue;       // malformed -- no name=value
     var name := UpperCase(Copy(envLine, 1, eqPos-1));
-    if (name = 'MAKEFLAGS') or (name = 'MFLAGS') then Continue;                       // scrub: don't propagate to child make
+    if (name = 'MAKEFLAGS') or (name = 'MFLAGS') then Continue; // scrub: don't propagate to child make
 {$ifdef LINUX}
-    if name = 'PPC_CONFIG_PATH' then Continue;                       // re-injected via libc_getenv below
+    if name = 'PPC_CONFIG_PATH' then Continue; // re-injected via libc_getenv below
 {$endif}
     if name = 'PATH' then begin
       // PathSeparator: ';' on Windows, ':' on Unix-likes
       if Prefix <> '' then
         P.Environment.Add('PATH='+Prefix+PathSeparator+Copy(envLine, 6, MaxInt))
-      else P.Environment.Add(envLine);
+      else
+        P.Environment.Add(envLine);
       pathSeen := True;
     end else
       P.Environment.Add(envLine);
@@ -120,7 +123,8 @@ begin
   Result := -1;
   var P := autofree TProcess.Create(nil);
   P.Executable := Exe;
-  for var i := Low(Args) to High(Args) do P.Parameters.Add(Args[i]);
+  for var i := Low(Args) to High(Args) do
+    P.Parameters.Add(Args[i]);
   if WorkDir <> '' then P.CurrentDirectory := WorkDir;
   P.Options := [poUsePipes, poNoConsole];
   P.ShowWindow := swoHide;
@@ -135,8 +139,8 @@ begin
   end;
 
   // drain pipes until child exits and both pipes are empty
-  while P.Running or (P.Output.NumBytesAvailable > 0) or
-        (P.Stderr.NumBytesAvailable > 0) do begin
+  while P.Running or (P.Output.NumBytesAvailable > 0) or (P.Stderr.NumBytesAvailable > 0) do
+  begin
     if P.Output.NumBytesAvailable > 0 then begin
       var N := P.Output.Read(Tmp, Length(Tmp));
       if N > 0 then begin

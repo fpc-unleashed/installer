@@ -50,9 +50,7 @@ begin
     Exit;
   end;
   try
-    var Connection := InternetOpenUrl(Session, PChar(URL), nil, 0,
-      INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or
-      INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
+    var Connection := InternetOpenUrl(Session, PChar(URL), nil, 0, INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
     if Connection = nil then begin
       if Assigned(OnProgress) then OnProgress(-1, 'cannot open URL');
       Exit;
@@ -80,7 +78,8 @@ begin
       if Assigned(OnProgress) then begin
         if ContentLength > 0 then
           OnProgress(0, '0 / '+HumanMB(ContentLength))
-        else OnProgress(-1, 'starting download...');
+        else
+          OnProgress(-1, 'starting download...');
       end;
 
       repeat
@@ -93,9 +92,7 @@ begin
         Stream.WriteBuffer(Buf[0], BytesRead);
         Inc(Total, BytesRead);
 
-        if Assigned(OnProgress) and
-           ((Total-LastReportTotal >= REPORT_EVERY) or
-            (BytesRead < CHUNK_SIZE)) then begin
+        if Assigned(OnProgress) and ((Total-LastReportTotal >= REPORT_EVERY) or (BytesRead < CHUNK_SIZE)) then begin
           LastReportTotal := Total;
           if ContentLength > 0 then begin
             var Pct: Integer := Round(Total * 100 / ContentLength);
@@ -112,7 +109,8 @@ begin
       if Assigned(OnProgress) then begin
         if ContentLength > 0 then
           OnProgress(100, 'download complete')
-        else OnProgress(-1, HumanMB(Total)+' downloaded');
+        else
+          OnProgress(-1, HumanMB(Total)+' downloaded');
       end;
       Result := True;
     finally

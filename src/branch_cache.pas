@@ -10,22 +10,24 @@ uses
   Classes, SysUtils;
 
 const
-  // Plain-text key=value file next to the running exe holding both
-  // repos' branch name lists plus a `Cached at:` timestamp. Re-running
-  // the installer inside CACHE_TTL_MINUTES of that timestamp loads the
-  // lists from disk instead of hitting GitHub. The file is owned by
-  // the installer and gitignored.
-  CACHE_FILENAME = 'cache-git-branches';
+  // Plain-text key=value file living in the OS per-user temp dir,
+  // holding both repos' branch name lists plus a `Cached at:`
+  // timestamp. Re-running the installer inside CACHE_TTL_MINUTES of
+  // that timestamp loads the lists from disk instead of hitting
+  // GitHub. Lives in temp (not next to the exe) so a portable /
+  // read-only install dir still works and we don't litter the user's
+  // chosen folder with state files.
+  CACHE_FILENAME = 'unleashed-installer.cache';
   CACHE_TTL_MINUTES = 5;
 
 // Load both branch lists plus the per-repo HEAD SHA of `main`. Returns
 // True iff the file exists, parses, and has the `Cached at:` timestamp;
-// AgeMinutes is filled with the age (in minutes) of that timestamp
+// AgeSeconds is filled with the age (in seconds) of that timestamp
 // relative to Now. FpcMainSha / IdeMainSha are filled when the file has
-// those fields, '' otherwise. On True, caller compares AgeMinutes to
-// CACHE_TTL_MINUTES to decide fresh-use vs stale-fallback. The lists
+// those fields, '' otherwise. On True, caller compares AgeSeconds to
+// CACHE_TTL_MINUTES*60 to decide fresh-use vs stale-fallback. The lists
 // are always cleared first; on False they end up empty.
-function LoadCache(FpcBranches, IdeBranches: TStringList; out AgeMinutes: Double; out FpcMainSha, IdeMainSha: string): Boolean;
+function LoadCache(FpcBranches, IdeBranches: TStringList; out AgeSeconds: Double; out FpcMainSha, IdeMainSha: string): Boolean;
 
 // Write both branch lists plus per-repo HEAD-of-`main` SHAs to the
 // cache file with the current local timestamp. Source lists must be
@@ -52,17 +54,19 @@ const
   IDE_HASH_PREFIX = 'sha1-ide-main=';
   // `Cached at:` is a true comment line: the parser still has to
   // extract a timestamp from it for the freshness check, but visually
-  // it sits in the header block with the rule-of-thumb message so a
+  // it sits in the header block under the file identity tag so a
   // user reading the file sees both together.
   TS_PREFIX       = '# Cached at: ';
-  HEADER          = '# We recently checked repos branches, give them a rest ' +
-                    'for at least 5 minutes.';
+  HEADER          = '# Unleashed Installer cache file';
   TS_FORMAT       = 'yyyy-mm-dd hh:nn:ss';
   MAIN_BRANCH     = 'main';
 
 function CacheFilePath: string;
 begin
-  Result := ExtractFilePath(ParamStr(0))+CACHE_FILENAME;
+  // GetTempDir(False) returns the per-user temp dir on both Windows
+  // (%TEMP%) and Linux ($TMPDIR or /tmp), with a trailing path
+  // separator already attached so we can concat directly.
+  Result := GetTempDir(False)+CACHE_FILENAME;
 end;
 
 // Split a "a, b, c" string into Dest. Empty tokens are skipped so an
@@ -73,7 +77,8 @@ begin
   Dest.Clear;
   var i := 1;
   var L := Length(Value);
-  while i <= L do begin
+  while i <= L do
+  begin
     while (i <= L) and ((Value[i] = ' ') or (Value[i] = #9)) do Inc(i);
     var startPos := i;
     while (i <= L) and (Value[i] <> ',') do Inc(i);
@@ -83,10 +88,10 @@ begin
   end;
 end;
 
-function LoadCache(FpcBranches, IdeBranches: TStringList; out AgeMinutes: Double; out FpcMainSha, IdeMainSha: string): Boolean;
+function LoadCache(FpcBranches, IdeBranches: TStringList; out AgeSeconds: Double; out FpcMainSha, IdeMainSha: string): Boolean;
 begin
   Result := False;
-  AgeMinutes := 1e9;
+  AgeSeconds := 1e9;
   FpcMainSha := '';
   IdeMainSha := '';
   FpcBranches.Clear;
@@ -105,7 +110,8 @@ begin
   var gotTimestamp := False;
   var cachedAt: TDateTime := 0;
 
-  for var i := 0 to lines.Count-1 do begin
+  for var i := 0 to lines.Count-1 do
+  begin
     var ln := Trim(lines[i]);
     if ln = '' then Continue;
     // Timestamp lives in a `# Cached at: ...` comment line, so check
@@ -131,7 +137,7 @@ begin
   end;
 
   if not gotTimestamp then Exit;
-  AgeMinutes := MinutesBetween(Now, cachedAt);
+  AgeSeconds := SecondsBetween(Now, cachedAt);
 
   ParseCommaList(fpcLine, FpcBranches);
   ParseCommaList(ideLine, IdeBranches);
@@ -148,7 +154,8 @@ procedure SaveCache(FpcBranches, IdeBranches: TStrings);
   function JoinNames(L: TStrings): string;
   begin
     Result := '';
-    for var i := 0 to L.Count-1 do begin
+    for var i := 0 to L.Count-1 do
+    begin
       var entry := L[i];
       if Pos('=', entry) > 0 then entry := L.Names[i];
       if entry = '' then Continue;

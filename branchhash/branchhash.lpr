@@ -43,8 +43,7 @@ begin
 end;
 
 const
-  AnsiReset  = #27'[0m';
-  AnsiRed    = #27'[31m';
+  AnsiReset  = #27'[0m'; AnsiRed    = #27'[31m';
 
 begin
   var ldef := 3; // default len

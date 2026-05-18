@@ -7,9 +7,7 @@ unit main_form;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Dialogs,
-  Graphics, LCLType, LCLIntf, LResources, Menus, Clipbrd, RegExpr, fileinfo,
-  {$ifdef MSWINDOWS} Windows, ShellApi, {$endif}
+  Classes, SysUtils, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Dialogs, Graphics, LCLType, LCLIntf, LResources, Menus, Clipbrd, RegExpr, fileinfo, {$ifdef MSWINDOWS} Windows, ShellApi, {$endif}
   {$ifdef LINUX} process, {$endif}
   branch_fetch, branch_cache, install_pipeline, install_manifest, hash_branch;
 
@@ -189,9 +187,7 @@ begin
   if FindFirst(Base+'*', faDirectory, SR) = 0 then
   try
     repeat
-      if (SR.Name <> '.') and (SR.Name <> '..') and
-         ((SR.Attr and faDirectory) <> 0) and
-         (Length(SR.Name) > 0) and (SR.Name[1] in ['0'..'9']) and
+      if (SR.Name <> '.') and (SR.Name <> '..') and ((SR.Attr and faDirectory) <> 0) and (Length(SR.Name) > 0) and (SR.Name[1] in ['0'..'9']) and
          DirectoryExists(Base+SR.Name+'/units/'+target) then begin
         Result := True;
         Exit;
@@ -295,8 +291,7 @@ begin
   // sit fixed at ~614px and leave the log box cramped; resizing here
   // hands the surplus space to the alClient log box.
   Self.Height := Screen.WorkAreaHeight * 80 div 100;
-  Self.Top := Screen.WorkAreaTop +
-              (Screen.WorkAreaHeight-Self.Height) div 2;
+  Self.Top := Screen.WorkAreaTop+(Screen.WorkAreaHeight-Self.Height) div 2;
 end;
 
 procedure tmainform.button1click(sender: tobject);
@@ -337,7 +332,7 @@ begin
     // length digit -- the "use latest of selected branch" sentinel. Tick
     // CheckBoxLatest in that case and clear the hash edit; otherwise
     // pin the explicit hash and untick.
-    Log('binary name carries pinned commit hashes: fpc='+(if parsed.FpcCommit = '' then '(latest)' else parsed.FpcCommit)+' ide='+(if parsed.LazCommit = '' then '(latest)' else parsed.LazCommit));
+    Log('binary name carries pinned commit hashes: fpc='+(if parsed.FpcCommit = '' then '(latest)' else parsed.FpcCommit)+' ide=' + (if parsed.LazCommit = '' then '(latest)' else parsed.LazCommit));
 
     if parsed.FpcCommit = '' then begin
       EditUnleashedHash.Text          := '';
@@ -372,12 +367,10 @@ begin
     // hash-overridden branches the hex prefix shows up instead and the
     // matching branch name follows later as a FillCombo "branch ...
     // matches" line once the async fetch lands.
-    var fpcStr: string :=
-      if parsed.FpcBranchHashOverride <> '' then parsed.FpcBranchHashOverride
+    var fpcStr: string := if parsed.FpcBranchHashOverride <> '' then parsed.FpcBranchHashOverride
       else if parsed.FpcBranchFromCommit <> '' then parsed.FpcBranchFromCommit
       else '(default)';
-    var lazStr: string :=
-      if parsed.LazBranchHashOverride <> '' then parsed.LazBranchHashOverride
+    var lazStr: string := if parsed.LazBranchHashOverride <> '' then parsed.LazBranchHashOverride
       else if parsed.LazBranchFromCommit <> '' then parsed.LazBranchFromCommit
       else '(default)';
     Log('binary name carries pinned branch hashes: fpc='+fpcStr+' ide='+lazStr);
@@ -445,12 +438,10 @@ begin
   // full set of cross checkboxes (otherwise users wonder why the
   // "what's installed" summary omits the host platform).
   {$ifdef MSWINDOWS}
-  var crossTargets: TStringArray := [
-    'x86_64-win64', 'x86_64-linux', 'i386-win32', 'i386-linux', 'wasm32-wasip1'];
+  var crossTargets: TStringArray := [ 'x86_64-win64', 'x86_64-linux', 'i386-win32', 'i386-linux', 'wasm32-wasip1'];
   {$endif}
   {$ifdef LINUX}
-  var crossTargets: TStringArray := [
-    'x86_64-linux', 'x86_64-win64', 'i386-win32', 'i386-linux', 'wasm32-wasip1'];
+  var crossTargets: TStringArray := [ 'x86_64-linux', 'x86_64-win64', 'i386-win32', 'i386-linux', 'wasm32-wasip1'];
   {$endif}
   for var t in crossTargets do
     if ProbeCrossInstalled(Trim(EditTargetDir.Text), t) then begin
@@ -517,12 +508,9 @@ begin
 
     var selFpc := ResolveSelectedFpcSha;
     var selLaz := ResolveSelectedLazSha;
-    if hasFpc and (selFpc <> '') and (m.FpcSha <> '') and (Pos(selFpc, m.FpcSha) <> 1) and (Pos(m.FpcSha, selFpc) <> 1) then
-      updates := updates+' fpc '+Copy(m.FpcSha, 1, 7) +
-                 ' -> '+Copy(selFpc, 1, 7);
+    if hasFpc and (selFpc <> '') and (m.FpcSha <> '') and (Pos(selFpc, m.FpcSha) <> 1) and (Pos(m.FpcSha, selFpc) <> 1) then updates := updates+' fpc '+Copy(m.FpcSha, 1, 7)+' -> '+Copy(selFpc, 1, 7);
     if hasLaz and (selLaz <> '') and (m.LazSha <> '') and (Pos(selLaz, m.LazSha) <> 1) and (Pos(m.LazSha, selLaz) <> 1) then
-      updates := updates+' lazarus '+Copy(m.LazSha, 1, 7) +
-                 ' -> '+Copy(selLaz, 1, 7);
+      updates := updates+' lazarus '+Copy(m.LazSha, 1, 7)+' -> '+Copy(selLaz, 1, 7);
     // addon deltas. Pipeline's StepRebuildLazarusForAddons handles
     // these without a full reinstall, but the user needs visual cues
     // so the Install/Reinstall button labels reflect reality.
@@ -557,7 +545,8 @@ begin
               LowerCase(Trim(EditUnleashedHash.Text))
             else if ComboBoxUnleashedBranch.Text <> '' then
               LowerCase(FFpcBranchShas.Values[ComboBoxUnleashedBranch.Text])
-            else '';
+            else
+              '';
 end;
 
 function TMainForm.ResolveSelectedLazSha: string;
@@ -566,7 +555,8 @@ begin
               LowerCase(Trim(EditLazarusHash.Text))
             else if ComboBoxLazarusBranch.Text <> '' then
               LowerCase(FLazBranchShas.Values[ComboBoxLazarusBranch.Text])
-            else '';
+            else
+              '';
 end;
 
 procedure TMainForm.OnSelectionChange(Sender: TObject);
@@ -604,11 +594,13 @@ procedure TMainForm.StartBranchFetch;
   procedure AppendWithMainSha(Src: TStrings; Dest: TStrings; const MainSha: string);
   begin
     Dest.Clear;
-    for var i := 0 to Src.Count-1 do begin
+    for var i := 0 to Src.Count-1 do
+    begin
       var name := Src[i];
       if SameText(name, 'main') then
         Dest.Add(name+'='+MainSha)
-      else Dest.Add(name+'=');
+      else
+        Dest.Add(name+'=');
     end;
   end;
 
@@ -619,17 +611,16 @@ begin
   FLazFetchOk := False;
   ButtonInstall.Enabled := False;
 
-  // Cache-first path: if cache-git-branches sits next to the exe and
-  // its `Cached at:` timestamp is younger than CACHE_TTL_MINUTES, skip
-  // the GitHub fetch entirely. Keeps the anon API quota intact across
-  // back-to-back launches.
+  // Cache-first path: if the cache file sits in the per-user temp dir
+  // and its `Cached at:` timestamp is younger than CACHE_TTL_MINUTES,
+  // skip the GitHub fetch entirely. Keeps the anon API quota intact
+  // across back-to-back launches.
   var fpcNames := autofree TStringList.Create;
   var ideNames := autofree TStringList.Create;
   var age: Double;
   var fpcMainSha, ideMainSha: string;
-  if LoadCache(fpcNames, ideNames, age, fpcMainSha, ideMainSha) and
-     (age < CACHE_TTL_MINUTES) then begin
-    Log('using cached branch lists ('+IntToStr(Round(age))+' min old)');
+  if LoadCache(fpcNames, ideNames, age, fpcMainSha, ideMainSha) and (age < CACHE_TTL_MINUTES * 60) then begin
+    Log('using cached branch lists ('+IntToStr(Round(age))+' sec(s) old)');
     var fpcCache := autofree TStringList.Create;
     var lazCache := autofree TStringList.Create;
     AppendWithMainSha(fpcNames, fpcCache, fpcMainSha);
@@ -665,7 +656,8 @@ begin
   for var i := 0 to Src.Count-1 do
     if SameText(Src[i], 'main') then
       Dest.Add(Src[i]+'='+MainSha)
-    else Dest.Add(Src[i]+'=');
+    else
+      Dest.Add(Src[i]+'=');
 end;
 
 procedure TMainForm.OnUnleashedDone(Sender: TObject);
@@ -677,8 +669,7 @@ begin
     var ideNames := autofree TStringList.Create;
     var age: Double;
     var fpcMainSha, ideMainSha: string;
-    if LoadCache(fpcNames, ideNames, age, fpcMainSha, ideMainSha) and
-       (fpcNames.Count > 0) then begin
+    if LoadCache(fpcNames, ideNames, age, fpcMainSha, ideMainSha) and (fpcNames.Count > 0) then begin
       var fallback := autofree TStringList.Create;
       NamesToShaListWithMain(fpcNames, fallback, fpcMainSha);
       Log('FAILED to fetch '+REPO_FPC+' branches ('+T.ErrorMsg+'); using stale cache ('+IntToStr(Round(age))+' min old)');
@@ -704,8 +695,7 @@ begin
     var ideNames := autofree TStringList.Create;
     var age: Double;
     var fpcMainSha, ideMainSha: string;
-    if LoadCache(fpcNames, ideNames, age, fpcMainSha, ideMainSha) and
-       (ideNames.Count > 0) then begin
+    if LoadCache(fpcNames, ideNames, age, fpcMainSha, ideMainSha) and (ideNames.Count > 0) then begin
       var fallback := autofree TStringList.Create;
       NamesToShaListWithMain(ideNames, fallback, ideMainSha);
       Log('FAILED to fetch '+REPO_LAZARUS+' branches ('+T.ErrorMsg+'); using stale cache ('+IntToStr(Round(age))+' min old)');
@@ -739,7 +729,8 @@ begin
   end;
   // Branches contains 'name=sha'; Names[i] for combo, Values[name] for SHA
   if shaMap <> nil then shaMap.Assign(Branches);
-  for var i := 0 to Branches.Count-1 do Combo.Items.Add(Branches.Names[i]);
+  for var i := 0 to Branches.Count-1 do
+    Combo.Items.Add(Branches.Names[i]);
 
   Log('Got '+IntToStr(Branches.Count)+' branches for '+Repo);
   // Priority: pinned (filename) -> manifest -> main -> master -> first.
@@ -751,8 +742,7 @@ begin
       pinnedBranch := FPinnedFpcBranchName
     else if FPinnedFpcBranchHex <> '' then begin
       pinnedBranch := FindBranchByHashPrefix(Combo.Items, FPinnedFpcBranchHex);
-      if pinnedBranch <> '' then
-        Log('fpc branch '''+pinnedBranch+''' matches hash prefix '''+FPinnedFpcBranchHex+''', selecting this branch');
+      if pinnedBranch <> '' then Log('fpc branch '''+pinnedBranch+''' matches hash prefix '''+FPinnedFpcBranchHex+''', selecting this branch');
     end;
   end
   else if Combo = ComboBoxLazarusBranch then begin
@@ -760,8 +750,7 @@ begin
       pinnedBranch := FPinnedLazBranchName
     else if FPinnedLazBranchHex <> '' then begin
       pinnedBranch := FindBranchByHashPrefix(Combo.Items, FPinnedLazBranchHex);
-      if pinnedBranch <> '' then
-        Log('ide branch '''+pinnedBranch+''' matches hash prefix '''+FPinnedLazBranchHex+''', selecting this branch');
+      if pinnedBranch <> '' then Log('ide branch '''+pinnedBranch+''' matches hash prefix '''+FPinnedLazBranchHex+''', selecting this branch');
     end;
   end;
 
@@ -774,7 +763,8 @@ begin
 
   var idx: Integer := -1;
   if pinnedBranch   <> '' then idx := Combo.Items.IndexOf(pinnedBranch);
-  if idx < 0 then if manifestBranch <> '' then idx := Combo.Items.IndexOf(manifestBranch);
+  if idx < 0 then
+    if manifestBranch <> '' then idx := Combo.Items.IndexOf(manifestBranch);
   if idx < 0 then idx := Combo.Items.IndexOf('main');
   if idx < 0 then idx := Combo.Items.IndexOf('master');
   if idx < 0 then idx := 0;
@@ -958,13 +948,9 @@ begin
     Result := clOlive
   else if (Pos('===', s) > 0) or (Pos(' ---', s) > 0) then
     Result := clNavy
-  else if (Pos('Compiling ', s) > 0) or (Pos('Linking ', s) > 0) or
-          (Pos('Installing ', s) > 0) then
+  else if (Pos('Compiling ', s) > 0) or (Pos('Linking ', s) > 0) or (Pos('Installing ', s) > 0) then
     Result := TColor($008000) // dark green
-  else if Pos('make[', s) > 0 then
-    Result := clGray
-  else Result := clWindowText;
-end;
+  else if Pos('make[', s) > 0 then Result := clGray else Result := clWindowText; end;
 
 procedure TMainForm.ListBoxLogDrawItem(Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
 begin
@@ -1129,10 +1115,12 @@ begin
   Log('target dir: '+cfg.TargetDir);
   if cfg.InstallFpc then
     Log('install fpc-unleashed: yes ('+cfg.FpcBranch+')')
-  else Log('install fpc-unleashed: no');
+  else
+    Log('install fpc-unleashed: no');
   if cfg.InstallLazarus then
     Log('install lazarus IDE:  yes ('+cfg.LazBranch+')')
-  else Log('install lazarus IDE:  no');
+  else
+    Log('install lazarus IDE:  no');
 
   FInstalling := True;
   SetInputsEnabled(False);
