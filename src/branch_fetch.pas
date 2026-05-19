@@ -35,8 +35,8 @@ uses
   {$ifdef LINUX}, process{$endif};
 
 const
-  AGENT      = 'UnleashedInstaller/1.0';
-  HEADERS    = 'Accept: application/vnd.github+json'#13#10;
+  AGENT = 'UnleashedInstaller/1.0';
+  HEADERS = 'Accept: application/vnd.github+json'#13#10;
   CHUNK_SIZE = 4096;
 
 constructor TBranchFetchThread.Create(const AOwner, ARepo: string; AOnDone: TNotifyEvent);
@@ -73,8 +73,7 @@ begin
   var Session := InternetOpen(AGENT, INTERNET_OPEN_TYPE_PRECONFIG, nil, nil, 0);
   if Session = nil then Exit;
   try
-    var Connection := InternetOpenUrl(Session, PChar(URL), PChar(HEADERS), Length(HEADERS), INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or
-      INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
+    var Connection := InternetOpenUrl(Session, PChar(URL), PChar(HEADERS), Length(HEADERS), INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
     if Connection = nil then Exit;
     try
       var Stream := autofree TMemoryStream.Create;
@@ -180,8 +179,7 @@ begin
       if Obj <> nil then FBranches.Add(Obj.Get('name', '')+'='+TJSONObject(Obj.Find('commit')).Get('sha', ''));
     end;
   except
-    on E: Exception do
-      FError := E.ClassName+': '+E.Message;
+    on E: Exception do FError := E.ClassName+': '+E.Message;
   end;
   // OnTerminate fires automatically via Synchronize once Execute exits
 end;

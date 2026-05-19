@@ -74,11 +74,8 @@ begin
   var len := Length(s);
   var i := 1;
   while i+3 <= len do begin
-    var k: LongWord :=  LongWord(Byte(s[i]))
-                    or (LongWord(Byte(s[i+1])) shl 8)
-                    or (LongWord(Byte(s[i+2])) shl 16)
-                    or (LongWord(Byte(s[i+3])) shl 24);
-    Result := rotl(Result xor (rotl(k * C1, 15) * C2), 13) * 5+$e6546b64;
+    var k: LongWord := LongWord(Byte(s[i])) or (LongWord(Byte(s[i+1])) shl 8) or (LongWord(Byte(s[i+2])) shl 16) or (LongWord(Byte(s[i+3])) shl 24);
+    Result := rotl(Result xor (rotl(k*C1, 15)*C2), 13)*5+$e6546b64;
     Inc(i, 4);
   end;
   var rem := len-i+1;
@@ -86,13 +83,13 @@ begin
     var k: LongWord := LongWord(Byte(s[i]));
     if rem >= 2 then k := k or (LongWord(Byte(s[i+1])) shl 8);
     if rem >= 3 then k := k or (LongWord(Byte(s[i+2])) shl 16);
-    Result := Result xor (rotl(k * C1, 15) * C2);
+    Result := Result xor (rotl(k*C1, 15)*C2);
   end;
   Result := Result xor LongWord(len);
   Result := Result xor (Result shr 16);
-  Result := Result * LongWord($85ebca6b);
+  Result := Result*LongWord($85ebca6b);
   Result := Result xor (Result shr 13);
-  Result := Result * LongWord($c2b2ae35);
+  Result := Result*LongWord($c2b2ae35);
   Result := Result xor (Result shr 16);
   {$pop}
 end;
@@ -110,8 +107,7 @@ begin
   while i <= Length(s) do begin
     if s[i] in ['0'..'9', 'a'..'f', 'A'..'F'] then begin
       var startPos := i;
-      while (i <= Length(s)) and (s[i] in ['0'..'9', 'a'..'f', 'A'..'F']) do
-        Inc(i);
+      while (i <= Length(s)) and (s[i] in ['0'..'9', 'a'..'f', 'A'..'F']) do Inc(i);
       if i-startPos >= MinLen then begin
         SetLength(Result, Length(Result)+1);
         Result[High(Result)] := Copy(s, startPos, i-startPos);
@@ -134,8 +130,10 @@ end;
 // or chaining Ord arithmetic three times at every call site.
 function HexCharToInt(c: Char): Integer;
 begin
-  if (c >= '0') and (c <= '9') then Result := Ord(c)-Ord('0') else if (c >= 'a') and (c <= 'f') then Result := Ord(c)-Ord('a')+10
-  else if (c >= 'A') and (c <= 'F') then Result := Ord(c)-Ord('A')+10 else Result := -1;
+  if (c >= '0') and (c <= '9') then Result := Ord(c)-Ord('0')
+  else if (c >= 'a') and (c <= 'f') then Result := Ord(c)-Ord('a')+10
+  else if (c >= 'A') and (c <= 'F') then Result := Ord(c)-Ord('A')+10
+  else Result := -1;
 end;
 
 // Read one commit-position field (pos 1 or 2 in the blob).
@@ -145,8 +143,7 @@ end;
 //                  prefix pin; branch from this field is implicitly 'main'
 // Returns False on any malformed / EOF / out-of-range case. On success
 // pos is advanced and commitHex / branchFromCommit are populated.
-function ReadCommitField(const blob: string; var pos: Integer;
-  out commitHex, branchFromCommit: string): Boolean;
+function ReadCommitField(const blob: string; var pos: Integer; out commitHex, branchFromCommit: string): Boolean;
 begin
   Result := False;
   commitHex := '';
@@ -176,8 +173,7 @@ end;
 // Read one branch-override field (pos 3 or 4 in the blob). These slots
 // are *hash-only*: predefined entries are not allowed (use pos 1/2 if you
 // want predefined). Length digit must be '1'..'9'; '0' rejects.
-function ReadBranchOverrideField(const blob: string; var pos: Integer;
-  out hashHex: string): Boolean;
+function ReadBranchOverrideField(const blob: string; var pos: Integer; out hashHex: string): Boolean;
 begin
   Result := False;
   hashHex := '';

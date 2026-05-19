@@ -22,7 +22,7 @@ begin
   var i := 1;
   while i+3 <= len do begin
     var k: LongWord := LongWord(Byte(s[i])) or (LongWord(Byte(s[i+1])) shl 8) or (LongWord(Byte(s[i+2])) shl 16) or (LongWord(Byte(s[i+3])) shl 24);
-    result := rotl(result xor (rotl(k * C1, 15) * C2), 13) * 5+$e6546b64;
+    result := rotl(result xor (rotl(k*C1, 15)*C2), 13)*5+$e6546b64;
     inc(i, 4);
   end;
   var rem := len-i+1;
@@ -30,13 +30,13 @@ begin
     var k: LongWord := LongWord(Byte(s[i]));
     if rem >= 2 then k := k or (LongWord(Byte(s[i+1])) shl 8);
     if rem >= 3 then k := k or (LongWord(Byte(s[i+2])) shl 16);
-    result := result xor (rotl(k * C1, 15) * C2);
+    result := result xor (rotl(k*C1, 15)*C2);
   end;
   result := result xor LongWord(len);
   result := result xor (result shr 16);
-  result := result * LongWord($85ebca6b);
+  result := result*LongWord($85ebca6b);
   result := result xor (result shr 13);
-  result := result * LongWord($c2b2ae35);
+  result := result*LongWord($c2b2ae35);
   result := result xor (result shr 16);
 
   {$pop}

@@ -27,9 +27,7 @@ const
 // those fields, '' otherwise. On True, caller compares AgeSeconds to
 // CACHE_TTL_MINUTES*60 to decide fresh-use vs stale-fallback. The lists
 // are always cleared first; on False they end up empty.
-function LoadCache(FpcBranches, IdeBranches: TStringList;
-  out AgeSeconds: Double;
-  out FpcMainSha, IdeMainSha: string): Boolean;
+function LoadCache(FpcBranches, IdeBranches: TStringList; out AgeSeconds: Double; out FpcMainSha, IdeMainSha: string): Boolean;
 
 // Write both branch lists plus per-repo HEAD-of-`main` SHAs to the
 // cache file with the current local timestamp. Source lists must be
@@ -39,14 +37,20 @@ function LoadCache(FpcBranches, IdeBranches: TStringList;
 // just get their name written.
 procedure SaveCache(FpcBranches, IdeBranches: TStrings);
 
+// Full path to the cache file (per-user temp dir + CACHE_FILENAME).
+// Exposed so log messages can show the user where the cache actually
+// lives -- handy when the path differs between hosts (temp resolves
+// differently on Windows vs Linux, and per-user vs system accounts).
+function CacheFilePath: string;
+
 implementation
 
 uses
   DateUtils;
 
 const
-  FPC_PREFIX      = 'fpc-branches=';
-  IDE_PREFIX      = 'ide-branches=';
+  FPC_PREFIX = 'fpc-branches=';
+  IDE_PREFIX = 'ide-branches=';
   // Per-branch SHA-1 keys are prefixed `sha1-<repo>-<branch>=` so the
   // schema scales: only the main branches are written today, but a
   // future "preload heads for these N branches" feature could add
@@ -58,10 +62,10 @@ const
   // extract a timestamp from it for the freshness check, but visually
   // it sits in the header block under the file identity tag so a
   // user reading the file sees both together.
-  TS_PREFIX       = '# Cached at: ';
-  HEADER          = '# Unleashed Installer cache file';
-  TS_FORMAT       = 'yyyy-mm-dd hh:nn:ss';
-  MAIN_BRANCH     = 'main';
+  TS_PREFIX = '# Cached at: ';
+  HEADER = '# Unleashed Installer cache file';
+  TS_FORMAT = 'yyyy-mm-dd hh:nn:ss';
+  MAIN_BRANCH = 'main';
 
 function CacheFilePath: string;
 begin
@@ -89,9 +93,7 @@ begin
   end;
 end;
 
-function LoadCache(FpcBranches, IdeBranches: TStringList;
-  out AgeSeconds: Double;
-  out FpcMainSha, IdeMainSha: string): Boolean;
+function LoadCache(FpcBranches, IdeBranches: TStringList; out AgeSeconds: Double; out FpcMainSha, IdeMainSha: string): Boolean;
 begin
   Result := False;
   AgeSeconds := 1e9;
@@ -129,7 +131,8 @@ begin
       Continue;
     end;
     if ln[1] = '#' then Continue;
-    if Pos(FPC_PREFIX, ln) = 1 then fpcLine := Copy(ln, Length(FPC_PREFIX)+1, MaxInt) else if Pos(IDE_PREFIX, ln) = 1 then ideLine := Copy(ln, Length(IDE_PREFIX)+1, MaxInt)
+    if Pos(FPC_PREFIX, ln) = 1 then fpcLine := Copy(ln, Length(FPC_PREFIX)+1, MaxInt)
+    else if Pos(IDE_PREFIX, ln) = 1 then ideLine := Copy(ln, Length(IDE_PREFIX)+1, MaxInt)
     else if Pos(FPC_HASH_PREFIX, ln) = 1 then FpcMainSha := LowerCase(Trim(Copy(ln, Length(FPC_HASH_PREFIX)+1, MaxInt)))
     else if Pos(IDE_HASH_PREFIX, ln) = 1 then IdeMainSha := LowerCase(Trim(Copy(ln, Length(IDE_HASH_PREFIX)+1, MaxInt)));
   end;
