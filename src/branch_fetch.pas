@@ -35,8 +35,8 @@ uses
   {$ifdef LINUX}, process{$endif};
 
 const
-  AGENT = 'UnleashedInstaller/1.0';
-  HEADERS = 'Accept: application/vnd.github+json'#13#10;
+  AGENT      = 'UnleashedInstaller/1.0';
+  HEADERS    = 'Accept: application/vnd.github+json'#13#10;
   CHUNK_SIZE = 4096;
 
 constructor TBranchFetchThread.Create(const AOwner, ARepo: string; AOnDone: TNotifyEvent);
@@ -73,7 +73,8 @@ begin
   var Session := InternetOpen(AGENT, INTERNET_OPEN_TYPE_PRECONFIG, nil, nil, 0);
   if Session = nil then Exit;
   try
-    var Connection := InternetOpenUrl(Session, PChar(URL), PChar(HEADERS), Length(HEADERS), INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
+    var Connection := InternetOpenUrl(Session, PChar(URL), PChar(HEADERS), Length(HEADERS), INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or
+      INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
     if Connection = nil then Exit;
     try
       var Stream := autofree TMemoryStream.Create;
@@ -134,13 +135,14 @@ begin
     if P.Output.NumBytesAvailable > 0 then begin
       n := P.Output.Read(Buf, Length(Buf));
       if n > 0 then StdoutBuf.Write(Buf, n);
-    end else if P.Stderr.NumBytesAvailable > 0 then begin
+    end
+    else if P.Stderr.NumBytesAvailable > 0 then begin
       n := P.Stderr.Read(Buf, Length(Buf));
       if n > 0 then begin
         var chunk: string := '';
         SetLength(chunk, n);
         Move(Buf, chunk[1], n);
-        StderrBuf := StderrBuf+chunk;
+        StderrBuf := StderrBuf + chunk;
       end;
     end else Sleep(20);
   end;
@@ -174,7 +176,7 @@ begin
     // store as "name=sha" so callers can both build a names list for
     // a combobox (Names[i]) and look up the head SHA for a branch
     // (Values[branchName]) in O(1).
-    for var i := 0 to Arr.Count-1 do begin
+    for var i := 0 to Arr.Count - 1 do begin
       var Obj := Arr.Objects[i];
       if Obj <> nil then FBranches.Add(Obj.Get('name', '')+'='+TJSONObject(Obj.Find('commit')).Get('sha', ''));
     end;

@@ -63,7 +63,7 @@ implementation
 
 function ManifestPathFor(const InstallDir: string): string;
 begin
-  Result := IncludeTrailingPathDelimiter(InstallDir)+MANIFEST_FILE;
+  Result := IncludeTrailingPathDelimiter(InstallDir) + MANIFEST_FILE;
 end;
 
 function StrToBoolDefSafe(const S: string; const Def: Boolean): Boolean;
@@ -92,30 +92,30 @@ begin
   except
     Exit;
   end;
-  Result.FpcBranch := Lines.Values['fpc-branch'];
-  Result.FpcSha := LowerCase(Lines.Values['fpc-sha']);
+  Result.FpcBranch    := Lines.Values['fpc-branch'];
+  Result.FpcSha       := LowerCase(Lines.Values['fpc-sha']);
   // Older manifests (pre-fpc-latest field) default the flag to True
   // when no SHA is recorded (legacy "empty SHA == latest" interpretation),
   // False otherwise. New manifests carry the explicit flag.
-  Result.FpcLatest := StrToBoolDefSafe(Lines.Values['fpc-latest'], Result.FpcSha = '');
-  Result.LazBranch := Lines.Values['lazarus-branch'];
-  Result.LazSha := LowerCase(Lines.Values['lazarus-sha']);
-  Result.LazLatest := StrToBoolDefSafe(Lines.Values['lazarus-latest'], Result.LazSha = '');
-  Result.CrossWin64 := StrToBoolDefSafe(Lines.Values['cross-x86_64-win64'], False);
-  Result.CrossWin32 := StrToBoolDefSafe(Lines.Values['cross-i386-win32'], False);
+  Result.FpcLatest    := StrToBoolDefSafe(Lines.Values['fpc-latest'], Result.FpcSha = '');
+  Result.LazBranch    := Lines.Values['lazarus-branch'];
+  Result.LazSha       := LowerCase(Lines.Values['lazarus-sha']);
+  Result.LazLatest    := StrToBoolDefSafe(Lines.Values['lazarus-latest'], Result.LazSha = '');
+  Result.CrossWin64   := StrToBoolDefSafe(Lines.Values['cross-x86_64-win64'], False);
+  Result.CrossWin32   := StrToBoolDefSafe(Lines.Values['cross-i386-win32'], False);
   Result.CrossLinux64 := StrToBoolDefSafe(Lines.Values['cross-x86_64-linux'], False);
   Result.CrossLinux32 := StrToBoolDefSafe(Lines.Values['cross-i386-linux'], False);
   // Accept both wasip1 (current) and wasi (older manifests written by
   // earlier installer versions) so a re-run reads the historical flag
   // correctly without forcing a clean reinstall.
-  Result.CrossWasm := StrToBoolDefSafe(Lines.Values['cross-wasm32-wasip1'], StrToBoolDefSafe(Lines.Values['cross-wasm32-wasi'], False));
+  Result.CrossWasm    := StrToBoolDefSafe(Lines.Values['cross-wasm32-wasip1'], StrToBoolDefSafe(Lines.Values['cross-wasm32-wasi'], False));
   Result.InstallMinimap := StrToBoolDefSafe(Lines.Values['extras-minimap'], False);
   Result.InstallCPUView := StrToBoolDefSafe(Lines.Values['extras-cpuview'], False);
   Result.InstallToggleAffinity := StrToBoolDefSafe(Lines.Values['extras-toggle-affinity'], False);
-  Result.InstallMetaDarkStyle := StrToBoolDefSafe(Lines.Values['extras-metadarkstyle'], False);
-  Result.LaunchAfter := StrToBoolDefSafe(Lines.Values['launch-after-install'], True);
-  Result.InstalledAt := Lines.Values['installed-at'];
-  Result.Present := True;
+  Result.InstallMetaDarkStyle  := StrToBoolDefSafe(Lines.Values['extras-metadarkstyle'], False);
+  Result.LaunchAfter  := StrToBoolDefSafe(Lines.Values['launch-after-install'], True);
+  Result.InstalledAt  := Lines.Values['installed-at'];
+  Result.Present      := True;
 end;
 
 function WriteManifest(const InstallDir: string; const M: TInstallManifest): Boolean;
