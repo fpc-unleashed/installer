@@ -55,19 +55,69 @@ jobs:
     needs: check-for-changes
     if: needs.check-for-changes.outputs.should_build == 'true'
     uses: ./.github/workflows/windows.yml
-    permissions:
-      contents: write
 
   linux:
     needs: check-for-changes
     if: needs.check-for-changes.outputs.should_build == 'true'
     uses: ./.github/workflows/linux.yml
-    permissions:
-      contents: write
 
-  linux_appimage:
-    needs: check-for-changes
-    if: needs.check-for-changes.outputs.should_build == 'true'
-    uses: ./.github/workflows/linux_appimage.yml
+  release:
+    needs: [windows, linux]
+    if: needs.windows.result == 'success' && needs.linux.result == 'success'
+    runs-on: ubuntu-latest
     permissions:
       contents: write
+    steps:
+      - name: Checkout installer source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Download installer_win64_x86_64.exe
+        uses: actions/download-artifact@v4
+        with:
+          name: installer_win64_x86_64.exe
+
+      - name: Download installer_linux_x86_64
+        uses: actions/download-artifact@v4
+        with:
+          name: installer_linux_x86_64
+
+      - name: Download installer_linux_x86_64.AppImage
+        uses: actions/download-artifact@v4
+        with:
+          name: installer_linux_x86_64.AppImage
+
+      - name: Prepare release notes
+        run: |
+          ts=$(TZ=Europe/Berlin date +"%Y-%m-%d %H:%M:%S CEST")
+          # maj/min/rev come from the committed .lpi; BuildNr is the GH run number
+          # (same value the builds bumped into their copies before compiling).
+          maj=$(grep -oP '<MajorVersionNr Value="\K[0-9]+' src/installer.lpi || echo 0)
+          min=$(grep -oP '<MinorVersionNr Value="\K[0-9]+' src/installer.lpi || echo 0)
+          rev=$(grep -oP '<RevisionNr Value="\K[0-9]+'     src/installer.lpi || echo 0)
+          ver="${maj}.${min}.${rev}.${GITHUB_RUN_NUMBER}"
+          {
+            echo "Unleashed Installer nightly build"
+            echo
+            echo "Generated from commit: $GITHUB_SHA"
+            echo "Build time: $ts"
+            echo "Version: $ver"
+          } > release-body.txt
+
+      - name: Update tag
+        uses: richardsimko/update-tag@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: nightly
+
+      - name: Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: installer_win64_x86_64.exe,installer_linux_x86_64,installer_linux_x86_64.AppImage
+          tag: nightly
+          name: Unleashed Installer nightly
+          bodyFile: release-body.txt
+          prerelease: true
+          allowUpdates: true

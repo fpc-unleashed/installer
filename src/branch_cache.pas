@@ -74,7 +74,7 @@ begin
   // GetTempDir(False) returns the per-user temp dir on both Windows
   // (%TEMP%) and Linux ($TMPDIR or /tmp), with a trailing path
   // separator already attached so we can concat directly.
-  Result := GetTempDir(False) + CACHE_FILENAME;
+  Result := GetTempDir(False)+CACHE_FILENAME;
 end;
 
 // Split a "a, b, c" string into Dest. Empty tokens are skipped so an
@@ -130,7 +130,7 @@ begin
     if Pos(TS_PREFIX, ln) = 1 then begin
       try
         cachedAt := ScanDateTime(TS_FORMAT,
-          Copy(ln, Length(TS_PREFIX) + 1, MaxInt));
+          Copy(ln, Length(TS_PREFIX)+1, MaxInt));
         gotTimestamp := True;
       except
         Exit;
@@ -139,12 +139,12 @@ begin
     end;
     if ln[1] = '#' then Continue;
     if Pos(FPC_PREFIX, ln) = 1 then
-      fpcLine := Copy(ln, Length(FPC_PREFIX) + 1, MaxInt)
+      fpcLine := Copy(ln, Length(FPC_PREFIX)+1, MaxInt)
     else if Pos(IDE_PREFIX, ln) = 1 then
-      ideLine := Copy(ln, Length(IDE_PREFIX) + 1, MaxInt)
+      ideLine := Copy(ln, Length(IDE_PREFIX)+1, MaxInt)
     else if Pos(FPC_HASH_PREFIX, ln) = 1 then
-      FpcMainSha := LowerCase(Trim(Copy(ln, Length(FPC_HASH_PREFIX) + 1, MaxInt)))
-    else if Pos(IDE_HASH_PREFIX, ln) = 1 then IdeMainSha := LowerCase(Trim(Copy(ln, Length(IDE_HASH_PREFIX) + 1, MaxInt)));
+      FpcMainSha := LowerCase(Trim(Copy(ln, Length(FPC_HASH_PREFIX)+1, MaxInt)))
+    else if Pos(IDE_HASH_PREFIX, ln) = 1 then IdeMainSha := LowerCase(Trim(Copy(ln, Length(IDE_HASH_PREFIX)+1, MaxInt)));
   end;
 
   if not gotTimestamp then Exit;
@@ -170,8 +170,8 @@ procedure SaveCache(FpcBranches, IdeBranches: TStrings);
       var entry := L[i];
       if Pos('=', entry) > 0 then entry := L.Names[i];
       if entry = '' then Continue;
-      if Result <> '' then Result := Result + ', ';
-      Result := Result + entry;
+      if Result <> '' then Result := Result+', ';
+      Result := Result+entry;
     end;
   end;
 
@@ -191,12 +191,12 @@ procedure SaveCache(FpcBranches, IdeBranches: TStrings);
 begin
   var f := autofree TStringList.Create;
   f.Add(HEADER);
-  f.Add(TS_PREFIX + FormatDateTime(TS_FORMAT, Now));
+  f.Add(TS_PREFIX+FormatDateTime(TS_FORMAT, Now));
   f.Add('');
-  f.Add(FPC_PREFIX + JoinNames(FpcBranches));
-  f.Add(IDE_PREFIX + JoinNames(IdeBranches));
-  f.Add(FPC_HASH_PREFIX + MainSha(FpcBranches));
-  f.Add(IDE_HASH_PREFIX + MainSha(IdeBranches));
+  f.Add(FPC_PREFIX+JoinNames(FpcBranches));
+  f.Add(IDE_PREFIX+JoinNames(IdeBranches));
+  f.Add(FPC_HASH_PREFIX+MainSha(FpcBranches));
+  f.Add(IDE_HASH_PREFIX+MainSha(IdeBranches));
   try
     f.SaveToFile(CacheFilePath);
   except

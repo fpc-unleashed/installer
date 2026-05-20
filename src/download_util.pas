@@ -53,8 +53,7 @@ begin
   end;
   try
     var Connection := InternetOpenUrl(Session, PChar(URL), nil, 0,
-      INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or
-      INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
+      INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
     if Connection = nil then begin
       if Assigned(OnProgress) then OnProgress(-1, 'cannot open URL');
       Exit;
@@ -69,13 +68,12 @@ begin
       var CLIndex: DWORD := 0;
       if HttpQueryInfo(Connection,
         HTTP_QUERY_CONTENT_LENGTH or HTTP_QUERY_FLAG_NUMBER,
-        @CLBuf, @CLSize, @CLIndex) then
-        ContentLength := CLBuf;
+        @CLBuf, @CLSize, @CLIndex) then ContentLength := CLBuf;
 
       try
         Stream := autofree TFileStream.Create(DestPath, fmCreate);
       except
-        if Assigned(OnProgress) then OnProgress(-1, 'cannot create ' + DestPath);
+        if Assigned(OnProgress) then OnProgress(-1, 'cannot create '+DestPath);
         Exit;
       end;
 
@@ -84,7 +82,7 @@ begin
       var LastReportTotal: Int64 := 0;
       if Assigned(OnProgress) then begin
         if ContentLength > 0 then
-          OnProgress(0, '0 / ' + HumanMB(ContentLength))
+          OnProgress(0, '0 / '+HumanMB(ContentLength))
         else
           OnProgress(-1, 'starting download...');
       end;
@@ -99,18 +97,17 @@ begin
         Stream.WriteBuffer(Buf[0], BytesRead);
         Inc(Total, BytesRead);
 
-        if Assigned(OnProgress) and
-           ((Total - LastReportTotal >= REPORT_EVERY) or
-            (BytesRead < CHUNK_SIZE)) then begin
+        if Assigned(OnProgress) and ((Total - LastReportTotal >= REPORT_EVERY) or (BytesRead < CHUNK_SIZE)) then begin
           LastReportTotal := Total;
           if ContentLength > 0 then begin
             var Pct: Integer := Round(Total * 100 / ContentLength);
             if Pct > 100 then Pct := 100;
             if Pct <> LastPct then begin
               LastPct := Pct;
-              OnProgress(Pct, HumanMB(Total) + ' / ' + HumanMB(ContentLength));
+              OnProgress(Pct, HumanMB(Total)+' / '+HumanMB(ContentLength));
             end;
-          end else OnProgress(-1, HumanMB(Total) + ' downloaded');
+          end else
+            OnProgress(-1, HumanMB(Total)+' downloaded');
         end;
       until False;
 
@@ -118,7 +115,7 @@ begin
         if ContentLength > 0 then
           OnProgress(100, 'download complete')
         else
-          OnProgress(-1, HumanMB(Total) + ' downloaded');
+          OnProgress(-1, HumanMB(Total)+' downloaded');
       end;
       Result := True;
     finally

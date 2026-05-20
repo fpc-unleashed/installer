@@ -27,10 +27,10 @@ type
     LazBranch: string;
     LazSha: string;
     LazLatest: Boolean;
-    CrossWin64: Boolean;       // cross to x86_64-win64 (only built on linux64 host)
-    CrossWin32: Boolean;       // legacy 32-bit
-    CrossLinux64: Boolean;     // cross to x86_64-linux (only built on win64 host)
-    CrossLinux32: Boolean;     // legacy 32-bit
+    CrossWin64: Boolean; // cross to x86_64-win64 (only built on linux64 host)
+    CrossWin32: Boolean; // legacy 32-bit
+    CrossLinux64: Boolean; // cross to x86_64-linux (only built on win64 host)
+    CrossLinux32: Boolean; // legacy 32-bit
     CrossWasm: Boolean;
     // optional Lazarus IDE addons -- written so a re-run can pre-tick
     // the right checkboxes
@@ -63,7 +63,7 @@ implementation
 
 function ManifestPathFor(const InstallDir: string): string;
 begin
-  Result := IncludeTrailingPathDelimiter(InstallDir) + MANIFEST_FILE;
+  Result := IncludeTrailingPathDelimiter(InstallDir)+MANIFEST_FILE;
 end;
 
 function StrToBoolDefSafe(const S: string; const Def: Boolean): Boolean;
@@ -127,23 +127,23 @@ begin
   var Lines := autofree TStringList.Create;
   Lines.Add('# Unleashed Installer manifest - written automatically');
   Lines.Add('# Do not edit; the installer relies on these values to detect updates.');
-  Lines.Add('fpc-branch=' + M.FpcBranch);
-  Lines.Add('fpc-sha=' + LowerCase(M.FpcSha));
-  Lines.Add('fpc-latest=' + BoolFlag(M.FpcLatest));
-  Lines.Add('lazarus-branch=' + M.LazBranch);
-  Lines.Add('lazarus-sha=' + LowerCase(M.LazSha));
-  Lines.Add('lazarus-latest=' + BoolFlag(M.LazLatest));
-  Lines.Add('cross-x86_64-win64=' + BoolFlag(M.CrossWin64));
-  Lines.Add('cross-i386-win32=' + BoolFlag(M.CrossWin32));
-  Lines.Add('cross-x86_64-linux=' + BoolFlag(M.CrossLinux64));
-  Lines.Add('cross-i386-linux=' + BoolFlag(M.CrossLinux32));
-  Lines.Add('cross-wasm32-wasip1=' + BoolFlag(M.CrossWasm));
-  Lines.Add('extras-minimap=' + BoolFlag(M.InstallMinimap));
-  Lines.Add('extras-cpuview=' + BoolFlag(M.InstallCPUView));
-  Lines.Add('extras-toggle-affinity=' + BoolFlag(M.InstallToggleAffinity));
-  Lines.Add('extras-metadarkstyle=' + BoolFlag(M.InstallMetaDarkStyle));
-  Lines.Add('launch-after-install=' + BoolFlag(M.LaunchAfter));
-  Lines.Add('installed-at=' + M.InstalledAt);
+  Lines.Add('fpc-branch='+M.FpcBranch);
+  Lines.Add('fpc-sha='+LowerCase(M.FpcSha));
+  Lines.Add('fpc-latest='+BoolFlag(M.FpcLatest));
+  Lines.Add('lazarus-branch='+M.LazBranch);
+  Lines.Add('lazarus-sha='+LowerCase(M.LazSha));
+  Lines.Add('lazarus-latest='+BoolFlag(M.LazLatest));
+  Lines.Add('cross-x86_64-win64='+BoolFlag(M.CrossWin64));
+  Lines.Add('cross-i386-win32='+BoolFlag(M.CrossWin32));
+  Lines.Add('cross-x86_64-linux='+BoolFlag(M.CrossLinux64));
+  Lines.Add('cross-i386-linux='+BoolFlag(M.CrossLinux32));
+  Lines.Add('cross-wasm32-wasip1='+BoolFlag(M.CrossWasm));
+  Lines.Add('extras-minimap='+BoolFlag(M.InstallMinimap));
+  Lines.Add('extras-cpuview='+BoolFlag(M.InstallCPUView));
+  Lines.Add('extras-toggle-affinity='+BoolFlag(M.InstallToggleAffinity));
+  Lines.Add('extras-metadarkstyle='+BoolFlag(M.InstallMetaDarkStyle));
+  Lines.Add('launch-after-install='+BoolFlag(M.LaunchAfter));
+  Lines.Add('installed-at='+M.InstalledAt);
   try
     Lines.SaveToFile(ManifestPathFor(InstallDir));
     Result := True;

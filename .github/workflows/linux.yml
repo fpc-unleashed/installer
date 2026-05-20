@@ -10,8 +10,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - name: Install build dependencies
@@ -20,7 +18,7 @@ jobs:
           sudo apt-get clean
           sudo apt-get update -o Acquire::Retries=3
           sudo apt-get install -y --no-install-recommends \
-            unzip curl \
+            unzip curl file desktop-file-utils \
             libgtk2.0-dev libcairo2-dev libpango1.0-dev \
             libgdk-pixbuf2.0-dev libatk1.0-dev libgl1-mesa-dev
 
@@ -74,7 +72,7 @@ jobs:
           fi
           grep '<BuildNr' src/installer.lpi
 
-      - name: Build installer
+      - name: Build installer ELF
         run: |
           "$HOME/laz/lazbuild" --lazarusdir="$HOME/laz" --build-mode=linux64_release --ws=gtk2 src/installer.lpi
           test -x installer_linux_x86_64
@@ -84,38 +82,53 @@ jobs:
         with:
           name: installer_linux_x86_64
           path: installer_linux_x86_64
+          retention-days: 7
 
-      - name: Prepare release
+      - name: Download appimagetool
         run: |
-          ts=$(TZ=Europe/Berlin date +"%Y-%m-%d %H:%M:%S CEST")
-          maj=$(grep -oP '<MajorVersionNr Value="\K[0-9]+' src/installer.lpi || echo 0)
-          min=$(grep -oP '<MinorVersionNr Value="\K[0-9]+' src/installer.lpi || echo 0)
-          rev=$(grep -oP '<RevisionNr Value="\K[0-9]+'     src/installer.lpi || echo 0)
-          bld=$(grep -oP '<BuildNr Value="\K[0-9]+'        src/installer.lpi || echo 0)
-          ver="${maj}.${min}.${rev}.${bld}"
-          echo "TAG=nightly" >> $GITHUB_ENV
-          echo "NAME=Unleashed Installer nightly" >> $GITHUB_ENV
-          {
-            echo "Unleashed Installer nightly build"
-            echo
-            echo "Generated from commit: $GITHUB_SHA"
-            echo "Build time: $ts"
-            echo "Version: $ver"
-          } > release-body.txt
+          curl -L -o appimagetool \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
 
-      - name: Update tag
-        uses: richardsimko/update-tag@v1
+      - name: Assemble AppDir
+        run: |
+          mkdir -p Installer.AppDir
+          cp installer_linux_x86_64 Installer.AppDir/
+          # AppImage spec: the icon listed in the .desktop's Icon= field
+          # (no extension) must exist as <Icon>.png at the AppDir root.
+          # .DirIcon is what file managers extract and render.
+          cp src/installer.png Installer.AppDir/installer.png
+          ln -s installer.png Installer.AppDir/.DirIcon
+          cat > Installer.AppDir/installer.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=FPC Unleashed Installer
+          Comment=Builds FPC + Lazarus from upstream sources
+          Exec=installer_linux_x86_64
+          Icon=installer
+          Categories=Development;
+          Terminal=false
+          EOF
+          # AppRun is the entry point invoked when the AppImage runs.
+          # A symlink to the ELF is the minimal valid form.
+          ln -s installer_linux_x86_64 Installer.AppDir/AppRun
+          ls -la Installer.AppDir/
+
+      - name: Pack into AppImage
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: nightly
+          ARCH: x86_64
+        run: |
+          # --appimage-extract-and-run avoids the FUSE dependency, which
+          # the GitHub Actions ubuntu-latest runner does not provide.
+          ./appimagetool --appimage-extract-and-run \
+            Installer.AppDir installer_linux_x86_64.AppImage
+          test -f installer_linux_x86_64.AppImage
+          file installer_linux_x86_64.AppImage
+          chmod +x installer_linux_x86_64.AppImage
 
-      - name: Release
-        uses: ncipollo/release-action@v1
+      - name: Upload installer_linux_x86_64.AppImage
+        uses: actions/upload-artifact@v4
         with:
-          artifacts: installer_linux_x86_64
-          tag: ${{ env.TAG }}
-          name: ${{ env.NAME }}
-          bodyFile: release-body.txt
-          prerelease: true
-          allowUpdates: true
+          name: installer_linux_x86_64.AppImage
+          path: installer_linux_x86_64.AppImage
+          retention-days: 7

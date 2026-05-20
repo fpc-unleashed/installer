@@ -74,24 +74,25 @@ begin
     var envLine := GetEnvironmentString(i);
     if envLine = '' then Continue;
     var eqPos := Pos('=', envLine);
-    if eqPos < 2 then Continue;       // malformed -- no name=value
+    if eqPos < 2 then Continue; // malformed -- no name=value
     var name := UpperCase(Copy(envLine, 1, eqPos - 1));
     if (name = 'MAKEFLAGS') or (name = 'MFLAGS') then
-      Continue;                       // scrub: don't propagate to child make
+      Continue; // scrub: don't propagate to child make
 {$ifdef LINUX}
     if name = 'PPC_CONFIG_PATH' then
-      Continue;                       // re-injected via libc_getenv below
+      Continue; // re-injected via libc_getenv below
 {$endif}
     if name = 'PATH' then begin
       // PathSeparator: ';' on Windows, ':' on Unix-likes
       if Prefix <> '' then
-        P.Environment.Add('PATH=' + Prefix + PathSeparator + Copy(envLine, 6, MaxInt))
+        P.Environment.Add('PATH='+Prefix+PathSeparator+Copy(envLine, 6, MaxInt))
       else
         P.Environment.Add(envLine);
       pathSeen := True;
-    end else P.Environment.Add(envLine);
+    end else
+      P.Environment.Add(envLine);
   end;
-  if (Prefix <> '') and (not pathSeen) then P.Environment.Add('PATH=' + Prefix);
+  if (Prefix <> '') and (not pathSeen) then P.Environment.Add('PATH='+Prefix);
   // Belt + suspenders: even if parent's env has no MAKEFLAGS at all,
   // explicitly set it empty so any "inherited" semantic somewhere up
   // the stack (libtool wrappers, ccache shims, ...) reads "" instead
@@ -104,7 +105,7 @@ begin
   // own GetEnvironmentString doesn't see that change (envp frozen at
   // startup), so we read via libc and explicitly add to child env.
   var ppc := libc_getenv('PPC_CONFIG_PATH');
-  if (ppc <> nil) and (ppc^ <> #0) then P.Environment.Add('PPC_CONFIG_PATH=' + string(ppc));
+  if (ppc <> nil) and (ppc^ <> #0) then P.Environment.Add('PPC_CONFIG_PATH='+string(ppc));
 {$endif}
 end;
 
@@ -148,25 +149,25 @@ begin
   end;
 
   // drain pipes until child exits and both pipes are empty
-  while P.Running or (P.Output.NumBytesAvailable > 0) or
-        (P.Stderr.NumBytesAvailable > 0) do
+  while P.Running or (P.Output.NumBytesAvailable > 0) or (P.Stderr.NumBytesAvailable > 0) do
   begin
     if P.Output.NumBytesAvailable > 0 then begin
       var N := P.Output.Read(Tmp, Length(Tmp));
       if N > 0 then begin
-        SetLength(OutBuf, Length(OutBuf) + N);
-        Move(Tmp, OutBuf[Length(OutBuf) - N + 1], N);
+        SetLength(OutBuf, Length(OutBuf)+N);
+        Move(Tmp, OutBuf[Length(OutBuf) - N+1], N);
         FlushLines(OutBuf, OnLine);
       end;
     end
     else if P.Stderr.NumBytesAvailable > 0 then begin
       var N := P.Stderr.Read(Tmp, Length(Tmp));
       if N > 0 then begin
-        SetLength(ErrBuf, Length(ErrBuf) + N);
-        Move(Tmp, ErrBuf[Length(ErrBuf) - N + 1], N);
+        SetLength(ErrBuf, Length(ErrBuf)+N);
+        Move(Tmp, ErrBuf[Length(ErrBuf) - N+1], N);
         FlushLines(ErrBuf, OnLine);
       end;
-    end else Sleep(20);
+    end else
+      Sleep(20);
   end;
 
   // emit any final partial line that didn't end with LF

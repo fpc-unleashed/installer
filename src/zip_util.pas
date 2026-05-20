@@ -47,7 +47,8 @@ function ExtractZip(const ZipPath, DestDir: string;
   OnProgress: TZipProgress): Boolean;
 begin
   Result := False;
-  if not DirectoryExists(DestDir) then if not ForceDirectories(DestDir) then Exit;
+  if not DirectoryExists(DestDir) then
+    if not ForceDirectories(DestDir) then Exit;
 
   // LIFO: UnZip frees first, then Bridge - safe because UnZip drops its
   // OnProgressEx handler before destruction
