@@ -6,6 +6,7 @@ object MainForm: TMainForm
   Caption = 'FPC Unleashed Edition Installer'
   ClientHeight = 767
   ClientWidth = 918
+  Menu = MainMenu1
   Position = poScreenCenter
   LCLVersion = '4.99.0.0'
   OnCreate = FormCreate
@@ -448,6 +449,7 @@ object MainForm: TMainForm
           Checked = True
           State = cbChecked
           TabOrder = 0
+          OnChange = OnAddonOrCrossChange
         end
         object CheckBoxCPUView: TCheckBox
           Left = 0
@@ -459,15 +461,15 @@ object MainForm: TMainForm
           Checked = True
           State = cbChecked
           TabOrder = 2
+          OnChange = OnAddonOrCrossChange
         end
         object LabelLinkCPUView: TLabel
           Cursor = crHandPoint
           Left = 18
           Height = 15
           Top = 63
-          Width = 200
+          Width = 275
           Align = alTop
-          AutoSize = True
           BorderSpacing.Left = 18
           Caption = 'GitHub: CPUView by @AlexanderBagel'
           Font.Color = clBlue
@@ -483,15 +485,15 @@ object MainForm: TMainForm
           Align = alTop
           Caption = 'MetaDarkStyle (dark IDE theme)'
           TabOrder = 3
+          OnChange = OnAddonOrCrossChange
         end
         object LabelLinkMetaDarkStyle: TLabel
           Cursor = crHandPoint
           Left = 18
           Height = 15
           Top = 97
-          Width = 200
+          Width = 275
           Align = alTop
-          AutoSize = True
           BorderSpacing.Left = 18
           Caption = 'GitHub: metadarkstyle by @zamtmn'
           Font.Color = clBlue
@@ -507,6 +509,7 @@ object MainForm: TMainForm
           Align = alTop
           Caption = 'Toggle Display Affinity (Windows-only)'
           TabOrder = 1
+          OnChange = OnAddonOrCrossChange
         end
         object Bevel2: TBevel
           Left = 0
@@ -832,7 +835,7 @@ object MainForm: TMainForm
       object Panel5: TPanel
         Left = 10
         Height = 130
-        Top = 206
+        Top = 255
         Width = 293
         Align = alTop
         AutoSize = True
@@ -861,6 +864,7 @@ object MainForm: TMainForm
           Align = alTop
           Caption = 'x86_64-win64'
           TabOrder = 0
+          OnChange = OnAddonOrCrossChange
         end
         object CheckBoxCrossLinux64: TCheckBox
           Left = 0
@@ -870,6 +874,7 @@ object MainForm: TMainForm
           Align = alTop
           Caption = 'x86_64-linux'
           TabOrder = 1
+          OnChange = OnAddonOrCrossChange
         end
         object CheckBoxCrossWin32: TCheckBox
           Left = 0
@@ -879,6 +884,7 @@ object MainForm: TMainForm
           Align = alTop
           Caption = 'i386-win32'
           TabOrder = 2
+          OnChange = OnAddonOrCrossChange
         end
         object CheckBoxCrossLinux32: TCheckBox
           Left = 0
@@ -888,7 +894,7 @@ object MainForm: TMainForm
           Align = alTop
           Caption = 'i386-linux'
           TabOrder = 3
-          OnChange = CheckBoxCrossLinux32Change
+          OnChange = OnAddonOrCrossChange
         end
         object CheckBoxCrossWasm: TCheckBox
           Left = 0
@@ -898,6 +904,7 @@ object MainForm: TMainForm
           Align = alTop
           Caption = 'wasm32-wasip1'
           TabOrder = 4
+          OnChange = OnAddonOrCrossChange
         end
         object Bevel3: TBevel
           Left = 0
@@ -1026,8 +1033,8 @@ object MainForm: TMainForm
     end
   end
   object PopupMenuLog: TPopupMenu
-    Left = 168
-    Top = 440
+    Left = 40
+    Top = 520
     object MenuCopy: TMenuItem
       Caption = 'Copy'
       ShortCut = 16451
@@ -1035,7 +1042,48 @@ object MainForm: TMainForm
     end
   end
   object SelectDirDialog: TSelectDirectoryDialog
-    Left = 72
-    Top = 440
+    Left = 40
+    Top = 464
+  end
+  object MainMenu1: TMainMenu
+    Left = 40
+    Top = 416
+    object MenuFile: TMenuItem
+      Caption = 'File'
+      object MenuFileExit: TMenuItem
+        Caption = 'Exit'
+        OnClick = MenuFileExitClick
+      end
+    end
+    object MenuRepo: TMenuItem
+      Caption = 'Repository'
+      object MenuRepoMain: TMenuItem
+        Caption = 'fpc-unleashed'
+        OnClick = MenuRepoMainClick
+      end
+      object MenuRepoFreepascal: TMenuItem
+        Caption = 'FPC Unleashed Edition'
+        OnClick = MenuRepoFreepascalClick
+      end
+      object MenuRepoLazarus: TMenuItem
+        Caption = 'Unleashed Lazarus IDE'
+        OnClick = MenuRepoLazarusClick
+      end
+      object MenuRepoInstaller: TMenuItem
+        Caption = 'Unleashed Installer'
+        OnClick = MenuRepoInstallerClick
+      end
+    end
+    object MenuHelp: TMenuItem
+      Caption = 'Help'
+      object MenuHelpDocs: TMenuItem
+        Caption = 'Unleashed Docs'
+        OnClick = MenuHelpDocsClick
+      end
+      object MenuHelpAbout: TMenuItem
+        Caption = 'About'
+        OnClick = MenuHelpAboutClick
+      end
+    end
   end
 end

@@ -48,7 +48,8 @@ function RunSilent(const Exe: string; const Args: array of string;
 begin
   var P := autofree TProcess.Create(nil);
   P.Executable := Exe;
-  for var i := Low(Args) to High(Args) do P.Parameters.Add(Args[i]);
+  for var i := Low(Args) to High(Args) do
+    P.Parameters.Add(Args[i]);
   if WorkDir <> '' then P.CurrentDirectory := WorkDir;
   P.Options := [poNoConsole, poWaitOnExit];
   P.ShowWindow := swoHide;
@@ -68,7 +69,8 @@ end;
 procedure ApplyEnvWithPathPrefix(P: TProcess; const Prefix: string);
 begin
   var pathSeen := False;
-  for var i := 0 to GetEnvironmentVariableCount - 1 do begin
+  for var i := 0 to GetEnvironmentVariableCount - 1 do
+  begin
     var envLine := GetEnvironmentString(i);
     if envLine = '' then Continue;
     var eqPos := Pos('=', envLine);
@@ -83,12 +85,13 @@ begin
     if name = 'PATH' then begin
       // PathSeparator: ';' on Windows, ':' on Unix-likes
       if Prefix <> '' then
-        P.Environment.Add('PATH='+Prefix + PathSeparator + Copy(envLine, 6, MaxInt))
-      else P.Environment.Add(envLine);
+        P.Environment.Add('PATH=' + Prefix + PathSeparator + Copy(envLine, 6, MaxInt))
+      else
+        P.Environment.Add(envLine);
       pathSeen := True;
     end else P.Environment.Add(envLine);
   end;
-  if (Prefix <> '') and (not pathSeen) then P.Environment.Add('PATH='+Prefix);
+  if (Prefix <> '') and (not pathSeen) then P.Environment.Add('PATH=' + Prefix);
   // Belt + suspenders: even if parent's env has no MAKEFLAGS at all,
   // explicitly set it empty so any "inherited" semantic somewhere up
   // the stack (libtool wrappers, ccache shims, ...) reads "" instead
@@ -101,7 +104,7 @@ begin
   // own GetEnvironmentString doesn't see that change (envp frozen at
   // startup), so we read via libc and explicitly add to child env.
   var ppc := libc_getenv('PPC_CONFIG_PATH');
-  if (ppc <> nil) and (ppc^ <> #0) then P.Environment.Add('PPC_CONFIG_PATH='+string(ppc));
+  if (ppc <> nil) and (ppc^ <> #0) then P.Environment.Add('PPC_CONFIG_PATH=' + string(ppc));
 {$endif}
 end;
 
@@ -129,7 +132,8 @@ begin
   Result := -1;
   var P := autofree TProcess.Create(nil);
   P.Executable := Exe;
-  for var i := Low(Args) to High(Args) do P.Parameters.Add(Args[i]);
+  for var i := Low(Args) to High(Args) do
+    P.Parameters.Add(Args[i]);
   if WorkDir <> '' then P.CurrentDirectory := WorkDir;
   P.Options := [poUsePipes, poNoConsole];
   P.ShowWindow := swoHide;
@@ -144,7 +148,9 @@ begin
   end;
 
   // drain pipes until child exits and both pipes are empty
-  while P.Running or (P.Output.NumBytesAvailable > 0) or (P.Stderr.NumBytesAvailable > 0) do begin
+  while P.Running or (P.Output.NumBytesAvailable > 0) or
+        (P.Stderr.NumBytesAvailable > 0) do
+  begin
     if P.Output.NumBytesAvailable > 0 then begin
       var N := P.Output.Read(Tmp, Length(Tmp));
       if N > 0 then begin

@@ -73,7 +73,8 @@ begin
   Result := Seed;
   var len := Length(s);
   var i := 1;
-  while i + 3 <= len do begin
+  while i + 3 <= len do
+  begin
     var k: LongWord :=  LongWord(Byte(s[i]))
                     or (LongWord(Byte(s[i+1])) shl 8)
                     or (LongWord(Byte(s[i+2])) shl 16)
@@ -107,10 +108,12 @@ function CollectHexRuns(const s: string; MinLen: Integer): array of string;
 begin
   SetLength(Result, 0);
   var i := 1;
-  while i <= Length(s) do begin
+  while i <= Length(s) do
+  begin
     if s[i] in ['0'..'9', 'a'..'f', 'A'..'F'] then begin
       var startPos := i;
-      while (i <= Length(s)) and (s[i] in ['0'..'9', 'a'..'f', 'A'..'F']) do Inc(i);
+      while (i <= Length(s)) and (s[i] in ['0'..'9', 'a'..'f', 'A'..'F']) do
+        Inc(i);
       if i - startPos >= MinLen then begin
         SetLength(Result, Length(Result) + 1);
         Result[High(Result)] := Copy(s, startPos, i - startPos);
@@ -123,7 +126,8 @@ function IsAllHex(const s: string): Boolean;
 begin
   Result := False;
   if s = '' then Exit;
-  for var i := 1 to Length(s) do if not (s[i] in ['0'..'9', 'a'..'f', 'A'..'F']) then Exit;
+  for var i := 1 to Length(s) do
+    if not (s[i] in ['0'..'9', 'a'..'f', 'A'..'F']) then Exit;
   Result := True;
 end;
 
@@ -244,7 +248,8 @@ begin
   Result := '';
   var prefixLen := Length(HexPrefix);
   if prefixLen = 0 then Exit;
-  for var i := 0 to Items.Count - 1 do begin
+  for var i := 0 to Items.Count - 1 do
+  begin
     var name := Items[i];
     var hash := LowerCase(IntToHex(Murmur3_32(name), 8));
     if SameText(Copy(hash, 1, prefixLen), HexPrefix) then Exit(name);

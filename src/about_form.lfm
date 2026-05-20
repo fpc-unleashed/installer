@@ -1,0 +1,96 @@
+object AboutForm: TAboutForm
+  Left = 400
+  Height = 520
+  Top = 200
+  Width = 600
+  BorderStyle = bsSizeable
+  Caption = 'About FPC Unleashed Installer'
+  ClientHeight = 520
+  ClientWidth = 600
+  Position = poOwnerFormCenter
+  LCLVersion = '4.99.0.0'
+  OnCreate = FormCreate
+  object pnlHead: TPanel
+    Left = 0
+    Height = 100
+    Top = 0
+    Width = 600
+    Align = alTop
+    AutoSize = True
+    BevelOuter = bvNone
+    ClientHeight = 100
+    ClientWidth = 600
+    TabOrder = 0
+    object lblTitle: TLabel
+      Left = 12
+      Height = 22
+      Top = 12
+      Width = 576
+      Align = alTop
+      AutoSize = True
+      BorderSpacing.Left = 12
+      BorderSpacing.Top = 12
+      BorderSpacing.Right = 12
+      Caption = 'FPC Unleashed Installer'
+      Font.Height = -14
+      Font.Style = [fsBold]
+      ParentFont = False
+      WordWrap = True
+    end
+    object lblBlurb: TLabel
+      Left = 12
+      Height = 45
+      Top = 42
+      Width = 576
+      Align = alTop
+      AutoSize = True
+      BorderSpacing.Left = 12
+      BorderSpacing.Top = 8
+      BorderSpacing.Right = 12
+      BorderSpacing.Bottom = 12
+      Caption = 'Official installer for the fpc-unleashed project.'#10'Downloads source, builds FPC Unleashed and the Lazarus'#10'IDE into a self-contained directory of your choice.'
+      WordWrap = True
+    end
+  end
+  object pnlFoot: TPanel
+    Left = 0
+    Height = 48
+    Top = 472
+    Width = 600
+    Align = alBottom
+    BevelOuter = bvNone
+    ClientHeight = 48
+    ClientWidth = 600
+    TabOrder = 1
+    object btnClose: TButton
+      Left = 502
+      Height = 32
+      Top = 8
+      Width = 90
+      Align = alRight
+      BorderSpacing.Around = 8
+      Cancel = True
+      Caption = 'Close'
+      Default = True
+      ModalResult = 1
+      TabOrder = 0
+    end
+  end
+  object memLicense: TMemo
+    Left = 12
+    Height = 312
+    Top = 112
+    Width = 576
+    Align = alClient
+    BorderSpacing.Left = 12
+    BorderSpacing.Right = 12
+    BorderSpacing.Bottom = 12
+    Font.Height = -12
+    Font.Name = 'Consolas'
+    ParentFont = False
+    ReadOnly = True
+    ScrollBars = ssAutoVertical
+    TabOrder = 2
+    WordWrap = False
+  end
+end

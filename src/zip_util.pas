@@ -62,7 +62,8 @@ begin
     UnZip.UnZipAllFiles;
     Result := True;
   except
-    on E: Exception do Result := False;
+    on E: Exception do
+      Result := False;
   end;
 end;
 

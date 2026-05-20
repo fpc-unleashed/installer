@@ -138,7 +138,7 @@
         <PackageName Value="LCL"/>
       </Item1>
     </RequiredPackages>
-    <Units Count="12">
+    <Units Count="13">
       <Unit0>
         <Filename Value="installer.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -190,6 +190,13 @@
         <Filename Value="branch_cache.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit11>
+      <Unit12>
+        <Filename Value="about_form.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="AboutForm"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit12>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

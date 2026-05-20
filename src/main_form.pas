@@ -11,7 +11,8 @@ uses
   Graphics, LCLType, LCLIntf, LResources, Menus, Clipbrd, RegExpr, fileinfo,
   {$ifdef MSWINDOWS} Windows, ShellApi, {$endif}
   {$ifdef LINUX} process, {$endif}
-  branch_fetch, branch_cache, install_pipeline, install_manifest, hash_branch;
+  branch_fetch, branch_cache, install_pipeline, install_manifest, hash_branch,
+  about_form;
 
 const
   GH_OWNER     = 'fpc-unleashed';
@@ -54,6 +55,17 @@ type
     EditLazarusHash: TEdit;
     CheckBoxLazarusLatest: TCheckBox;
     LabelCross: TLabel;
+    MainMenu1: TMainMenu;
+    MenuFile: TMenuItem;
+    MenuFileExit: TMenuItem;
+    MenuRepo: TMenuItem;
+    MenuRepoMain: TMenuItem;
+    MenuRepoFreepascal: TMenuItem;
+    MenuRepoLazarus: TMenuItem;
+    MenuRepoInstaller: TMenuItem;
+    MenuHelp: TMenuItem;
+    MenuHelpDocs: TMenuItem;
+    MenuHelpAbout: TMenuItem;
     panel1: tpanel;
     panel10: tpanel;
     panel11: tpanel;
@@ -99,7 +111,7 @@ type
     procedure CheckBoxInstallLazarusChange(Sender: TObject);
     procedure CheckBoxUnleashedLatestChange(Sender: TObject);
     procedure CheckBoxLazarusLatestChange(Sender: TObject);
-    procedure CheckBoxCrossLinux32Change(Sender: TObject);
+    procedure OnAddonOrCrossChange(Sender: TObject);
     procedure LabelLinkCPUViewClick(Sender: TObject);
     procedure LabelLinkMetaDarkStyleClick(Sender: TObject);
     procedure OnSelectionChange(Sender: TObject);
@@ -108,6 +120,13 @@ type
     procedure ListBoxLogKeyDown(Sender: TObject; var Key: Word;
       Shift: TShiftState);
     procedure MenuCopyClick(Sender: TObject);
+    procedure MenuFileExitClick(Sender: TObject);
+    procedure MenuRepoMainClick(Sender: TObject);
+    procedure MenuRepoFreepascalClick(Sender: TObject);
+    procedure MenuRepoLazarusClick(Sender: TObject);
+    procedure MenuRepoInstallerClick(Sender: TObject);
+    procedure MenuHelpDocsClick(Sender: TObject);
+    procedure MenuHelpAboutClick(Sender: TObject);
   private
     FFetchPending: Integer;
     FUnleashedReady, FLazarusReady: Boolean;
@@ -120,6 +139,10 @@ type
     // manifest; prevents RefreshTargetState (called on every selection
     // change) from clobbering the user's subsequent checkbox toggles
     FCrossSyncedFor: string;
+    // Gate for the state-B reset so a re-entry from a checkbox toggle
+    // does not clobber the just-made change. 'A'/'B'/'C'/'D' or #0.
+    FLastState: Char;
+    FLastStateDir: string;
     // raw 'name=sha' lists from branch_fetch; Values[branchName] yields
     // head SHA; both kept to drive update-vs-installed comparisons
     FFpcBranchShas: TStringList;
@@ -192,7 +215,7 @@ function IsDirEffectivelyEmpty(const Dir: string): Boolean;
 var SR: TSearchRec;
 begin
   Result := True;
-  if FindFirst(IncludeTrailingPathDelimiter(Dir)+'*', faAnyFile, SR) = 0 then
+  if FindFirst(IncludeTrailingPathDelimiter(Dir) + '*', faAnyFile, SR) = 0 then
   try
     repeat
       if (SR.Name <> '.') and (SR.Name <> '..') then begin
@@ -213,17 +236,19 @@ begin
   Result := False;
   if dir = '' then Exit;
 {$ifdef MSWINDOWS}
-  Result := DirectoryExists(IncludeTrailingPathDelimiter(dir)+'fpc\units\'+target);
+  Result := DirectoryExists(IncludeTrailingPathDelimiter(dir) + 'fpc\units\' + target);
 {$endif}
 {$ifdef LINUX}
-  var Base := IncludeTrailingPathDelimiter(dir)+'fpc/lib/fpc/';
+  var Base := IncludeTrailingPathDelimiter(dir) + 'fpc/lib/fpc/';
   if not DirectoryExists(Base) then Exit;
   var SR: TSearchRec;
-  if FindFirst(Base+'*', faDirectory, SR) = 0 then
+  if FindFirst(Base + '*', faDirectory, SR) = 0 then
   try
     repeat
-      if (SR.Name <> '.') and (SR.Name <> '..') and ((SR.Attr and faDirectory) <> 0) and (Length(SR.Name) > 0) and (SR.Name[1] in ['0'..'9']) and
-         DirectoryExists(Base + SR.Name+'/units/'+target) then begin
+      if (SR.Name <> '.') and (SR.Name <> '..') and
+         ((SR.Attr and faDirectory) <> 0) and
+         (Length(SR.Name) > 0) and (SR.Name[1] in ['0'..'9']) and
+         DirectoryExists(Base + SR.Name + '/units/' + target) then begin
         Result := True;
         Exit;
       end;
@@ -279,8 +304,8 @@ begin
   var BuildDate := StringReplace(BUILD_DATE_RAW, '/', '-', [rfReplaceAll]);
   var BuildTime := Copy(BUILD_TIME_RAW, 1, 5);   // HH:MM, drop :SS
   var Ver := GetAppVersion;
-  if Ver <> '' then Caption := Caption+' v'+Ver;
-  Caption := Caption+' (built at '+BuildDate+' '+BuildTime+')';
+  if Ver <> '' then Caption := Caption + ' v' + Ver;
+  Caption := Caption + ' (built at ' + BuildDate + ' ' + BuildTime + ')';
   // Set the cross checkbox defaults BEFORE assigning EditTargetDir.Text.
   // Setting .Text fires EditTargetDirChange -> RefreshTargetState, and
   // that handler does a filesystem probe to set the cross-checkbox state
@@ -297,7 +322,7 @@ begin
   CheckBoxCrossLinux64.Enabled := False;
   CheckBoxCrossLinux64.Checked := False;
   CheckBoxCrossLinux64.Caption := 'x86_64-linux (native)';
-  EditTargetDir.Text := IncludeTrailingPathDelimiter(GetEnvironmentVariable('HOME'))+'fpcunleashed';
+  EditTargetDir.Text := IncludeTrailingPathDelimiter(GetEnvironmentVariable('HOME')) + 'fpcunleashed';
   // Toggle Display Affinity uses Windows-only user32 API
   // (Set/GetWindowDisplayAffinity). The package itself compiles on Linux
   // (its Register is wrapped in {$ifdef WINDOWS}) but installing it would
@@ -326,7 +351,8 @@ begin
   // sit fixed at ~614px and leave the log box cramped; resizing here
   // hands the surplus space to the alClient log box.
   Self.Height := Screen.WorkAreaHeight * 80 div 100;
-  Self.Top := Screen.WorkAreaTop + (Screen.WorkAreaHeight - Self.Height) div 2;
+  Self.Top := Screen.WorkAreaTop +
+              (Screen.WorkAreaHeight - Self.Height) div 2;
 end;
 
 procedure tmainform.button1click(sender: tobject);
@@ -354,8 +380,10 @@ begin
   //    to the filename so the override path doesn't break ordinary use.
   if (ParamCount >= 1) and (ParamStr(1) <> '') then begin
     if TryParseBlob(ParamStr(1), parsed) then
-      Log('using cmdline pin: '+ParamStr(1))
-    else Log('cmdline arg "'+ParamStr(1)+'" is not a pin blob; '+'falling back to filename');
+      Log('using cmdline pin: ' + ParamStr(1))
+    else
+      Log('cmdline arg "' + ParamStr(1) + '" is not a pin blob; ' +
+          'falling back to filename');
   end;
 
   // 2. Filename (new length-prefixed format) -- the LAST hex run >= 12.
@@ -366,7 +394,9 @@ begin
     // length digit -- the "use latest of selected branch" sentinel. Tick
     // CheckBoxLatest in that case and clear the hash edit; otherwise
     // pin the explicit hash and untick.
-    Log('binary name carries pinned commit hashes: fpc='+(if parsed.FpcCommit = '' then '(latest)' else parsed.FpcCommit)+' ide=' +
+    Log('binary name carries pinned commit hashes: fpc=' +
+        (if parsed.FpcCommit = '' then '(latest)' else parsed.FpcCommit) +
+        ' ide=' +
         (if parsed.LazCommit = '' then '(latest)' else parsed.LazCommit));
 
     if parsed.FpcCommit = '' then begin
@@ -402,13 +432,16 @@ begin
     // hash-overridden branches the hex prefix shows up instead and the
     // matching branch name follows later as a FillCombo "branch ...
     // matches" line once the async fetch lands.
-    var fpcStr: string := if parsed.FpcBranchHashOverride <> '' then parsed.FpcBranchHashOverride
+    var fpcStr: string :=
+      if parsed.FpcBranchHashOverride <> '' then parsed.FpcBranchHashOverride
       else if parsed.FpcBranchFromCommit <> '' then parsed.FpcBranchFromCommit
       else '(default)';
-    var lazStr: string := if parsed.LazBranchHashOverride <> '' then parsed.LazBranchHashOverride
+    var lazStr: string :=
+      if parsed.LazBranchHashOverride <> '' then parsed.LazBranchHashOverride
       else if parsed.LazBranchFromCommit <> '' then parsed.LazBranchFromCommit
       else '(default)';
-    Log('binary name carries pinned branch hashes: fpc='+fpcStr+' ide='+lazStr);
+    Log('binary name carries pinned branch hashes: fpc=' + fpcStr +
+        ' ide=' + lazStr);
 
     RefreshTargetState;
     Exit;
@@ -425,7 +458,8 @@ begin
 
   var FpcHash := LowerCase(R.&Match[1]);
   var LazHash := LowerCase(R.&Match[2]);
-  Log('binary name carries pinned commit hashes (legacy): fpc='+FpcHash+' ide='+LazHash);
+  Log('binary name carries pinned commit hashes (legacy): fpc=' + FpcHash +
+      ' ide=' + LazHash);
   EditUnleashedHash.Text       := FpcHash;
   CheckBoxUnleashedLatest.Checked := False;
   EditLazarusHash.Text         := LazHash;
@@ -472,6 +506,8 @@ begin
     LabelMode.Font.Color := clRed;
     LabelMode.Caption := 'No target directory selected';
     ButtonInstall.Enabled := False;
+    FLastState := 'A';
+    FLastStateDir := rawDir;
     Exit;
   end;
 
@@ -480,15 +516,15 @@ begin
   var dirExists      := DirectoryExists(dir);
 
   // ---- state B: target absent or empty (no manifest) -> fresh install ----
-  // Wipe per-folder state so a previous folder's selections don't bleed
-  // through. Without this, untoggling a cross checkbox on an existing
-  // install and then re-pointing to an empty folder would carry that
-  // off-state into the fresh install -- counterintuitive.
+  // Reset only on entry into state-B (FLastState/Dir gate) so a checkbox
+  // toggle re-firing RefreshTargetState does not wipe the user's change.
   if (not manifestExists) and ((not dirExists) or IsDirEffectivelyEmpty(dir)) then begin
-    ResetTargetControlsToDefaults;
+    if (FLastState <> 'B') or (FLastStateDir <> rawDir) then ResetTargetControlsToDefaults;
     LabelMode.Caption := 'New installation';
     ButtonInstall.Caption := 'Install';
     if FFetchPending = 0 then ButtonInstall.Enabled := True;
+    FLastState := 'B';
+    FLastStateDir := rawDir;
     Exit;
   end;
 
@@ -500,8 +536,13 @@ begin
   if not manifestExists then begin
     FFolderError := True;
     LabelMode.Font.Color := clRed;
-    LabelMode.Caption := 'Target folder is not empty and is not an Unleashed install '+'(installer.ini not found). Choose an empty directory or an '+'existing Unleashed install location.';
+    LabelMode.Caption :=
+      'Target folder is not empty and is not an Unleashed install ' +
+      '(installer.ini not found). Choose an empty directory or an ' +
+      'existing Unleashed install location.';
     ButtonInstall.Enabled := False;
+    FLastState := 'D';
+    FLastStateDir := rawDir;
     Exit;
   end;
 
@@ -512,8 +553,8 @@ begin
   var parts := '';
   if hasFpc then parts := 'fpc';
   if hasLaz then begin
-    if parts <> '' then parts := parts+'+';
-    parts := parts+'lazarus';
+    if parts <> '' then parts := parts + ' + ';
+    parts := parts + 'lazarus';
   end;
   // List every target compiler the user can pick, native first. Native
   // shares the units/ layout with crosses so ProbeCrossInstalled picks
@@ -521,14 +562,16 @@ begin
   // full set of cross checkboxes (otherwise users wonder why the
   // "what's installed" summary omits the host platform).
   {$ifdef MSWINDOWS}
-  var crossTargets: TStringArray := ['x86_64-win64', 'x86_64-linux', 'i386-win32', 'i386-linux', 'wasm32-wasip1'];
+  var crossTargets: TStringArray := [
+    'x86_64-win64', 'x86_64-linux', 'i386-win32', 'i386-linux', 'wasm32-wasip1'];
   {$endif}
   {$ifdef LINUX}
-  var crossTargets: TStringArray := ['x86_64-linux', 'x86_64-win64', 'i386-win32', 'i386-linux', 'wasm32-wasip1'];
+  var crossTargets: TStringArray := [
+    'x86_64-linux', 'x86_64-win64', 'i386-win32', 'i386-linux', 'wasm32-wasip1'];
   {$endif}
   for var t in crossTargets do
     if ProbeCrossInstalled(rawDir, t) then begin
-      if parts <> '' then parts := parts+'+';
+      if parts <> '' then parts := parts + ' + ';
       parts := parts + t;
     end;
 
@@ -588,10 +631,14 @@ begin
 
     var selFpc := ResolveSelectedFpcSha;
     var selLaz := ResolveSelectedLazSha;
-    if hasFpc and (selFpc <> '') and (m.FpcSha <> '') and (Pos(selFpc, m.FpcSha) <> 1) and (Pos(m.FpcSha, selFpc) <> 1) then
-      updates := updates+' fpc '+Copy(m.FpcSha, 1, 7)+' -> '+Copy(selFpc, 1, 7);
-    if hasLaz and (selLaz <> '') and (m.LazSha <> '') and (Pos(selLaz, m.LazSha) <> 1) and (Pos(m.LazSha, selLaz) <> 1) then
-      updates := updates+' lazarus '+Copy(m.LazSha, 1, 7)+' -> '+Copy(selLaz, 1, 7);
+    if hasFpc and (selFpc <> '') and (m.FpcSha <> '') and
+       (Pos(selFpc, m.FpcSha) <> 1) and (Pos(m.FpcSha, selFpc) <> 1) then
+      updates := updates + ' fpc ' + Copy(m.FpcSha, 1, 7) +
+                 ' -> ' + Copy(selFpc, 1, 7);
+    if hasLaz and (selLaz <> '') and (m.LazSha <> '') and
+       (Pos(selLaz, m.LazSha) <> 1) and (Pos(m.LazSha, selLaz) <> 1) then
+      updates := updates + ' lazarus ' + Copy(m.LazSha, 1, 7) +
+                 ' -> ' + Copy(selLaz, 1, 7);
     // addon deltas. Pipeline's StepRebuildLazarusForAddons handles
     // these without a full reinstall, but the user needs visual cues
     // so the Install/Reinstall button labels reflect reality.
@@ -600,7 +647,8 @@ begin
     if hasLaz and (CheckBoxMetaDarkStyle.Checked <> m.InstallMetaDarkStyle) then updates := updates + (if CheckBoxMetaDarkStyle.Checked then ' +metadarkstyle' else ' -metadarkstyle');
     // Same .Enabled guard as the manifest restore above: on Linux the
     // delta is meaningless because the user can't change the toggle.
-    if hasLaz and CheckBoxToggleAffinity.Enabled and (CheckBoxToggleAffinity.Checked <> m.InstallToggleAffinity) then
+    if hasLaz and CheckBoxToggleAffinity.Enabled and
+       (CheckBoxToggleAffinity.Checked <> m.InstallToggleAffinity) then
       updates := updates + (if CheckBoxToggleAffinity.Checked then ' +toggle-affinity' else ' -toggle-affinity');
     if hasFpc and CheckBoxCrossWin64.Enabled and (CheckBoxCrossWin64.Checked <> m.CrossWin64) then updates := updates + (if CheckBoxCrossWin64.Checked then ' +x86_64-win64' else ' -x86_64-win64');
     if hasFpc and (CheckBoxCrossWin32.Checked <> m.CrossWin32) then updates := updates + (if CheckBoxCrossWin32.Checked then ' +i386-win32' else ' -i386-win32');
@@ -610,11 +658,11 @@ begin
   end;
 
   if updates <> '' then begin
-    LabelMode.Caption := 'Update available:'+updates;
+    LabelMode.Caption := 'Update available:' + updates;
     ButtonInstall.Caption := 'Update';
   end
   else if parts <> '' then begin
-    LabelMode.Caption := 'Existing install detected ('+parts+') - Install will overwrite';
+    LabelMode.Caption := 'Existing install detected (' + parts + ') - Install will overwrite';
     ButtonInstall.Caption := 'Reinstall';
   end else begin
     // Manifest present but neither FPC nor Lazarus binary on disk -- a
@@ -625,6 +673,8 @@ begin
     ButtonInstall.Caption := 'Resume';
   end;
   if FFetchPending = 0 then ButtonInstall.Enabled := True;
+  FLastState := 'C';
+  FLastStateDir := rawDir;
   finally
     FRefreshingTarget := False;
   end;
@@ -685,7 +735,8 @@ begin
               LowerCase(Trim(EditUnleashedHash.Text))
             else if ComboBoxUnleashedBranch.Text <> '' then
               LowerCase(FFpcBranchShas.Values[ComboBoxUnleashedBranch.Text])
-            else '';
+            else
+              '';
 end;
 
 function TMainForm.ResolveSelectedLazSha: string;
@@ -694,7 +745,8 @@ begin
               LowerCase(Trim(EditLazarusHash.Text))
             else if ComboBoxLazarusBranch.Text <> '' then
               LowerCase(FLazBranchShas.Values[ComboBoxLazarusBranch.Text])
-            else '';
+            else
+              '';
 end;
 
 procedure TMainForm.OnSelectionChange(Sender: TObject);
@@ -733,11 +785,13 @@ procedure TMainForm.StartBranchFetch;
     const MainSha: string);
   begin
     Dest.Clear;
-    for var i := 0 to Src.Count - 1 do begin
+    for var i := 0 to Src.Count - 1 do
+    begin
       var name := Src[i];
       if SameText(name, 'main') then
-        Dest.Add(name+'='+MainSha)
-      else Dest.Add(name+'=');
+        Dest.Add(name + '=' + MainSha)
+      else
+        Dest.Add(name + '=');
     end;
   end;
 
@@ -756,8 +810,10 @@ begin
   var ideNames := autofree TStringList.Create;
   var age: Double;
   var fpcMainSha, ideMainSha: string;
-  if LoadCache(fpcNames, ideNames, age, fpcMainSha, ideMainSha) and (age < CACHE_TTL_MINUTES * 60) then begin
-    Log('using cached branch lists ('+IntToStr(Round(age))+' sec(s) old, file="'+CacheFilePath+'")');
+  if LoadCache(fpcNames, ideNames, age, fpcMainSha, ideMainSha) and
+     (age < CACHE_TTL_MINUTES * 60) then begin
+    Log('using cached branch lists (' + IntToStr(Round(age)) +
+        ' sec(s) old, file="' + CacheFilePath + '")');
     var fpcCache := autofree TStringList.Create;
     var lazCache := autofree TStringList.Create;
     AppendWithMainSha(fpcNames, fpcCache, fpcMainSha);
@@ -773,7 +829,8 @@ begin
     Exit;
   end;
 
-  Log('Fetching branches from github.com/'+GH_OWNER+'/'+REPO_FPC+' and /'+REPO_LAZARUS);
+  Log('Fetching branches from github.com/' + GH_OWNER + '/' + REPO_FPC +
+      ' and /' + REPO_LAZARUS);
   TBranchFetchThread.Create(GH_OWNER, REPO_FPC,     @OnUnleashedDone);
   TBranchFetchThread.Create(GH_OWNER, REPO_LAZARUS, @OnLazarusDone);
 end;
@@ -792,8 +849,9 @@ begin
   Dest.Clear;
   for var i := 0 to Src.Count - 1 do
     if SameText(Src[i], 'main') then
-      Dest.Add(Src[i]+'='+MainSha)
-    else Dest.Add(Src[i]+'=');
+      Dest.Add(Src[i] + '=' + MainSha)
+    else
+      Dest.Add(Src[i] + '=');
 end;
 
 procedure TMainForm.OnUnleashedDone(Sender: TObject);
@@ -805,10 +863,12 @@ begin
     var ideNames := autofree TStringList.Create;
     var age: Double;
     var fpcMainSha, ideMainSha: string;
-    if LoadCache(fpcNames, ideNames, age, fpcMainSha, ideMainSha) and (fpcNames.Count > 0) then begin
+    if LoadCache(fpcNames, ideNames, age, fpcMainSha, ideMainSha) and
+       (fpcNames.Count > 0) then begin
       var fallback := autofree TStringList.Create;
       NamesToShaListWithMain(fpcNames, fallback, fpcMainSha);
-      Log('FAILED to fetch '+REPO_FPC+' branches ('+T.ErrorMsg+'); using stale cache ('+IntToStr(Round(age))+' min old)');
+      Log('FAILED to fetch ' + REPO_FPC + ' branches (' + T.ErrorMsg +
+          '); using stale cache (' + IntToStr(Round(age)) + ' min old)');
       FillCombo(ComboBoxUnleashedBranch, REPO_FPC, fallback, '');
     end else FillCombo(ComboBoxUnleashedBranch, REPO_FPC, T.Branches, T.ErrorMsg);
     FFpcFetchOk := False;
@@ -830,10 +890,12 @@ begin
     var ideNames := autofree TStringList.Create;
     var age: Double;
     var fpcMainSha, ideMainSha: string;
-    if LoadCache(fpcNames, ideNames, age, fpcMainSha, ideMainSha) and (ideNames.Count > 0) then begin
+    if LoadCache(fpcNames, ideNames, age, fpcMainSha, ideMainSha) and
+       (ideNames.Count > 0) then begin
       var fallback := autofree TStringList.Create;
       NamesToShaListWithMain(ideNames, fallback, ideMainSha);
-      Log('FAILED to fetch '+REPO_LAZARUS+' branches ('+T.ErrorMsg+'); using stale cache ('+IntToStr(Round(age))+' min old)');
+      Log('FAILED to fetch ' + REPO_LAZARUS + ' branches (' + T.ErrorMsg +
+          '); using stale cache (' + IntToStr(Round(age)) + ' min old)');
       FillCombo(ComboBoxLazarusBranch, REPO_LAZARUS, fallback, '');
     end else FillCombo(ComboBoxLazarusBranch, REPO_LAZARUS, T.Branches, T.ErrorMsg);
     FLazFetchOk := False;
@@ -857,16 +919,17 @@ begin
 
   Combo.Items.Clear;
   if ErrorMsg <> '' then begin
-    Log('FAILED to fetch '+Repo+' branches: '+ErrorMsg);
+    Log('FAILED to fetch ' + Repo + ' branches: ' + ErrorMsg);
     Combo.Items.Add('main');
     Combo.ItemIndex := 0;
     Exit;
   end;
   // Branches contains 'name=sha'; Names[i] for combo, Values[name] for SHA
   if shaMap <> nil then shaMap.Assign(Branches);
-  for var i := 0 to Branches.Count - 1 do Combo.Items.Add(Branches.Names[i]);
+  for var i := 0 to Branches.Count - 1 do
+    Combo.Items.Add(Branches.Names[i]);
 
-  Log('Got '+IntToStr(Branches.Count)+' branches for '+Repo);
+  Log('Got ' + IntToStr(Branches.Count) + ' branches for ' + Repo);
   // Priority: pinned (filename) -> manifest -> main -> master -> first.
   // csDropDownList drops Combo.Text not already in .Items, so this has
   // to run after .Items is populated (fetch is async, can't do it earlier).
@@ -876,7 +939,9 @@ begin
       pinnedBranch := FPinnedFpcBranchName
     else if FPinnedFpcBranchHex <> '' then begin
       pinnedBranch := FindBranchByHashPrefix(Combo.Items, FPinnedFpcBranchHex);
-      if pinnedBranch <> '' then Log('fpc branch '''+pinnedBranch+''' matches hash prefix '''+FPinnedFpcBranchHex+''', selecting this branch');
+      if pinnedBranch <> '' then
+        Log('fpc branch ''' + pinnedBranch + ''' matches hash prefix ''' +
+            FPinnedFpcBranchHex + ''', selecting this branch');
     end;
   end
   else if Combo = ComboBoxLazarusBranch then begin
@@ -884,7 +949,9 @@ begin
       pinnedBranch := FPinnedLazBranchName
     else if FPinnedLazBranchHex <> '' then begin
       pinnedBranch := FindBranchByHashPrefix(Combo.Items, FPinnedLazBranchHex);
-      if pinnedBranch <> '' then Log('ide branch '''+pinnedBranch+''' matches hash prefix '''+FPinnedLazBranchHex+''', selecting this branch');
+      if pinnedBranch <> '' then
+        Log('ide branch ''' + pinnedBranch + ''' matches hash prefix ''' +
+            FPinnedLazBranchHex + ''', selecting this branch');
     end;
   end;
 
@@ -916,7 +983,9 @@ begin
     // as authoritative.
     if FFpcFetchOk and FLazFetchOk then begin
       SaveCache(FFpcBranchShas, FLazBranchShas);
-      Log('cached branch lists (TTL '+IntToStr(CACHE_TTL_MINUTES)+' min, file="'+CacheFilePath+'")');
+      Log('cached branch lists (TTL ' +
+          IntToStr(CACHE_TTL_MINUTES) + ' min, file="' +
+          CacheFilePath + '")');
     end;
     SetStatus('Ready');
     // Defer to the folder-error gate so a bad target dir keeps the
@@ -1008,13 +1077,12 @@ begin
   ApplyLazarusEnabled;
 end;
 
-procedure TMainForm.CheckBoxCrossLinux32Change(Sender: TObject);
+// i386-linux build needs ppcross386 (the i386-win32 cross compiler);
+// auto-tick the prereq so the user does not have to remember.
+procedure TMainForm.OnAddonOrCrossChange(Sender: TObject);
 begin
-  // i386-linux is built using the i386-win32 cross compiler (ppcross386,
-  // an i386-CPU binary with soft-x80 baked in -- supports both -Twin32
-  // and -Tlinux). Auto-tick win32 so the user does not have to remember
-  // the prerequisite.
-  if CheckBoxCrossLinux32.Checked then CheckBoxCrossWin32.Checked := True;
+  if (Sender = CheckBoxCrossLinux32) and CheckBoxCrossLinux32.Checked then CheckBoxCrossWin32.Checked := True;
+  RefreshTargetState;
 end;
 
 procedure TMainForm.LabelLinkCPUViewClick(Sender: TObject);
@@ -1034,7 +1102,7 @@ end;
 
 procedure TMainForm.Log(const msg: string);
 begin
-  var fullText := FormatDateTime('hh:nn:ss', Now)+'# '+msg;
+  var fullText := FormatDateTime('hh:nn:ss', Now) + '# ' + msg;
   ListBoxLog.Items.Add(fullText);
 
   // grow the horizontal scrollbar range so wide make/lazbuild lines can
@@ -1079,21 +1147,59 @@ begin
   CopySelectedLogLines;
 end;
 
+procedure TMainForm.MenuFileExitClick(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TMainForm.MenuRepoMainClick(Sender: TObject);
+begin
+  OpenURL('https://github.com/fpc-unleashed');
+end;
+
+procedure TMainForm.MenuRepoFreepascalClick(Sender: TObject);
+begin
+  OpenURL('https://github.com/fpc-unleashed/freepascal');
+end;
+
+procedure TMainForm.MenuRepoLazarusClick(Sender: TObject);
+begin
+  OpenURL('https://github.com/fpc-unleashed/lazarus');
+end;
+
+procedure TMainForm.MenuRepoInstallerClick(Sender: TObject);
+begin
+  OpenURL('https://github.com/fpc-unleashed/installer');
+end;
+
+procedure TMainForm.MenuHelpDocsClick(Sender: TObject);
+begin
+  OpenURL('https://github.com/fpc-unleashed/freepascal/blob/main/unleashed/docs/README.md');
+end;
+
+procedure TMainForm.MenuHelpAboutClick(Sender: TObject);
+begin
+  ShowAbout(Self, Self.Caption);
+end;
+
 // First match wins; ordered most-severe to least so "Error: warning"
 // renders red, not olive.
 function ColorForLine(const s: string): TColor;
 begin
-  if (Pos('Error', s) > 0) or (Pos('Fatal', s) > 0) or (Pos('FAILED', s) > 0) or (Pos('failed:', s) > 0) then
+  if (Pos('Error', s) > 0) or (Pos('Fatal', s) > 0) or
+     (Pos('FAILED', s) > 0) or (Pos('failed:', s) > 0) then
     Result := clRed
   else if Pos('Warning', s) > 0 then
     Result := clOlive
   else if (Pos('===', s) > 0) or (Pos(' ---', s) > 0) then
     Result := clNavy
-  else if (Pos('Compiling ', s) > 0) or (Pos('Linking ', s) > 0) or (Pos('Installing ', s) > 0) then
+  else if (Pos('Compiling ', s) > 0) or (Pos('Linking ', s) > 0) or
+          (Pos('Installing ', s) > 0) then
     Result := TColor($008000) // dark green
   else if Pos('make[', s) > 0 then
     Result := clGray
-  else Result := clWindowText;
+  else
+    Result := clWindowText;
 end;
 
 procedure TMainForm.ListBoxLogDrawItem(Control: TWinControl; Index: Integer;
@@ -1157,7 +1263,7 @@ begin
     if Percent > 100 then Percent := 100;
     if Percent < 0 then Percent := 0;
     ProgressBar.Position := Percent;
-    SetStatus(IntToStr(Percent)+'%  '+status);
+    SetStatus(IntToStr(Percent) + '%  ' + status);
   end;
 end;
 
@@ -1171,8 +1277,8 @@ begin
     SetStatus('Done');
     if FLaunchAfterInstall then LaunchInstalledIde;
   end else begin
-    Log('=== INSTALL FAILED: '+T.ErrorMsg+' ===');
-    SetStatus('Failed: '+T.ErrorMsg);
+    Log('=== INSTALL FAILED: ' + T.ErrorMsg + ' ===');
+    SetStatus('Failed: ' + T.ErrorMsg);
     ProgressBar.Position := 0;
   end;
   FInstalling := False;
@@ -1182,14 +1288,15 @@ end;
 procedure TMainForm.LaunchInstalledIde;
 begin
   var ExePath := IncludeTrailingPathDelimiter(FInstallTargetDir) + LazarusBinarySub;
-  var PcpArg  := '--pcp='+IncludeTrailingPathDelimiter(FInstallTargetDir)+'config_lazarus';
-  Log('Launching '+ExePath);
+  var PcpArg  := '--pcp=' + IncludeTrailingPathDelimiter(FInstallTargetDir) + 'config_lazarus';
+  Log('Launching ' + ExePath);
 {$ifdef MSWINDOWS}
   // detached; let the IDE run independently of installer.exe. ShellExecute
   // wants the args quoted as one string ("--pcp=..."); the quotes around
   // the pcp value protect spaces in the target dir.
-  var Args := '"'+PcpArg+'"';
-  ShellExecute(Handle, 'open', PChar(ExePath), PChar(Args), PChar(ExtractFilePath(ExePath)), SW_SHOWNORMAL);
+  var Args := '"' + PcpArg + '"';
+  ShellExecute(Handle, 'open', PChar(ExePath), PChar(Args),
+    PChar(ExtractFilePath(ExePath)), SW_SHOWNORMAL);
 {$endif}
 {$ifdef LINUX}
   // TProcess with poDetached + nothing waiting on Output -> lazarus runs
@@ -1266,20 +1373,23 @@ begin
   cfg.SaveLog        := CheckBoxSaveLog.Checked;
 
   Log('--- install requested ---');
-  Log('target dir: '+cfg.TargetDir);
+  Log('target dir: ' + cfg.TargetDir);
   if cfg.InstallFpc then
-    Log('install fpc-unleashed: yes ('+cfg.FpcBranch+')')
-  else Log('install fpc-unleashed: no');
+    Log('install fpc-unleashed: yes (' + cfg.FpcBranch + ')')
+  else
+    Log('install fpc-unleashed: no');
   if cfg.InstallLazarus then
-    Log('install lazarus IDE:  yes ('+cfg.LazBranch+')')
-  else Log('install lazarus IDE:  no');
+    Log('install lazarus IDE:  yes (' + cfg.LazBranch + ')')
+  else
+    Log('install lazarus IDE:  no');
 
   FInstalling := True;
   SetInputsEnabled(False);
   ProgressBar.Position := 0;
   ProgressBar.Style := pbstNormal;
 
-  TInstallThread.Create(cfg, @OnInstallLog, @OnInstallProgress, @OnInstallComplete);
+  TInstallThread.Create(cfg, @OnInstallLog, @OnInstallProgress,
+    @OnInstallComplete);
 end;
 
 procedure TMainForm.ButtonCloseClick(Sender: TObject);
