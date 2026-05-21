@@ -15,8 +15,7 @@ type
 
 // extract every entry of ZipPath into DestDir (creates DestDir if needed).
 // callback fires per-file based on byte progress; pass nil to skip reporting.
-function ExtractZip(const ZipPath, DestDir: string;
-  OnProgress: TZipProgress): Boolean;
+function ExtractZip(const ZipPath, DestDir: string; OnProgress: TZipProgress): Boolean;
 
 implementation
 
@@ -31,8 +30,7 @@ type
     procedure OnProgressEx(Sender: TObject; const ATotPos, ATotSize: Int64);
   end;
 
-procedure TProgressBridge.OnProgressEx(Sender: TObject;
-  const ATotPos, ATotSize: Int64);
+procedure TProgressBridge.OnProgressEx(Sender: TObject; const ATotPos, ATotSize: Int64);
 begin
   if (ATotSize <= 0) or not Assigned(Cb) then Exit;
   var pct := Round(ATotPos * 100 / ATotSize);
@@ -43,8 +41,7 @@ begin
   Cb(pct, Format('%.1f / %.1f MB', [ATotPos / (1024*1024), ATotSize / (1024*1024)]));
 end;
 
-function ExtractZip(const ZipPath, DestDir: string;
-  OnProgress: TZipProgress): Boolean;
+function ExtractZip(const ZipPath, DestDir: string; OnProgress: TZipProgress): Boolean;
 begin
   Result := False;
   if not DirectoryExists(DestDir) then
@@ -63,8 +60,7 @@ begin
     UnZip.UnZipAllFiles;
     Result := True;
   except
-    on E: Exception do
-      Result := False;
+    on E: Exception do Result := False;
   end;
 end;
 

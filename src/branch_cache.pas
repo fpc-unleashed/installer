@@ -27,9 +27,7 @@ const
 // those fields, '' otherwise. On True, caller compares AgeSeconds to
 // CACHE_TTL_MINUTES*60 to decide fresh-use vs stale-fallback. The lists
 // are always cleared first; on False they end up empty.
-function LoadCache(FpcBranches, IdeBranches: TStringList;
-  out AgeSeconds: Double;
-  out FpcMainSha, IdeMainSha: string): Boolean;
+function LoadCache(FpcBranches, IdeBranches: TStringList; out AgeSeconds: Double; out FpcMainSha, IdeMainSha: string): Boolean;
 
 // Write both branch lists plus per-repo HEAD-of-`main` SHAs to the
 // cache file with the current local timestamp. Source lists must be
@@ -74,7 +72,7 @@ begin
   // GetTempDir(False) returns the per-user temp dir on both Windows
   // (%TEMP%) and Linux ($TMPDIR or /tmp), with a trailing path
   // separator already attached so we can concat directly.
-  Result := GetTempDir(False)+CACHE_FILENAME;
+  Result := GetTempDir(False) + CACHE_FILENAME;
 end;
 
 // Split a "a, b, c" string into Dest. Empty tokens are skipped so an
@@ -85,20 +83,17 @@ begin
   Dest.Clear;
   var i := 1;
   var L := Length(Value);
-  while i <= L do
-  begin
+  while i <= L do begin
     while (i <= L) and ((Value[i] = ' ') or (Value[i] = #9)) do Inc(i);
     var startPos := i;
     while (i <= L) and (Value[i] <> ',') do Inc(i);
-    var token := Trim(Copy(Value, startPos, i-startPos));
+    var token := Trim(Copy(Value, startPos, i - startPos));
     if token <> '' then Dest.Add(token);
     if (i <= L) and (Value[i] = ',') then Inc(i);
   end;
 end;
 
-function LoadCache(FpcBranches, IdeBranches: TStringList;
-  out AgeSeconds: Double;
-  out FpcMainSha, IdeMainSha: string): Boolean;
+function LoadCache(FpcBranches, IdeBranches: TStringList; out AgeSeconds: Double; out FpcMainSha, IdeMainSha: string): Boolean;
 begin
   Result := False;
   AgeSeconds := 1e9;
@@ -120,8 +115,7 @@ begin
   var gotTimestamp := False;
   var cachedAt: TDateTime := 0;
 
-  for var i := 0 to lines.Count-1 do
-  begin
+  for var i := 0 to lines.Count - 1 do begin
     var ln := Trim(lines[i]);
     if ln = '' then Continue;
     // Timestamp lives in a `# Cached at: ...` comment line, so check
@@ -129,7 +123,7 @@ begin
     // starting with `#` are free-form text and ignored.
     if Pos(TS_PREFIX, ln) = 1 then begin
       try
-        cachedAt := ScanDateTime(TS_FORMAT, Copy(ln, Length(TS_PREFIX)+1, MaxInt));
+        cachedAt := ScanDateTime(TS_FORMAT, Copy(ln, Length(TS_PREFIX) + 1, MaxInt));
         gotTimestamp := True;
       except
         Exit;
@@ -137,10 +131,10 @@ begin
       Continue;
     end;
     if ln[1] = '#' then Continue;
-    if Pos(FPC_PREFIX, ln) = 1 then fpcLine := Copy(ln, Length(FPC_PREFIX)+1, MaxInt)
-    else if Pos(IDE_PREFIX, ln) = 1 then ideLine := Copy(ln, Length(IDE_PREFIX)+1, MaxInt)
-    else if Pos(FPC_HASH_PREFIX, ln) = 1 then FpcMainSha := LowerCase(Trim(Copy(ln, Length(FPC_HASH_PREFIX)+1, MaxInt)))
-    else if Pos(IDE_HASH_PREFIX, ln) = 1 then IdeMainSha := LowerCase(Trim(Copy(ln, Length(IDE_HASH_PREFIX)+1, MaxInt)));
+    if Pos(FPC_PREFIX, ln) = 1 then fpcLine := Copy(ln, Length(FPC_PREFIX) + 1, MaxInt)
+    else if Pos(IDE_PREFIX, ln) = 1 then ideLine := Copy(ln, Length(IDE_PREFIX) + 1, MaxInt)
+    else if Pos(FPC_HASH_PREFIX, ln) = 1 then FpcMainSha := LowerCase(Trim(Copy(ln, Length(FPC_HASH_PREFIX) + 1, MaxInt)))
+    else if Pos(IDE_HASH_PREFIX, ln) = 1 then IdeMainSha := LowerCase(Trim(Copy(ln, Length(IDE_HASH_PREFIX) + 1, MaxInt)));
   end;
 
   if not gotTimestamp then Exit;
@@ -161,13 +155,12 @@ procedure SaveCache(FpcBranches, IdeBranches: TStrings);
   function JoinNames(L: TStrings): string;
   begin
     Result := '';
-    for var i := 0 to L.Count-1 do
-    begin
+    for var i := 0 to L.Count - 1 do begin
       var entry := L[i];
       if Pos('=', entry) > 0 then entry := L.Names[i];
       if entry = '' then Continue;
-      if Result <> '' then Result := Result+', ';
-      Result := Result+entry;
+      if Result <> '' then Result := Result + ', ';
+      Result := Result + entry;
     end;
   end;
 
@@ -177,7 +170,7 @@ procedure SaveCache(FpcBranches, IdeBranches: TStrings);
   function MainSha(L: TStrings): string;
   begin
     Result := '';
-    for var i := 0 to L.Count-1 do
+    for var i := 0 to L.Count - 1 do
       if SameText(L.Names[i], MAIN_BRANCH) then begin
         Result := L.ValueFromIndex[i];
         Exit;
@@ -187,12 +180,12 @@ procedure SaveCache(FpcBranches, IdeBranches: TStrings);
 begin
   var f := autofree TStringList.Create;
   f.Add(HEADER);
-  f.Add(TS_PREFIX+FormatDateTime(TS_FORMAT, Now));
+  f.Add(TS_PREFIX + FormatDateTime(TS_FORMAT, Now));
   f.Add('');
-  f.Add(FPC_PREFIX+JoinNames(FpcBranches));
-  f.Add(IDE_PREFIX+JoinNames(IdeBranches));
-  f.Add(FPC_HASH_PREFIX+MainSha(FpcBranches));
-  f.Add(IDE_HASH_PREFIX+MainSha(IdeBranches));
+  f.Add(FPC_PREFIX + JoinNames(FpcBranches));
+  f.Add(IDE_PREFIX + JoinNames(IdeBranches));
+  f.Add(FPC_HASH_PREFIX + MainSha(FpcBranches));
+  f.Add(IDE_HASH_PREFIX + MainSha(IdeBranches));
   try
     f.SaveToFile(CacheFilePath);
   except

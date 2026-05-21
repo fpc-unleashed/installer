@@ -6,8 +6,10 @@ object MainForm: TMainForm
   Caption = 'FPC Unleashed Edition Installer'
   ClientHeight = 767
   ClientWidth = 918
+  DoubleBuffered = True
   Menu = MainMenu1
   Position = poScreenCenter
+  Scaled = False
   LCLVersion = '4.99.0.0'
   OnCreate = FormCreate
   OnDestroy = FormDestroy
@@ -27,7 +29,7 @@ object MainForm: TMainForm
     Width = 918
     Align = alTop
     AutoSize = True
-    Caption = 'Panel11'
+    Caption = ''
     ClientHeight = 407
     ClientWidth = 918
     TabOrder = 1
@@ -537,9 +539,7 @@ object MainForm: TMainForm
           Height = 64
           Top = 5
           Width = 283
-          AntialiasingMode = amOn
           Align = alClient
-          AutoSize = True
           BorderSpacing.Around = 5
           Center = True
           Picture.Data = {
@@ -952,17 +952,16 @@ object MainForm: TMainForm
       Width = 918
       Align = alBottom
       BevelOuter = bvNone
-      Caption = 'Panel9'
+      Caption = ''
       ClientHeight = 50
       ClientWidth = 918
       TabOrder = 1
       object ProgressBar: TProgressBar
         Left = 0
-        Height = 25012
+        Height = 12
         Top = 0
         Width = 918
         Align = alTop
-        Anchors = [akTop, akLeft, akRight, akBottom]
         TabOrder = 0
       end
       object Panel10: TPanel
