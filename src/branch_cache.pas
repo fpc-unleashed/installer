@@ -90,7 +90,7 @@ begin
     while (i <= L) and ((Value[i] = ' ') or (Value[i] = #9)) do Inc(i);
     var startPos := i;
     while (i <= L) and (Value[i] <> ',') do Inc(i);
-    var token := Trim(Copy(Value, startPos, i - startPos));
+    var token := Trim(Copy(Value, startPos, i-startPos));
     if token <> '' then Dest.Add(token);
     if (i <= L) and (Value[i] = ',') then Inc(i);
   end;
@@ -120,7 +120,7 @@ begin
   var gotTimestamp := False;
   var cachedAt: TDateTime := 0;
 
-  for var i := 0 to lines.Count - 1 do
+  for var i := 0 to lines.Count-1 do
   begin
     var ln := Trim(lines[i]);
     if ln = '' then Continue;
@@ -129,8 +129,7 @@ begin
     // starting with `#` are free-form text and ignored.
     if Pos(TS_PREFIX, ln) = 1 then begin
       try
-        cachedAt := ScanDateTime(TS_FORMAT,
-          Copy(ln, Length(TS_PREFIX)+1, MaxInt));
+        cachedAt := ScanDateTime(TS_FORMAT, Copy(ln, Length(TS_PREFIX)+1, MaxInt));
         gotTimestamp := True;
       except
         Exit;
@@ -138,12 +137,9 @@ begin
       Continue;
     end;
     if ln[1] = '#' then Continue;
-    if Pos(FPC_PREFIX, ln) = 1 then
-      fpcLine := Copy(ln, Length(FPC_PREFIX)+1, MaxInt)
-    else if Pos(IDE_PREFIX, ln) = 1 then
-      ideLine := Copy(ln, Length(IDE_PREFIX)+1, MaxInt)
-    else if Pos(FPC_HASH_PREFIX, ln) = 1 then
-      FpcMainSha := LowerCase(Trim(Copy(ln, Length(FPC_HASH_PREFIX)+1, MaxInt)))
+    if Pos(FPC_PREFIX, ln) = 1 then fpcLine := Copy(ln, Length(FPC_PREFIX)+1, MaxInt)
+    else if Pos(IDE_PREFIX, ln) = 1 then ideLine := Copy(ln, Length(IDE_PREFIX)+1, MaxInt)
+    else if Pos(FPC_HASH_PREFIX, ln) = 1 then FpcMainSha := LowerCase(Trim(Copy(ln, Length(FPC_HASH_PREFIX)+1, MaxInt)))
     else if Pos(IDE_HASH_PREFIX, ln) = 1 then IdeMainSha := LowerCase(Trim(Copy(ln, Length(IDE_HASH_PREFIX)+1, MaxInt)));
   end;
 
@@ -165,7 +161,7 @@ procedure SaveCache(FpcBranches, IdeBranches: TStrings);
   function JoinNames(L: TStrings): string;
   begin
     Result := '';
-    for var i := 0 to L.Count - 1 do
+    for var i := 0 to L.Count-1 do
     begin
       var entry := L[i];
       if Pos('=', entry) > 0 then entry := L.Names[i];
@@ -181,7 +177,7 @@ procedure SaveCache(FpcBranches, IdeBranches: TStrings);
   function MainSha(L: TStrings): string;
   begin
     Result := '';
-    for var i := 0 to L.Count - 1 do
+    for var i := 0 to L.Count-1 do
       if SameText(L.Names[i], MAIN_BRANCH) then begin
         Result := L.ValueFromIndex[i];
         Exit;

@@ -65,7 +65,7 @@ const
 
   function rotl(x: LongWord; r: Byte): LongWord; inline;
   begin
-    Result := (x shl r) or (x shr (32 - r));
+    Result := (x shl r) or (x shr (32-r));
   end;
 
 begin
@@ -79,10 +79,10 @@ begin
                     or (LongWord(Byte(s[i+1])) shl 8)
                     or (LongWord(Byte(s[i+2])) shl 16)
                     or (LongWord(Byte(s[i+3])) shl 24);
-    Result := rotl(Result xor (rotl(k * C1, 15) * C2), 13) * 5 + $e6546b64;
+    Result := rotl(Result xor (rotl(k * C1, 15) * C2), 13) * 5+$e6546b64;
     Inc(i, 4);
   end;
-  var rem := len - i+1;
+  var rem := len-i+1;
   if rem > 0 then begin
     var k: LongWord := LongWord(Byte(s[i]));
     if rem >= 2 then k := k or (LongWord(Byte(s[i+1])) shl 8);
@@ -114,9 +114,9 @@ begin
       var startPos := i;
       while (i <= Length(s)) and (s[i] in ['0'..'9', 'a'..'f', 'A'..'F']) do
         Inc(i);
-      if i - startPos >= MinLen then begin
+      if i-startPos >= MinLen then begin
         SetLength(Result, Length(Result)+1);
-        Result[High(Result)] := Copy(s, startPos, i - startPos);
+        Result[High(Result)] := Copy(s, startPos, i-startPos);
       end;
     end else
       Inc(i);
@@ -137,9 +137,9 @@ end;
 // or chaining Ord arithmetic three times at every call site.
 function HexCharToInt(c: Char): Integer;
 begin
-  if (c >= '0') and (c <= '9') then Result := Ord(c) - Ord('0')
-  else if (c >= 'a') and (c <= 'f') then Result := Ord(c) - Ord('a')+10
-  else if (c >= 'A') and (c <= 'F') then Result := Ord(c) - Ord('A')+10
+  if (c >= '0') and (c <= '9') then Result := Ord(c)-Ord('0')
+  else if (c >= 'a') and (c <= 'f') then Result := Ord(c)-Ord('a')+10
+  else if (c >= 'A') and (c <= 'F') then Result := Ord(c)-Ord('A')+10
   else Result := -1;
 end;
 
@@ -169,11 +169,11 @@ begin
     Exit;
   end;
   // hash prefix of length blob[pos] in '1'..'9'. Branch defaults to main.
-  var lenVal: Integer := Ord(blob[pos]) - Ord('0');
+  var lenVal: Integer := Ord(blob[pos])-Ord('0');
   if pos+lenVal > Length(blob) then Exit;
   commitHex := LowerCase(Copy(blob, pos+1, lenVal));
   if not IsAllHex(commitHex) then Exit;
-  branchFromCommit := PREDEFINED_BRANCHES[0]; // 'main'
+  branchFromCommit := PREDEFINED_BRANCHES[0];  // 'main'
   Inc(pos, 1+lenVal);
   Result := True;
 end;
@@ -188,7 +188,7 @@ begin
   hashHex := '';
   if pos > Length(blob) then Exit;
   if not (blob[pos] in ['1'..'9']) then Exit;
-  var lenVal: Integer := Ord(blob[pos]) - Ord('0');
+  var lenVal: Integer := Ord(blob[pos])-Ord('0');
   if pos+lenVal > Length(blob) then Exit;
   hashHex := LowerCase(Copy(blob, pos+1, lenVal));
   if not IsAllHex(hashHex) then Exit;
@@ -252,7 +252,7 @@ begin
   Result := '';
   var prefixLen := Length(HexPrefix);
   if prefixLen = 0 then Exit;
-  for var i := 0 to Items.Count - 1 do
+  for var i := 0 to Items.Count-1 do
   begin
     var name := Items[i];
     var hash := LowerCase(IntToHex(Murmur3_32(name), 8));

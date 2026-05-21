@@ -69,25 +69,23 @@ end;
 procedure ApplyEnvWithPathPrefix(P: TProcess; const Prefix: string);
 begin
   var pathSeen := False;
-  for var i := 0 to GetEnvironmentVariableCount - 1 do
+  for var i := 0 to GetEnvironmentVariableCount-1 do
   begin
     var envLine := GetEnvironmentString(i);
     if envLine = '' then Continue;
     var eqPos := Pos('=', envLine);
-    if eqPos < 2 then Continue; // malformed -- no name=value
-    var name := UpperCase(Copy(envLine, 1, eqPos - 1));
+    if eqPos < 2 then Continue;       // malformed -- no name=value
+    var name := UpperCase(Copy(envLine, 1, eqPos-1));
     if (name = 'MAKEFLAGS') or (name = 'MFLAGS') then
-      Continue; // scrub: don't propagate to child make
+      Continue;                       // scrub: don't propagate to child make
 {$ifdef LINUX}
     if name = 'PPC_CONFIG_PATH' then
-      Continue; // re-injected via libc_getenv below
+      Continue;                       // re-injected via libc_getenv below
 {$endif}
     if name = 'PATH' then begin
       // PathSeparator: ';' on Windows, ':' on Unix-likes
-      if Prefix <> '' then
-        P.Environment.Add('PATH='+Prefix+PathSeparator+Copy(envLine, 6, MaxInt))
-      else
-        P.Environment.Add(envLine);
+      if Prefix <> '' then P.Environment.Add('PATH='+Prefix+PathSeparator+Copy(envLine, 6, MaxInt))
+      else P.Environment.Add(envLine);
       pathSeen := True;
     end else
       P.Environment.Add(envLine);
@@ -116,8 +114,8 @@ begin
   repeat
     var p := Pos(#10, Buf);
     if p = 0 then Break;
-    var Line := Copy(Buf, 1, p - 1);
-    if (Length(Line) > 0) and (Line[Length(Line)] = #13) then SetLength(Line, Length(Line) - 1);
+    var Line := Copy(Buf, 1, p-1);
+    if (Length(Line) > 0) and (Line[Length(Line)] = #13) then SetLength(Line, Length(Line)-1);
     OnLine(Line);
     Delete(Buf, 1, p);
   until False;
@@ -155,15 +153,14 @@ begin
       var N := P.Output.Read(Tmp, Length(Tmp));
       if N > 0 then begin
         SetLength(OutBuf, Length(OutBuf)+N);
-        Move(Tmp, OutBuf[Length(OutBuf) - N+1], N);
+        Move(Tmp, OutBuf[Length(OutBuf)-N+1], N);
         FlushLines(OutBuf, OnLine);
       end;
-    end
-    else if P.Stderr.NumBytesAvailable > 0 then begin
+    end else if P.Stderr.NumBytesAvailable > 0 then begin
       var N := P.Stderr.Read(Tmp, Length(Tmp));
       if N > 0 then begin
         SetLength(ErrBuf, Length(ErrBuf)+N);
-        Move(Tmp, ErrBuf[Length(ErrBuf) - N+1], N);
+        Move(Tmp, ErrBuf[Length(ErrBuf)-N+1], N);
         FlushLines(ErrBuf, OnLine);
       end;
     end else

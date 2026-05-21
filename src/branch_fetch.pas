@@ -73,9 +73,8 @@ begin
   var Session := InternetOpen(AGENT, INTERNET_OPEN_TYPE_PRECONFIG, nil, nil, 0);
   if Session = nil then Exit;
   try
-    var Connection := InternetOpenUrl(Session, PChar(URL),
-      PChar(HEADERS), Length(HEADERS),
-      INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
+    var Connection := InternetOpenUrl(Session, PChar(URL), PChar(HEADERS), Length(HEADERS), INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or
+      INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
     if Connection = nil then Exit;
     try
       var Stream := autofree TMemoryStream.Create;
@@ -138,8 +137,7 @@ begin
     if P.Output.NumBytesAvailable > 0 then begin
       n := P.Output.Read(Buf, Length(Buf));
       if n > 0 then StdoutBuf.Write(Buf, n);
-    end
-    else if P.Stderr.NumBytesAvailable > 0 then begin
+    end else if P.Stderr.NumBytesAvailable > 0 then begin
       n := P.Stderr.Read(Buf, Length(Buf));
       if n > 0 then begin
         var chunk: string := '';
@@ -151,9 +149,7 @@ begin
       Sleep(20);
   end;
 
-  if P.ExitStatus <> 0 then
-    raise Exception.CreateFmt('curl failed (exit=%d): %s',
-      [P.ExitStatus, Trim(StderrBuf)]);
+  if P.ExitStatus <> 0 then raise Exception.CreateFmt('curl failed (exit=%d): %s', [P.ExitStatus, Trim(StderrBuf)]);
 
   if StdoutBuf.Size > 0 then begin
     SetLength(Body, StdoutBuf.Size);
@@ -166,8 +162,7 @@ end;
 procedure TBranchFetchThread.Execute;
 begin
   try
-    var Url := Format('https://api.github.com/repos/%s/%s/branches?per_page=100',
-      [FOwner, FRepo]);
+    var Url := Format('https://api.github.com/repos/%s/%s/branches?per_page=100', [FOwner, FRepo]);
     var Body: string;
     if not HttpGet(Url, Body) then begin
       FError := 'HTTP GET failed for '+Url;
@@ -183,7 +178,7 @@ begin
     // store as "name=sha" so callers can both build a names list for
     // a combobox (Names[i]) and look up the head SHA for a branch
     // (Values[branchName]) in O(1).
-    for var i := 0 to Arr.Count - 1 do
+    for var i := 0 to Arr.Count-1 do
     begin
       var Obj := Arr.Objects[i];
       if Obj <> nil then FBranches.Add(Obj.Get('name', '')+'='+TJSONObject(Obj.Find('commit')).Get('sha', ''));
