@@ -11,6 +11,7 @@ object MainForm: TMainForm
   Position = poScreenCenter
   Scaled = False
   LCLVersion = '4.99.0.0'
+  OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnShow = FormShow

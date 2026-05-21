@@ -45,7 +45,7 @@ const
 
     YOU MAY NOT, WITHOUT WRITTEN PERMISSION FROM fpc-unleashed:
       1. Copy, modify, merge, redistribute, or sublicense any part of
-         the source or binary - in original or modified form.
+         the source or binary-in original or modified form.
       2. Create forks, branches, ports, or derivative works, even if
          URLs, names, configuration, or branding are changed. This
          installer is the fpc-unleashed installer; it is not licensed
@@ -67,8 +67,7 @@ const
 
     NO WARRANTY
 
-    THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-    EXPRESS OR IMPLIED. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR
+    THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR
     ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM THE USE OF
     THIS SOFTWARE.
     ''';
