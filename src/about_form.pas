@@ -45,25 +45,22 @@ const
 
     YOU MAY NOT, WITHOUT WRITTEN PERMISSION FROM fpc-unleashed:
       1. Copy, modify, merge, redistribute, or sublicense any part of
-         the source or binary-in original or modified form.
+         the source or binary - in original or modified form.
       2. Create forks, branches, ports, or derivative works, even if
          URLs, names, configuration, or branding are changed. This
          installer is the fpc-unleashed installer; it is not licensed
          for use by any other project, including forks of fpc-unleashed
          itself.
       3. Use the names "Unleashed", "FPC Unleashed", or any
-         confusingly similar name in derived works, packaging, or
-         marketing materials.
+         confusingly similar name in derived works, packaging, or marketing materials.
 
     There is no permitted fork.
 
     THIRD-PARTY COMPONENTS
 
-    The installer binary statically links the FPC Runtime Library and
-    the Lazarus Component Library, both distributed under the Modified
+    The installer binary statically links the FPC Runtime Library and the Lazarus Component Library, both distributed under the Modified
     LGPL with linking exception. Those licenses apply only to those
-    components and do not grant additional rights to the source or
-    binary of this installer.
+    components and do not grant additional rights to the source or binary of this installer.
 
     NO WARRANTY
 

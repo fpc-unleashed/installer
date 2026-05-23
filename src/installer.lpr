@@ -6,7 +6,7 @@ program installer;
 
 uses
   {$ifdef UNIX}
-  // cthreads must be first on unix: without it TThread hits "no thread support" RTE 232 at startup
+  // must be first on unix; without it TThread aborts with "no thread support" at startup
   cthreads,
   {$endif}
   Interfaces, Forms, main_form;

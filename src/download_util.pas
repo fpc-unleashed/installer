@@ -13,7 +13,7 @@ type
   // Percent: 0..100, or -1 when total size is unknown
   TDownloadProgress = procedure(Percent: Integer; const Status: string) of object;
 
-// win=WinINet (native TLS), linux=curl; both avoid bundling OpenSSL
+// Windows: WinINet (native HTTPS, no OpenSSL); Linux: shell out to /usr/bin/curl
 function DownloadFile(const URL, DestPath: string; OnProgress: TDownloadProgress): Boolean;
 
 implementation
@@ -25,7 +25,7 @@ uses
 const
   CHUNK_SIZE     = 32*1024;
   AGENT          = 'UnleashedInstaller/1.0';
-  // throttle Synchronize traffic for big files: max one event per ~256 KB
+  // at most one progress event per ~256 KB to keep Synchronize traffic sane
   REPORT_EVERY   = 256*1024;
 
 function HumanMB(B: Int64): string;
@@ -52,7 +52,7 @@ begin
       Exit;
     end;
     try
-      // best-effort Content-Length; codeload often uses chunked encoding so we fall back to "X MB downloaded"
+      // best-effort Content-Length; codeload uses chunked TE which skips this -- fall back to indeterminate
       var ContentLength: Int64 := -1;
       var CLBuf: DWORD;
       var CLSize: DWORD := SizeOf(CLBuf);
@@ -120,8 +120,8 @@ begin
   Result := False;
   if Assigned(OnProgress) then OnProgress(-1, 'downloading...');
 
-  // -fsSL: fail on HTTP>=400, silent meter, surface errors, follow redirects (github 302 -> objects.githubusercontent)
-  // no per-byte progress: would need \r-parse of stderr for marginal gain on <=70MB downloads
+  // -f: fail on >=400 (no html error page written); -sS: silent but errors on stderr; -L: follow redirects
+  // no per-byte progress -- would mean parsing \r-overwritten stderr, not worth for ~70MB downloads
   var Code := RunSilent('curl', ['-fsSL', '-o', DestPath, URL]);
 
   if Code = -1 then begin

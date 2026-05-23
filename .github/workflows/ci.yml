@@ -105,19 +105,17 @@ jobs:
             echo "Version: $ver"
           } > release-body.txt
 
-      - name: Update tag
-        uses: richardsimko/update-tag@v1
+      - name: Publish nightly release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: nightly
-
-      - name: Release
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: installer_win64_x86_64.exe,installer_linux_x86_64,installer_linux_x86_64.AppImage
-          tag: nightly
-          name: Unleashed Installer nightly
-          bodyFile: release-body.txt
-          prerelease: true
-          allowUpdates: true
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete nightly --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+          gh release create nightly \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Unleashed Installer nightly" \
+            --notes-file release-body.txt \
+            --prerelease \
+            installer_win64_x86_64.exe \
+            installer_linux_x86_64 \
+            installer_linux_x86_64.AppImage

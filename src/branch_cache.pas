@@ -10,17 +10,17 @@ uses
   Classes, SysUtils;
 
 const
-  // key=value file in per-user temp dir; reuse within TTL avoids hitting GitHub on re-run
+  // plain-text key=value file in OS per-user temp; reused within CACHE_TTL_MINUTES of timestamp to skip GitHub
   CACHE_FILENAME = 'unleashed-installer.cache';
   CACHE_TTL_MINUTES = 5;
 
-// returns True iff cache file parses and has a timestamp; AgeSeconds = age vs Now; SHAs are '' when missing
+// loads branch lists + per-repo main HEAD SHA; True iff file parses and has `Cached at:`
 function LoadCache(FpcBranches, IdeBranches: TStringList; out AgeSeconds: Double; out FpcMainSha, IdeMainSha: string): Boolean;
 
-// source lists are 'name=sha' (Names[i]=branch, Values[name]=SHA); only HEAD-of-main SHA kept
+// writes branch lists + per-repo main SHAs; source TStrings are 'name=sha' pairs
 procedure SaveCache(FpcBranches, IdeBranches: TStrings);
 
-// per-user temp dir + CACHE_FILENAME; exposed so log lines can show actual path
+// full path to cache file (per-user temp + CACHE_FILENAME)
 function CacheFilePath: string;
 
 implementation
@@ -31,7 +31,7 @@ uses
 const
   FPC_PREFIX      = 'fpc-branches=';
   IDE_PREFIX      = 'ide-branches=';
-  // schema: sha1-<repo>-<branch>=...; only main today, future keys ignored by older installers
+  // schema scales: future preload of more branches just adds sha1-fpc-<name>= keys; older readers ignore unknowns
   FPC_HASH_PREFIX = 'sha1-fpc-main=';
   IDE_HASH_PREFIX = 'sha1-ide-main=';
   TS_PREFIX       = '# Cached at: ';
@@ -45,7 +45,7 @@ begin
   Result := GetTempDir(False)+CACHE_FILENAME;
 end;
 
-// split "a, b, c" into Dest; empty tokens skipped, whitespace trimmed
+// split "a, b, c" into Dest; empty tokens dropped, whitespace trimmed
 procedure ParseCommaList(const Value: string; Dest: TStringList);
 begin
   Dest.Clear;
@@ -86,7 +86,7 @@ begin
   for var i := 0 to lines.Count-1 do begin
     var ln := Trim(lines[i]);
     if ln = '' then Continue;
-    // check timestamp comment before generic '#' skip; other '#' lines are ignored
+    // check the `# Cached at:` comment before the generic `#` skip; other `#` lines are free-form
     if Pos(TS_PREFIX, ln) = 1 then begin
       try
         cachedAt := ScanDateTime(TS_FORMAT, Copy(ln, Length(TS_PREFIX)+1, MaxInt));
@@ -113,7 +113,7 @@ end;
 
 procedure SaveCache(FpcBranches, IdeBranches: TStrings);
 
-  // join into "a, b, c"; reads Names[i] for 'name=sha' entries, raw otherwise
+  // join into "a, b, c"; reads Names[i] for 'name=sha' entries, raw entry otherwise
   function JoinNames(L: TStrings): string;
   begin
     Result := '';
@@ -126,7 +126,7 @@ procedure SaveCache(FpcBranches, IdeBranches: TStrings);
     end;
   end;
 
-  // returns '' if 'main' missing or SHA blank (cache-hit-fed list lost SHAs)
+  // SHA of 'main' from a 'name=sha' TStrings, '' if absent
   function MainSha(L: TStrings): string;
   begin
     Result := '';
@@ -149,7 +149,7 @@ begin
   try
     f.SaveToFile(CacheFilePath);
   except
-    // best effort; refetch next run on failure
+    // best effort; refetch next run
   end;
 end;
 

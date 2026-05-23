@@ -22,7 +22,7 @@ type
     destructor Destroy; override;
     property Owner: string read FOwner;
     property Repo: string read FRepo;
-    // safe to read on main thread inside the OnTerminate callback
+    // safe to read on main thread inside OnTerminate
     property Branches: TStringList read FBranches;
     property ErrorMsg: string read FError;
   end;
@@ -45,7 +45,7 @@ begin
   FOwner := AOwner;
   FRepo := ARepo;
   FBranches := TStringList.Create;
-  // OnTerminate runs on main thread via Synchronize; FreeOnTerminate frees us after-callback MUST NOT free
+  // OnTerminate runs on main thread; FreeOnTerminate frees us after it returns -- callback must NOT free us
   FreeOnTerminate := True;
   OnTerminate := AOnDone;
   Start;
@@ -58,7 +58,7 @@ begin
 end;
 
 {$ifdef MSWINDOWS}
-// WinINet: native TLS, no curl.exe (added to Windows only in 1803 / Apr 2018)
+// HTTPS GET via WinINet -- native TLS, no external curl (curl.exe missing on pre-1803 Windows)
 function HttpGet(const URL: string; out Body: string): Boolean;
 var
   Buf: array[0..CHUNK_SIZE-1] of Byte;
@@ -69,7 +69,8 @@ begin
   var Session := InternetOpen(AGENT, INTERNET_OPEN_TYPE_PRECONFIG, nil, nil, 0);
   if Session = nil then Exit;
   try
-    var Connection := InternetOpenUrl(Session, PChar(URL), PChar(HEADERS), Length(HEADERS), INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
+    var Connection := InternetOpenUrl(Session, PChar(URL), PChar(HEADERS), Length(HEADERS),
+      INTERNET_FLAG_NO_UI or INTERNET_FLAG_RELOAD or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_KEEP_CONNECTION, 0);
     if Connection = nil then Exit;
     try
       var Stream := autofree TMemoryStream.Create;
@@ -94,7 +95,7 @@ end;
 {$endif}
 
 {$ifdef LINUX}
-// curl: ubiquitous on linux; --retry 3 covers transient hiccups
+// HTTPS GET via curl; --retry 3 absorbs transient NAT/TLS/DNS hiccups
 function HttpGet(const URL: string; out Body: string): Boolean;
 var
   Buf: array[0..4095] of Byte;
@@ -119,7 +120,7 @@ begin
     on E: Exception do raise Exception.Create('curl not found in PATH (install: apt install curl): '+E.Message);
   end;
 
-  // drain both pipes until child exits; stdout=body, stderr=error text
+  // drain both pipes; stdout = JSON, stderr = curl error text on -S
   var StdoutBuf := autofree TMemoryStream.Create;
   var StderrBuf: string := '';
   while P.Running or (P.Output.NumBytesAvailable > 0) or (P.Stderr.NumBytesAvailable > 0) do begin
@@ -163,7 +164,7 @@ begin
       Exit;
     end;
     var Arr := TJSONArray(J);
-    // "name=sha" lets callers use Names[i] for combobox + Values[name] for O(1) sha lookup
+    // store as "name=sha" so callers can list Names[i] and look up Values[branch] in O(1)
     for var i := 0 to Arr.Count-1 do begin
       var Obj := Arr.Objects[i];
       if Obj <> nil then FBranches.Add(Obj.Get('name', '')+'='+TJSONObject(Obj.Find('commit')).Get('sha', ''));
@@ -171,6 +172,7 @@ begin
   except
     on E: Exception do FError := E.ClassName+': '+E.Message;
   end;
+  // OnTerminate fires via Synchronize once Execute exits
 end;
 
 end.

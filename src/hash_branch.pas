@@ -9,11 +9,11 @@ interface
 uses
   Classes, SysUtils;
 
-// MurmurHash3 32-bit (Austin Appleby PD ref); deterministic short-name -> hex for branch-pin in filenames. NOT security.
+// 32-bit MurmurHash3 (Austin Appleby, public domain). Not for security; used as short-name -> short-hex for branch encoding
 function Murmur3_32(const s: string; Seed: LongWord = 0): LongWord;
 
 type
-  // wire format documented in README.md ("Filename hash pin")
+  // parsed filename pin blob; wire format documented in README.md ("Filename hash pin")
   TParsedBinaryName = record
     Present: Boolean;
     FpcCommit: string;
@@ -24,19 +24,19 @@ type
     LazBranchHashOverride: string;
   end;
 
-// picks LAST hex+digit run in filename (closest to ext); no fallback to earlier runs
+// parse "installer-anything-<blob>.exe"; picks LAST hex+digit run in filename. Present=False on any error
 function ParseBinaryName(const FileName: string): TParsedBinaryName;
 
-// parse a string as the blob directly (no run extraction); for ParamStr(1) override
+// parse blob directly without run extraction or min-length; for ParamStr(1) override path
 function TryParseBlob(const blob: string; out p: TParsedBinaryName): Boolean;
 
-// scan Items for first murmur3 prefix match; '' on no match
+// resolve murmur3 hex prefix to a branch name via linear scan of Items; '' on no match
 function FindBranchByHashPrefix(Items: TStrings; const HexPrefix: string): string;
 
 implementation
 
 const
-  // append-only: new entries get higher indices so old encoded binaries still parse the same
+  // append-only: new entries get higher indices so older encoded binaries keep parsing the same way
   PREDEFINED_BRANCHES: array[0..1] of string = ('main', 'devel');
 
 function Murmur3_32(const s: string; Seed: LongWord = 0): LongWord;
@@ -75,7 +75,7 @@ begin
   {$pop}
 end;
 
-// left-to-right hex-char runs >= MinLen; non-hex breaks the run
+// collect every hex-char run >= MinLen, left-to-right. Hex = [0-9a-fA-F]; any non-hex breaks a run
 function CollectHexRuns(const s: string; MinLen: Integer): array of string;
 begin
   SetLength(Result, 0);
@@ -96,11 +96,12 @@ function IsAllHex(const s: string): Boolean;
 begin
   Result := False;
   if s = '' then Exit;
-  for var i := 1 to Length(s) do if not (s[i] in ['0'..'9', 'a'..'f', 'A'..'F']) then Exit;
+  for var i := 1 to Length(s) do
+    if not (s[i] in ['0'..'9', 'a'..'f', 'A'..'F']) then Exit;
   Result := True;
 end;
 
-// single hex char -> 0..15 or -1
+// hex digit -> 0..15, or -1
 function HexCharToInt(c: Char): Integer;
 begin
   if (c >= '0') and (c <= '9') then Result := Ord(c)-Ord('0')
@@ -109,7 +110,7 @@ begin
   else Result := -1;
 end;
 
-// read commit field (pos 1/2):  '0X' = predefined index (latest),  '<L><Lhex>' = SHA prefix pin (branch='main')
+// commit-position field (pos 1 or 2): '0X' = predefined branch idx X latest; '<L><Lhex>' = SHA prefix of length L on 'main'
 function ReadCommitField(const blob: string; var pos: Integer; out commitHex, branchFromCommit: string): Boolean;
 begin
   Result := False;
@@ -118,7 +119,7 @@ begin
   if pos > Length(blob) then Exit;
   if not (blob[pos] in ['0'..'9']) then Exit;
   if blob[pos] = '0' then begin
-    // predefined: 1 length digit + 1 hex index into table
+    // predefined: 1 length digit + 1 hex char index
     if pos+1 > Length(blob) then Exit;
     var idx: Integer := HexCharToInt(blob[pos+1]);
     if (idx < 0) or (idx > High(PREDEFINED_BRANCHES)) then Exit;
@@ -127,17 +128,17 @@ begin
     Result := True;
     Exit;
   end;
-  // hash-prefix pin, length blob[pos] in '1'..'9'; branch defaults to main
+  // hash prefix of length blob[pos] in '1'..'9' on main
   var lenVal: Integer := Ord(blob[pos])-Ord('0');
   if pos+lenVal > Length(blob) then Exit;
   commitHex := LowerCase(Copy(blob, pos+1, lenVal));
   if not IsAllHex(commitHex) then Exit;
-  branchFromCommit := PREDEFINED_BRANCHES[0];  // 'main'
+  branchFromCommit := PREDEFINED_BRANCHES[0];
   Inc(pos, 1+lenVal);
   Result := True;
 end;
 
-// branch-override (pos 3/4): hash-only, length '1'..'9'; '0' rejects (use commit field for predefined)
+// branch-override field (pos 3 or 4): hash-only, length digit '1'..'9'; '0' rejected
 function ReadBranchOverrideField(const blob: string; var pos: Integer; out hashHex: string): Boolean;
 begin
   Result := False;
@@ -152,7 +153,7 @@ begin
   Result := True;
 end;
 
-// blob must be consumed in full; any trailing chars after pos4 means this run isn't our encoding
+// blob must be fully consumed; any leftover means it isn't our encoding
 function TryParseBlob(const blob: string; out p: TParsedBinaryName): Boolean;
 begin
   Result := False;
@@ -160,21 +161,22 @@ begin
   if blob = '' then Exit;
   var pos := 1;
 
-  // pos1 (required): fpc commit / predefined branch
+  // pos 1 required: fpc commit / predefined
   if not ReadCommitField(blob, pos, p.FpcCommit, p.FpcBranchFromCommit) then Exit;
 
-  // pos2 (optional): ide commit / predefined; absent = main/latest (same as '00')
+  // pos 2 optional: ide commit / predefined; absent => ide defaults to main/latest
   if pos <= Length(blob) then begin
     if not ReadCommitField(blob, pos, p.LazCommit, p.LazBranchFromCommit) then Exit;
   end else p.LazBranchFromCommit := PREDEFINED_BRANCHES[0];
 
-  // pos3 (optional): fpc branch hash override (hash-only)
-  if pos <= Length(blob) then if not ReadBranchOverrideField(blob, pos, p.FpcBranchHashOverride) then Exit;
+  // pos 3 optional: fpc branch hash override
+  if pos <= Length(blob) then
+    if not ReadBranchOverrideField(blob, pos, p.FpcBranchHashOverride) then Exit;
 
-  // pos4 (optional): ide branch hash override
-  if pos <= Length(blob) then if not ReadBranchOverrideField(blob, pos, p.LazBranchHashOverride) then Exit;
+  // pos 4 optional: ide branch hash override
+  if pos <= Length(blob) then
+    if not ReadBranchOverrideField(blob, pos, p.LazBranchHashOverride) then Exit;
 
-  // leftover chars => candidate run isn't the encoded blob
   if pos <= Length(blob) then Exit;
 
   p.Present := True;
@@ -184,7 +186,7 @@ end;
 function ParseBinaryName(const FileName: string): TParsedBinaryName;
 begin
   FillChar(Result, SizeOf(Result), 0);
-  // last hex+digit run wins (no fallback); min 2 matches the shortest meaningful blob '00'
+  // LAST hex+digit run (closest to extension); min len 2 = shortest meaningful blob `00`
   var runs := CollectHexRuns(FileName, 2);
   if Length(runs) = 0 then Exit;
   TryParseBlob(runs[High(runs)], Result);

@@ -10,10 +10,10 @@ uses
   Classes, SysUtils;
 
 type
-  // Percent: 0..100; reports as bytes are extracted across the whole archive
+  // Percent: 0..100; byte progress across whole archive
   TZipProgress = procedure(Percent: Integer; const Status: string) of object;
 
-// extract ZipPath into DestDir (creates if needed); OnProgress may be nil
+// extract ZipPath into DestDir (created if needed). nil callback to skip reporting
 function ExtractZip(const ZipPath, DestDir: string; OnProgress: TZipProgress): Boolean;
 
 implementation
@@ -22,7 +22,7 @@ uses
   Zipper;
 
 type
-  // bridge wraps the Zipper progress signature into our simpler callback
+  // bridge maps Zipper's OnProgressEx into our callback shape
   TProgressBridge = class
     Cb: TZipProgress;
     LastPct: Integer;
@@ -43,9 +43,10 @@ end;
 function ExtractZip(const ZipPath, DestDir: string; OnProgress: TZipProgress): Boolean;
 begin
   Result := False;
-  if not DirectoryExists(DestDir) then if not ForceDirectories(DestDir) then Exit;
+  if not DirectoryExists(DestDir) then
+    if not ForceDirectories(DestDir) then Exit;
 
-  // LIFO: UnZip frees first; safe because UnZip drops OnProgressEx before destruction
+  // LIFO: UnZip frees first then Bridge -- safe because UnZip drops OnProgressEx before destruction
   var Bridge := autofree TProgressBridge.Create;
   var UnZip := autofree TUnZipper.Create;
   Bridge.Cb := OnProgress;

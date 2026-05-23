@@ -142,35 +142,25 @@ type
     FInstalling: Boolean;
     FLaunchAfterInstall: Boolean;
     FInstallTargetDir: string;
-    // last target dir for which the cross checkboxes were synced from the
-    // manifest; prevents RefreshTargetState (called on every selection
-    // change) from clobbering the user's subsequent checkbox toggles
+    // last target dir for which cross checkboxes were synced; prevents RefreshTargetState clobbering toggles
     FCrossSyncedFor: string;
-    // Gate for the state-B reset so a re-entry from a checkbox toggle
-    // does not clobber the just-made change. 'A'/'B'/'C'/'D' or #0.
+    // gate for state-B reset so a re-entry from a checkbox toggle won't clobber the just-made change
     FLastState: Char;
     FLastStateDir: string;
-    // raw 'name=sha' lists from branch_fetch; Values[branchName] yields
-    // head SHA; both kept to drive update-vs-installed comparisons
+    // raw 'name=sha' lists from branch_fetch; Values[branch] yields head SHA
     FFpcBranchShas: TStringList;
     FLazBranchShas: TStringList;
-    // Branch hints from the filename pin (consumed in FillCombo once
-    // the async fetch populates Combo.Items). One of *Name / *HashHex
-    // per repo: *Name for predefined ('main'/'devel'), *HashHex for a
-    // murmur3 prefix that needs the fetched list to resolve.
+    // pin hints from filename; one of *Name (predefined) / *HashHex (murmur3 prefix) per repo. Resolved in FillCombo
     FPinnedFpcBranchName: string;
     FPinnedFpcBranchHex:  string;
     FPinnedLazBranchName: string;
     FPinnedLazBranchHex:  string;
-    // FetchTick rewrites the cache only when BOTH are True; a partial
-    // success run can't leave an inconsistent file marked fresh.
+    // cache file is rewritten only when BOTH fetches succeed; partial-success can't leave a stale "fresh" file
     FFpcFetchOk: Boolean;
     FLazFetchOk: Boolean;
-    // True while the chosen target dir is unusable (blank or non-empty
-    // without installer.ini); gates ButtonInstall.Enabled.
+    // True while target dir is unusable (blank or non-empty w/o installer.ini); gates ButtonInstall
     FFolderError: Boolean;
-    // Re-entrancy guard for RefreshTargetState; the state-B reset
-    // writes back to controls whose OnChange calls back here.
+    // re-entrancy guard for RefreshTargetState; state-B reset writes to controls whose OnChange re-enters here
     FRefreshingTarget: Boolean;
     procedure CopySelectedLogLines;
     procedure SetDoubleBufferedRecursive(c: TWinControl);
@@ -203,8 +193,7 @@ implementation
 {$R *.lfm}
 
 const
-  // mirror install_pipeline's per-OS host paths so RefreshTargetState +
-  // LaunchInstalledIde inspect the same files the pipeline creates.
+  // mirror install_pipeline's per-OS host paths so RefreshTargetState/LaunchInstalledIde see the same files
 {$ifdef MSWINDOWS}
   HostFpcWrapperSub  = 'fpc\bin\x86_64-win64\fpc.exe';
   LazarusBinarySub   = 'lazarus\lazarus.exe';
@@ -214,12 +203,13 @@ const
   LazarusBinarySub   = 'lazarus/lazarus';
 {$endif}
 
-// fs is authoritative; manifest records intent only (crashed install leaves no manifest)
+// filesystem is authoritative for what's installed; manifest only records intent (crash leaves no manifest)
 function IsDirEffectivelyEmpty(const Dir: string): Boolean;
 var SR: TSearchRec;
 begin
   Result := True;
-  if FindFirst(IncludeTrailingPathDelimiter(Dir)+'*', faAnyFile, SR) = 0 then try
+  if FindFirst(IncludeTrailingPathDelimiter(Dir)+'*', faAnyFile, SR) = 0 then
+  try
     repeat
       if (SR.Name <> '.') and (SR.Name <> '..') then begin
         Result := False;
@@ -227,7 +217,7 @@ begin
       end;
     until FindNext(SR) <> 0;
   finally
-    // SysUtils. qualifier: Windows unit also exports FindClose (WinAPI, HANDLE-based) and would shadow the TSearchRec overload
+    // SysUtils. qualifier needed -- Windows unit also exports FindClose(HANDLE) which shadows the TSearchRec one
     SysUtils.FindClose(SR);
   end;
 end;
@@ -240,11 +230,11 @@ begin
   Result := DirectoryExists(IncludeTrailingPathDelimiter(dir)+'fpc\units\'+target);
 {$endif}
 {$ifdef LINUX}
-  // fpc-unleashed reports 3.3.1+, so we scan version subdir under fpc/lib/fpc/
   var Base := IncludeTrailingPathDelimiter(dir)+'fpc/lib/fpc/';
   if not DirectoryExists(Base) then Exit;
   var SR: TSearchRec;
-  if FindFirst(Base+'*', faDirectory, SR) = 0 then try
+  if FindFirst(Base+'*', faDirectory, SR) = 0 then
+  try
     repeat
       if (SR.Name <> '.') and (SR.Name <> '..') and ((SR.Attr and faDirectory) <> 0) and (Length(SR.Name) > 0) and (SR.Name[1] in ['0'..'9']) and DirectoryExists(Base+SR.Name+'/units/'+target) then begin
         Result := True;
@@ -257,7 +247,7 @@ begin
 {$endif}
 end;
 
-// %DATE% / %TIME% are FPC preprocessor literals, frozen at compile time
+// {$I %DATE%}/%TIME% are frozen at build by the FPC preprocessor (not function calls)
 const
   BUILD_DATE_RAW = {$I %DATE%};
   BUILD_TIME_RAW = {$I %TIME%};
@@ -270,12 +260,12 @@ begin
     Info.ReadFileInfo;
     Result := Info.VersionStrings.Values['FileVersion'];
   except
-    // missing/unreadable resource -> empty result
+    // resource missing or unreadable -> caller falls back to no version
   end;
 end;
 
 {$ifdef MSWINDOWS}
-// WS_EX_COMPOSITED: DWM composites form+children atomically; without it ~50 child HWNDs repaint individually
+// WS_EX_COMPOSITED makes DWM composite form + ~50 child HWNDs atomically; without it restore/resize shows paint cascade
 procedure TMainForm.CreateParams(var Params: TCreateParams);
 const
   WS_EX_COMPOSITED = $02000000;
@@ -284,7 +274,7 @@ begin
   Params.ExStyle := Params.ExStyle or WS_EX_COMPOSITED;
 end;
 
-// menu bar is NC area, WS_EX_COMPOSITED doesn't reach it; suppress NC paint during drag-resize
+// menu bar is in NC area which WS_EX_COMPOSITED doesn't cover; suppress NC paint during drag, redraw once on exit
 procedure TMainForm.WMEnterSizeMove(var Msg: TMessage);
 begin
   FInSizeMove := True;
@@ -309,7 +299,7 @@ begin
   FFpcBranchShas := TStringList.Create;
   FLazBranchShas := TStringList.Create;
 
-  // linux: LCL gtk2/qt don't consume PE icon group, so we load the PNG via Lazarus resource at runtime
+  // Linux LCL gtk2/qt doesn't consume the PE icon group; load the embedded PNG resource at runtime instead
   {$ifdef LINUX}
   var IconStream := autofree TLazarusResourceStream.Create('installer', nil);
   var Png        := autofree TPortableNetworkGraphic.Create;
@@ -324,25 +314,25 @@ begin
   var Ver := GetAppVersion;
   if Ver <> '' then Caption := Caption+' v'+Ver;
   Caption := Caption+' (built at '+BuildDate+' '+BuildTime+')';
-  // cross-checkbox defaults MUST go before EditTargetDir.Text: assigning .Text fires RefreshTargetState which
-  // sets FCrossSyncedFor; later defaults would then bypass the sync and lie about "what's installed"
+  // cross checkbox defaults must be set BEFORE EditTargetDir.Text -- that fires RefreshTargetState which probes the FS
+  // and sets FCrossSyncedFor. Overrides applied after that would win against the "nothing installed" probe
   {$ifdef LINUX}
-  // native = x86_64-linux; cross-to-win64 starts unchecked so we don't surprise the user with a toolchain download
+  // host is x86_64-linux; native build covers it. cross-to-win64 starts off so we don't surprise user with downloads
   CheckBoxCrossLinux64.Enabled := False;
   CheckBoxCrossLinux64.Checked := False;
   CheckBoxCrossLinux64.Caption := 'x86_64-linux (native)';
   EditTargetDir.Text := IncludeTrailingPathDelimiter(GetEnvironmentVariable('HOME'))+'fpcunleashed';
-  // ToggleAffinity uses win-only user32 API; package compiles on linux but install is a no-op, so we lock it off
+  // Toggle Display Affinity uses Set/GetWindowDisplayAffinity (user32). Package's Register is {$ifdef WINDOWS} so no-op on linux
   CheckBoxToggleAffinity.Enabled := False;
   CheckBoxToggleAffinity.Checked := False;
   {$else}
-  // native = x86_64-win64; mirror linux for the other direction
+  // host is x86_64-win64; cross-to-linux64 starts off
   CheckBoxCrossWin64.Enabled := False;
   CheckBoxCrossWin64.Checked := False;
   CheckBoxCrossWin64.Caption := 'x86_64-win64 (native)';
   EditTargetDir.Text := 'C:\fpcunleashed';
   {$endif}
-  // per-child DoubleBuffered: form-level only covers the form's bg; child HWNDs still paint direct
+  // per-child DoubleBuffered; form-level only covers background, each child HWND otherwise paints direct to screen
   SetDoubleBufferedRecursive(Self);
 
   SetStatus('Ready');
@@ -351,7 +341,7 @@ begin
   RefreshTargetState;
   ApplyHashesFromBinaryName;
 
-  // size to 80% of work area + recenter; LFM poScreenCenter uses designer height
+  // 80% of work area, re-centered vertically. LFM Position=poScreenCenter uses designer Height which cramps the log
   Self.Height := Screen.WorkAreaHeight*80 div 100;
   Self.Top := Screen.WorkAreaTop+(Screen.WorkAreaHeight-Self.Height) div 2;
 end;
@@ -361,26 +351,26 @@ begin
   ListBoxLog.Clear;
 end;
 
-// pull pinned (fpc, laz) from ParamStr(1) or binary name; wire format in README.md ("Filename hash pin")
+// pull pinned (fpc, laz) from ParamStr(1) or filename. Wire format: README.md "Filename hash pin" + hash_branch.pas
 procedure TMainForm.ApplyHashesFromBinaryName;
 const
-  // legacy fallback only; new encoder produces a single hex+digit run with no separator
+  // legacy fallback only; new encoder produces single hex+digit run with no separators
   HASH_PATTERN = '(?<![0-9a-fA-F])([0-9a-fA-F]{7,12})[^0-9a-fA-F]+([0-9a-fA-F]{7,12})(?![0-9a-fA-F])';
 begin
   var parsed: TParsedBinaryName;
   parsed.Present := False;
 
-  // 1. cmdline override: whole arg is the blob (no run extraction); falls through to filename on bad arg
+  // 1. cmdline override via ParamStr(1) -- whole arg as raw blob; falls back to filename if not a valid blob
   if (ParamCount >= 1) and (ParamStr(1) <> '') then begin
     if TryParseBlob(ParamStr(1), parsed) then Log('using cmdline pin: '+ParamStr(1))
     else Log('cmdline arg "'+ParamStr(1)+'" is not a pin blob; falling back to filename');
   end;
 
-  // 2. filename (new length-prefixed format) - LAST hex+digit run
+  // 2. filename (new length-prefixed format) -- LAST hex run >= 12
   if not parsed.Present then parsed := ParseBinaryName(ExtractFileName(ParamStr(0)));
 
   if parsed.Present then begin
-    // empty FpcCommit/LazCommit = '0' length digit = "latest of selected branch" sentinel
+    // empty FpcCommit/LazCommit = '0' length digit = "latest of selected branch" sentinel -> tick Latest, clear hash
     Log('binary name carries pinned commit hashes: fpc='+(if parsed.FpcCommit = '' then '(latest)' else parsed.FpcCommit)+' ide='+(if parsed.LazCommit = '' then '(latest)' else parsed.LazCommit));
 
     if parsed.FpcCommit = '' then begin
@@ -399,13 +389,13 @@ begin
       CheckBoxLazarusLatest.Checked := False;
     end;
 
-    // stash hints for FillCombo (async fetch). Hash override (pos 3/4) > predefined branch (pos 1/2)
+    // stash branch hints for FillCombo. Hash override (pos 3/4) beats predefined/implicit-main (pos 1/2)
     if parsed.FpcBranchHashOverride <> '' then FPinnedFpcBranchHex := parsed.FpcBranchHashOverride
     else if parsed.FpcBranchFromCommit <> '' then FPinnedFpcBranchName := parsed.FpcBranchFromCommit;
     if parsed.LazBranchHashOverride <> '' then FPinnedLazBranchHex := parsed.LazBranchHashOverride
     else if parsed.LazBranchFromCommit <> '' then FPinnedLazBranchName := parsed.LazBranchFromCommit;
 
-    // companion branch summary; FillCombo emits "branch ... matches" line later when async fetch lands
+    // companion summary line; hash-overridden branches show the hex here, matching branch name lands later via FillCombo
     var fpcStr: string := if parsed.FpcBranchHashOverride <> '' then parsed.FpcBranchHashOverride else if parsed.FpcBranchFromCommit <> '' then parsed.FpcBranchFromCommit else '(default)';
     var lazStr: string := if parsed.LazBranchHashOverride <> '' then parsed.LazBranchHashOverride else if parsed.LazBranchFromCommit <> '' then parsed.LazBranchFromCommit else '(default)';
     Log('binary name carries pinned branch hashes: fpc='+fpcStr+' ide='+lazStr);
@@ -414,7 +404,7 @@ begin
     Exit;
   end;
 
-  // 3. legacy two-hash regex fallback; only runs against filename (cmdline is strictly new format)
+  // 3. legacy two-hash regex fallback; only consulted when neither cmdline nor new-format filename matched
   var Name := ExtractFileName(ParamStr(0));
   var R := autofree TRegExpr.Create;
   R.Expression := HASH_PATTERN;
@@ -427,7 +417,7 @@ begin
   CheckBoxUnleashedLatest.Checked := False;
   EditLazarusHash.Text         := LazHash;
   CheckBoxLazarusLatest.Checked := False;
-  // rerun RefreshTargetState so LabelMode reflects pinned values; FCrossSyncedFor skips the manifest re-sync
+  // RefreshTargetState already ran w/ manifest-restored hashes; rerun so LabelMode reflects the new pin
   RefreshTargetState;
 end;
 
@@ -436,16 +426,20 @@ begin
   RefreshTargetState;
 end;
 
-// four-state gate (A=blank, B=empty, C=installer.ini present, D=non-empty w/o ini); A+D set FFolderError
+// folder is authoritative; installer.ini carries build SHA for update detection
+//   A. blank path           -> error, Install disabled
+//   B. dir absent or empty  -> defaults, "New installation"
+//   C. dir has installer.ini -> restore from manifest
+//   D. dir non-empty w/o ini -> error (someone else's folder)
 procedure TMainForm.RefreshTargetState;
 begin
-  // re-entry guard: writes to bound Edit/Combo fire OnSelectionChange -> RefreshTargetState
+  // re-entry guard: bound Edit/Combo writes fire OnSelectionChange -> back here
   if FRefreshingTarget then Exit;
   FRefreshingTarget := True;
   try
   var rawDir := Trim(EditTargetDir.Text);
 
-  // optimistic reset; each branch confirms or re-sets
+  // optimistic reset; each branch re-sets the flag as needed
   FFolderError := False;
   LabelMode.Font.Color := clWindowText;
 
@@ -465,7 +459,7 @@ begin
   var dirExists      := DirectoryExists(dir);
 
   // ---- state B: target absent or empty (no manifest) -> fresh install ----
-  // gate the reset on FLastState/Dir so a checkbox toggle re-firing doesn't wipe the user's change
+  // reset only on entry into state-B so checkbox-toggle re-entry doesn't wipe the change
   if (not manifestExists) and ((not dirExists) or IsDirEffectivelyEmpty(dir)) then begin
     if (FLastState <> 'B') or (FLastStateDir <> rawDir) then ResetTargetControlsToDefaults;
     LabelMode.Caption := 'New installation';
@@ -476,7 +470,8 @@ begin
     Exit;
   end;
 
-  // ---- state D: dir has content but no manifest -> refuse (can't clobber unknown trees) ----
+  // ---- state D: dir has content but no manifest -> refuse ----
+  // fresh install overwrites fpc/, lazarus/, ... -- a stray unrelated tree would get clobbered
   if not manifestExists then begin
     FFolderError := True;
     LabelMode.Font.Color := clRed;
@@ -497,7 +492,7 @@ begin
     if parts <> '' then parts := parts+' + ';
     parts := parts+'lazarus';
   end;
-  // native first; explicit listing keeps the "installed" summary symmetric with the cross checkboxes
+  // list every selectable target, native first. listing native explicitly makes the summary match the cross checkbox set
   {$ifdef MSWINDOWS}
   var crossTargets: TStringArray := ['x86_64-win64', 'x86_64-linux', 'i386-win32', 'i386-linux', 'wasm32-wasip1'];
   {$endif}
@@ -510,29 +505,30 @@ begin
       parts := parts+t;
     end;
 
-  // user-typed short hash is matched as a prefix of the manifest's full SHA in either direction
+  // pull last-installed SHAs from manifest and compare to currently-selected to detect update.
+  // user-typed short hash matches manifest's full SHA as prefix in either direction
   var m := ReadManifest(rawDir);
   var updates := '';
-  // sync checkboxes once per dir; manifest-presence gate so partial-install (manifest only) still restores
+  // sync checkboxes once per target dir; gate on manifest-presence so partial install (manifest written, binary missing) still triggers restore
   if FCrossSyncedFor <> dir then begin
     FCrossSyncedFor := dir;
-    // CrossWin64/Linux64 sync only on the cross host; native side is .Enabled=False at FormCreate
+    // {Win64,Linux64} cross synced only on the host where they're not native (other host disables at FormCreate)
     if CheckBoxCrossWin64.Enabled   then CheckBoxCrossWin64.Checked   := ProbeCrossInstalled(rawDir, 'x86_64-win64');
     if CheckBoxCrossLinux64.Enabled then CheckBoxCrossLinux64.Checked := ProbeCrossInstalled(rawDir, 'x86_64-linux');
     CheckBoxCrossWin32.Checked   := ProbeCrossInstalled(rawDir, 'i386-win32');
     CheckBoxCrossLinux32.Checked := ProbeCrossInstalled(rawDir, 'i386-linux');
     CheckBoxCrossWasm.Checked    := ProbeCrossInstalled(rawDir, 'wasm32-wasip1');
-    // restore non-fs-detectable selections (branch, hash, addon ticks, launch-after) from manifest
+    // restore non-FS-detectable selections (branch/hash/addons/launch-after) from manifest
     if m.Present then begin
       CheckBoxMinimap.Checked      := m.InstallMinimap;
       CheckBoxCPUView.Checked      := m.InstallCPUView;
       CheckBoxMetaDarkStyle.Checked := m.InstallMetaDarkStyle;
-      // .Enabled gate: linux locks ToggleAffinity off at FormCreate; a win-written value would confuse the user
+      // skip windows-only checkbox restore on linux (FormCreate locked Enabled=False)
       if CheckBoxToggleAffinity.Enabled then CheckBoxToggleAffinity.Checked := m.InstallToggleAffinity;
       CheckBoxLaunchAfter.Checked  := m.LaunchAfter;
       if m.FpcBranch <> '' then begin
         ComboBoxUnleashedBranch.Text := m.FpcBranch;
-        // hash field is display-only while Latest ticked; show installed SHA so user sees current commit
+        // always show last installed SHA in the hash field (display-only while Latest=on); restore explicit Latest flag
         EditUnleashedHash.Text       := m.FpcSha;
         CheckBoxUnleashedLatest.Checked := m.FpcLatest;
       end;
@@ -548,13 +544,12 @@ begin
     var selFpc := ResolveSelectedFpcSha;
     var selLaz := ResolveSelectedLazSha;
     if hasFpc and (selFpc <> '') and (m.FpcSha <> '') and (Pos(selFpc, m.FpcSha) <> 1) and (Pos(m.FpcSha, selFpc) <> 1) then updates := updates+' fpc '+Copy(m.FpcSha, 1, 7)+' -> '+Copy(selFpc, 1, 7);
-    if hasLaz and (selLaz <> '') and (m.LazSha <> '') and (Pos(selLaz, m.LazSha) <> 1) and (Pos(m.LazSha, selLaz) <> 1) then
-      updates := updates+' lazarus '+Copy(m.LazSha, 1, 7)+' -> '+Copy(selLaz, 1, 7);
-    // addon deltas: pipeline's StepRebuildLazarusForAddons handles without full reinstall, but label must reflect
+    if hasLaz and (selLaz <> '') and (m.LazSha <> '') and (Pos(selLaz, m.LazSha) <> 1) and (Pos(m.LazSha, selLaz) <> 1) then updates := updates+' lazarus '+Copy(m.LazSha, 1, 7)+' -> '+Copy(selLaz, 1, 7);
+    // addon deltas. Pipeline's StepRebuildLazarusForAddons handles them without full reinstall, but labels need to reflect reality
     if hasLaz and (CheckBoxMinimap.Checked <> m.InstallMinimap) then updates := updates+(if CheckBoxMinimap.Checked then ' +minimap' else ' -minimap');
     if hasLaz and (CheckBoxCPUView.Checked <> m.InstallCPUView) then updates := updates+(if CheckBoxCPUView.Checked then ' +cpuview' else ' -cpuview');
     if hasLaz and (CheckBoxMetaDarkStyle.Checked <> m.InstallMetaDarkStyle) then updates := updates+(if CheckBoxMetaDarkStyle.Checked then ' +metadarkstyle' else ' -metadarkstyle');
-    // .Enabled guard: delta is meaningless on linux (toggle locked)
+    // skip toggle-affinity delta on linux (user can't change it)
     if hasLaz and CheckBoxToggleAffinity.Enabled and (CheckBoxToggleAffinity.Checked <> m.InstallToggleAffinity) then updates := updates+(if CheckBoxToggleAffinity.Checked then ' +toggle-affinity' else ' -toggle-affinity');
     if hasFpc and CheckBoxCrossWin64.Enabled and (CheckBoxCrossWin64.Checked <> m.CrossWin64) then updates := updates+(if CheckBoxCrossWin64.Checked then ' +x86_64-win64' else ' -x86_64-win64');
     if hasFpc and (CheckBoxCrossWin32.Checked <> m.CrossWin32) then updates := updates+(if CheckBoxCrossWin32.Checked then ' +i386-win32' else ' -i386-win32');
@@ -570,7 +565,7 @@ begin
     LabelMode.Caption := 'Existing install detected ('+parts+') - Install will overwrite';
     ButtonInstall.Caption := 'Reinstall';
   end else begin
-    // manifest present but no binaries: prior install died mid-way; treat as resumable
+    // manifest present but no FPC/Lazarus binary -- prior install died after writing manifest. Treat as resumable
     LabelMode.Caption := 'Partial install detected (manifest only) - Install will resume';
     ButtonInstall.Caption := 'Resume';
   end;
@@ -584,42 +579,42 @@ end;
 
 procedure TMainForm.ResetTargetControlsToDefaults;
 begin
-  // crosses unchecked; .Enabled stays as FormCreate left it (host-native disabled)
+  // cross checkboxes -- all unchecked; FormCreate handles host-native Enabled/Caption once at startup
   CheckBoxCrossWin64.Checked   := False;
   CheckBoxCrossLinux64.Checked := False;
   CheckBoxCrossWin32.Checked   := False;
   CheckBoxCrossLinux32.Checked := False;
   CheckBoxCrossWasm.Checked    := False;
 
-  // LFM first-install defaults: light extras on, heavy theme + win-only plugin off
+  // addons -- match LFM first-time defaults: lightweight IDE extras on, theme + windows-only plugin off
   CheckBoxMinimap.Checked        := True;
   CheckBoxCPUView.Checked        := True;
   CheckBoxMetaDarkStyle.Checked  := False;
-  // ToggleAffinity .Enabled=False on linux; writing False keeps data model clean across hosts
+  // toggle-affinity .Enabled=False on linux; writing False here is a no-op visually and keeps the data model clean
   CheckBoxToggleAffinity.Checked := False;
 
-  // fresh-install intent
+  // master + latest + launch-after -- "fresh install" intent
   CheckBoxInstallUnleashed.Checked := True;
   CheckBoxInstallLazarus.Checked   := True;
   CheckBoxUnleashedLatest.Checked  := True;
   CheckBoxLazarusLatest.Checked    := True;
   CheckBoxLaunchAfter.Checked      := True;
 
-  // hash fields display-only while Latest ticked; clear so they're empty until untick or explicit edit
+  // hash fields are display-only while Latest=on; clear stale hex so the field is empty until user opts in
   EditUnleashedHash.Text := '';
   EditLazarusHash.Text   := '';
 
-  // forget per-dir cross-sync so a re-entry into a manifest dir re-runs the fs+manifest restore
+  // forget per-dir cross-sync cache so a transition into a manifest dir re-runs the FS + manifest restore
   FCrossSyncedFor := '';
 
-  // cascade sub-control .Enabled (hash edit off while latest, addon block off while IDE off)
+  // sub-control enabling cascades from masters
   ApplyUnleashedEnabled;
   ApplyLazarusEnabled;
 end;
 
 function TMainForm.ResolveSelectedFpcSha: string;
 begin
-  // explicit hash wins; else head SHA of selected branch from last fetch
+  // explicit hash wins; otherwise head SHA of currently-selected branch (as of last fetch)
   Result := if (not CheckBoxUnleashedLatest.Checked) and (Trim(EditUnleashedHash.Text) <> '') then LowerCase(Trim(EditUnleashedHash.Text))
             else if ComboBoxUnleashedBranch.Text <> '' then LowerCase(FFpcBranchShas.Values[ComboBoxUnleashedBranch.Text])
             else '';
@@ -634,7 +629,7 @@ end;
 
 procedure TMainForm.OnSelectionChange(Sender: TObject);
 begin
-  // combo + hash edit OnChange; keeps LabelMode '(update available)' live
+  // wired to combo + hash edit OnChange; keeps LabelMode's '(update available)' hint live as user picks
   RefreshTargetState;
 end;
 
@@ -647,22 +642,21 @@ end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
-  // workers are FreeOnTerminate=True via OnTerminate; flag stops the callback from touching destroyed widgets
+  // worker threads have FreeOnTerminate=True; flag stops the callback from touching destroyed widgets
   FShuttingDown := True;
   FFpcBranchShas.Free;
   FLazBranchShas.Free;
 end;
 
-// fires for Close button and system X; prompt if install is running, half-built tree on hard exit
+// while pipeline runs, install thread touches the target tree; prompt before hard exit
 procedure TMainForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 begin
-  if FInstalling then
-    CanClose := MessageDlg('Installation in progress', 'An installation is currently running. Closing now will leave the target directory in a half-built state. Close anyway?', mtConfirmation, [mbYes, mbNo], 0) = mrYes;
+  if FInstalling then CanClose := MessageDlg('Installation in progress', 'An installation is currently running. Closing now will leave the target directory in a half-built state. Close anyway?', mtConfirmation, [mbYes, mbNo], 0) = mrYes;
 end;
 
 procedure TMainForm.StartBranchFetch;
 
-  // bare-name list -> 'name=sha'; only 'main' gets a real SHA from the cache file; live fetches fill all
+  // convert bare-name list to 'name=sha' form FillCombo expects; only 'main' gets a SHA from cache
   procedure AppendWithMainSha(Src: TStrings; Dest: TStrings; const MainSha: string);
   begin
     Dest.Clear;
@@ -680,7 +674,7 @@ begin
   FLazFetchOk := False;
   ButtonInstall.Enabled := False;
 
-  // cache-first: skip GitHub if file is younger than TTL; keeps anon API quota intact across launches
+  // cache-first: skip GitHub fetch if cache file is younger than CACHE_TTL_MINUTES. saves anon API quota across launches
   var fpcNames := autofree TStringList.Create;
   var ideNames := autofree TStringList.Create;
   var age: Double;
@@ -707,7 +701,7 @@ begin
   TBranchFetchThread.Create(GH_OWNER, REPO_LAZARUS, @OnLazarusDone);
 end;
 
-// stale cache > single-'main' fallback when GitHub rate-limits; bare-name list -> 'name=sha' with only main SHA
+// failed-fetch fallback: build 'name=sha' from bare names, attaching the cached HEAD SHA only to 'main'
 procedure NamesToShaListWithMain(Src, Dest: TStringList; const MainSha: string);
 begin
   Dest.Clear;
@@ -768,7 +762,7 @@ end;
 
 procedure TMainForm.FillCombo(Combo: TComboBox; const Repo: string; Branches: TStringList; const ErrorMsg: string);
 begin
-  // pick matching SHA map by repo
+  // pick matching SHA map by repo so caller code stays simple
   var shaMap := if Repo = REPO_FPC then FFpcBranchShas else if Repo = REPO_LAZARUS then FLazBranchShas else nil;
   if shaMap <> nil then shaMap.Clear;
 
@@ -784,7 +778,8 @@ begin
   for var i := 0 to Branches.Count-1 do Combo.Items.Add(Branches.Names[i]);
 
   Log('Got '+IntToStr(Branches.Count)+' branches for '+Repo);
-  // priority: pinned > manifest > main > master > first; runs after .Items populated (csDropDownList drops unknown)
+  // priority: pinned (filename) -> manifest -> main -> master -> first.
+  // csDropDownList drops Combo.Text not in Items, so this must run after Items populates (fetch is async)
   var pinnedBranch: string := '';
   if Combo = ComboBoxUnleashedBranch then begin
     if FPinnedFpcBranchName <> '' then pinnedBranch := FPinnedFpcBranchName
@@ -805,7 +800,7 @@ begin
   if m.Present then manifestBranch := if Combo = ComboBoxUnleashedBranch then m.FpcBranch else if Combo = ComboBoxLazarusBranch then m.LazBranch else '';
 
   var idx: Integer := -1;
-  if pinnedBranch   <> '' then idx := Combo.Items.IndexOf(pinnedBranch);
+  if pinnedBranch <> '' then idx := Combo.Items.IndexOf(pinnedBranch);
   if idx < 0 then if manifestBranch <> '' then idx := Combo.Items.IndexOf(manifestBranch);
   if idx < 0 then idx := Combo.Items.IndexOf('main');
   if idx < 0 then idx := Combo.Items.IndexOf('master');
@@ -818,13 +813,13 @@ procedure TMainForm.FetchTick;
 begin
   Dec(FFetchPending);
   if FFetchPending = 0 then begin
-    // rewrite cache only when BOTH fetches succeeded; partial-success leaves old file as fallback
+    // rewrite cache only on full success; partial-success leaves old file alone for future fallback
     if FFpcFetchOk and FLazFetchOk then begin
       SaveCache(FFpcBranchShas, FLazBranchShas);
       Log('cached branch lists (TTL '+IntToStr(CACHE_TTL_MINUTES)+' min, file="'+CacheFilePath+'")');
     end;
     SetStatus('Ready');
-    // folder-error gate wins: bad dir keeps button off even after successful fetches
+    // folder-error gate keeps Install off even after successful fetch when target dir is bad
     ButtonInstall.Enabled := not FFolderError;
   end;
 end;
@@ -835,7 +830,7 @@ begin
   ComboBoxUnleashedBranch.Enabled := act and FUnleashedReady;
   CheckBoxUnleashedLatest.Enabled := act;
   EditUnleashedHash.Enabled := act and (not CheckBoxUnleashedLatest.Checked);
-  // crosses nested under FPC; host-native (win64 on win / linux64 on linux) was locked at FormCreate
+  // crosses are nested under FPC; host's own native target locked Enabled=False at FormCreate
   CheckBoxCrossWin32.Enabled   := act;
   CheckBoxCrossWasm.Enabled    := act;
   CheckBoxCrossLinux32.Enabled := act;
@@ -859,7 +854,7 @@ begin
   CheckBoxMinimap.Enabled := act;
   CheckBoxCPUView.Enabled := act;
   CheckBoxMetaDarkStyle.Enabled := act;
-  // ToggleAffinity stays locked on linux (FormCreate disables once)
+  // toggle-affinity locked off on non-Windows hosts (FormCreate disables it once)
 {$ifdef MSWINDOWS}
   CheckBoxToggleAffinity.Enabled := act;
 {$endif}
@@ -878,7 +873,9 @@ end;
 
 procedure TMainForm.CheckBoxUnleashedLatestChange(Sender: TObject);
 begin
-  // ticked->unticked: pre-fill the commit edit. priority: manifest SHA (keeps install at installed) > branch HEAD
+  // on checked->unchecked, pre-fill the now-enabled commit edit.
+  // priority: 1) installer.ini SHA (pin to disk install, don't silently stage HEAD); 2) head SHA of selected branch.
+  // live fetch knows every branch SHA; cache-hit only knows 'main' so other branches leave the edit blank
   if not CheckBoxUnleashedLatest.Checked then begin
     var sha: string := '';
     var m := ReadManifest(Trim(EditTargetDir.Text));
@@ -891,8 +888,8 @@ end;
 
 procedure TMainForm.CheckBoxLazarusLatestChange(Sender: TObject);
 begin
-  // mirror Unleashed: manifest first, HEAD second
   if not CheckBoxLazarusLatest.Checked then begin
+    // mirror Unleashed: manifest first then HEAD
     var sha: string := '';
     var m := ReadManifest(Trim(EditTargetDir.Text));
     if m.Present then sha := m.LazSha;
@@ -902,7 +899,7 @@ begin
   ApplyLazarusEnabled;
 end;
 
-// i386-linux needs ppcross386 (the i386-win32 cross); auto-tick prereq
+// i386-linux build needs ppcross386 (i386-win32 cross); auto-tick the prereq
 procedure TMainForm.OnAddonOrCrossChange(Sender: TObject);
 begin
   if (Sender = CheckBoxCrossLinux32) and CheckBoxCrossLinux32.Checked then CheckBoxCrossWin32.Checked := True;
@@ -929,11 +926,11 @@ begin
   var fullText := FormatDateTime('hh:nn:ss', Now)+'# '+msg;
   ListBoxLog.Items.Add(fullText);
 
-  // grow horizontal scrollbar so wide build lines reveal; +24 for per-line left padding
+  // grow horizontal scrollbar so wide make/lazbuild lines can scroll into view; +24 for per-line padding
   var lineWidth := ListBoxLog.Canvas.TextWidth(fullText)+24;
   if lineWidth > ListBoxLog.ScrollWidth then ListBoxLog.ScrollWidth := lineWidth;
 
-  // TopIndex at last item: LCL setter clamps. Earlier ClientHeight/ItemHeight math broke on GTK2 pre-paint
+  // keep last line visible. earlier ClientHeight-div math broke on gtk2 pre-first-paint (ClientHeight=0 -> TopIndex past end)
   ListBoxLog.TopIndex := ListBoxLog.Items.Count-1;
 end;
 
@@ -952,7 +949,7 @@ begin
       if s <> '' then s := s+LineEnding;
       s := s+ListBoxLog.Items[i];
     end;
-  // fall back to current item if no selection
+  // fall back to current item if nothing selected
   if (s = '') and (ListBoxLog.ItemIndex >= 0) then s := ListBoxLog.Items[ListBoxLog.ItemIndex];
   if s <> '' then Clipboard.AsText := s;
 end;
@@ -1006,7 +1003,7 @@ begin
   ShowAbout(Self, Self.Caption);
 end;
 
-// first match wins; ordered most-severe to least so "Error: warning" stays red
+// first match wins; ordered most-severe to least so "Error: warning" renders red
 function ColorForLine(const s: string): TColor;
 begin
   if (Pos('Error', s) > 0) or (Pos('Fatal', s) > 0) or (Pos('FAILED', s) > 0) or (Pos('failed:', s) > 0) then Result := clRed
@@ -1050,7 +1047,7 @@ begin
   CheckBoxInstallLazarus.Enabled := act;
   EditTargetDir.Enabled := act;
   ButtonBrowse.Enabled := act;
-  // folder-error gate wins; defensive against re-enabling Install on unusable dir
+  // folder-error gate wins over act so post-install re-enable doesn't accidentally reopen Install when dir is bad
   ButtonInstall.Enabled := act and (not FFolderError);
   ApplyUnleashedEnabled;
   ApplyLazarusEnabled;
@@ -1101,22 +1098,22 @@ begin
   var PcpArg  := '--pcp='+IncludeTrailingPathDelimiter(FInstallTargetDir)+'config_lazarus';
   Log('Launching '+ExePath);
 {$ifdef MSWINDOWS}
-  // detached; ShellExecute wants args as one string, quotes protect spaces in target dir
+  // detached. ShellExecute wants args as one string; quotes protect spaces in target dir
   var Args := '"'+PcpArg+'"';
   ShellExecute(Handle, 'open', PChar(ExePath), PChar(Args), PChar(ExtractFilePath(ExePath)), SW_SHOWNORMAL);
 {$endif}
 {$ifdef LINUX}
-  // TProcess with no poWaitOnExit + nothing reading Output -> runs detached
+  // TProcess + no poWaitOnExit -> lazarus runs independently of installer (same as +x .desktop double-click)
   var P := TProcess.Create(nil);
   try
     P.Executable := ExePath;
     P.Parameters.Add(PcpArg);
     P.CurrentDirectory := ExtractFilePath(ExePath);
-    P.Options := [];                    // not poWaitOnExit
+    P.Options := [];
     P.InheritHandles := False;
     P.Execute;
   finally
-    // Execute returns once child runs; Free only releases our handle, OS reaps child
+    // don't Free before Execute returns -- child is running; Free would lose our handle, OS reaps it on installer exit
     P.Free;
   end;
 {$endif}
@@ -1127,7 +1124,7 @@ var
   cfg: TInstallConfig;
 begin
   if FInstalling then Exit;
-  // belt-and-braces: button is .Enabled=False under FFolderError, but defend against stale clicks anyway
+  // belt-and-braces: button is disabled while FFolderError, but a stale OnClick race could still land here
   if FFolderError then Exit;
 
   cfg.TargetDir := Trim(EditTargetDir.Text);
@@ -1138,21 +1135,21 @@ begin
 
   cfg.InstallFpc     := CheckBoxInstallUnleashed.Checked;
   cfg.InstallLazarus := CheckBoxInstallLazarus.Checked;
-  // cross choices need ppcx64 to drive crossinstall; force-off without FPC
+  // cross choices meaningless w/o FPC (no ppcx64 to drive crossinstall); force-off so pipeline doesn't try
   cfg.CrossWin64     := CheckBoxCrossWin64.Checked   and cfg.InstallFpc;
   cfg.CrossWin32     := CheckBoxCrossWin32.Checked   and cfg.InstallFpc;
   cfg.CrossLinux64   := CheckBoxCrossLinux64.Checked and cfg.InstallFpc;
   cfg.CrossLinux32   := CheckBoxCrossLinux32.Checked and cfg.InstallFpc;
   cfg.CrossWasm      := CheckBoxCrossWasm.Checked    and cfg.InstallFpc;
-  // addons need lazbuild
+  // addons meaningless w/o IDE (lazbuild needs IDE)
   cfg.InstallMinimap       := CheckBoxMinimap.Checked       and cfg.InstallLazarus;
   cfg.InstallCPUView       := CheckBoxCPUView.Checked       and cfg.InstallLazarus;
   cfg.InstallMetaDarkStyle := CheckBoxMetaDarkStyle.Checked and cfg.InstallLazarus;
-  // linux locks ToggleAffinity at FormCreate; .Checked always False here, no host-ifdef needed
+  // on linux this is always False (FormCreate locks Enabled+Checked=False), so no host ifdef needed
   cfg.InstallToggleAffinity := CheckBoxToggleAffinity.Checked and cfg.InstallLazarus;
   cfg.LaunchAfter    := CheckBoxLaunchAfter.Checked;
 
-  // snapshot launch decision at start; toggling while install runs doesn't change behavior
+  // snapshot launch decision at start; user may toggle during install but original choice wins
   FLaunchAfterInstall := cfg.InstallLazarus and CheckBoxLaunchAfter.Checked;
   FInstallTargetDir   := cfg.TargetDir;
   cfg.FpcLatest      := CheckBoxUnleashedLatest.Checked;
@@ -1161,17 +1158,15 @@ begin
   cfg.LazLatest      := CheckBoxLazarusLatest.Checked;
   cfg.LazBranch      := ComboBoxLazarusBranch.Text;
   cfg.LazHash        := Trim(EditLazarusHash.Text);
-  // resolved SHA for manifest comparison; empty when branch list not yet loaded
+  // resolved SHA into manifest for later compare; empty if branch list not yet loaded
   cfg.FpcSelectedSha := ResolveSelectedFpcSha;
   cfg.LazSelectedSha := ResolveSelectedLazSha;
   cfg.SaveLog        := CheckBoxSaveLog.Checked;
 
   Log('--- install requested ---');
   Log('target dir: '+cfg.TargetDir);
-  if cfg.InstallFpc then Log('install fpc-unleashed: yes ('+cfg.FpcBranch+')')
-  else Log('install fpc-unleashed: no');
-  if cfg.InstallLazarus then Log('install lazarus IDE:  yes ('+cfg.LazBranch+')')
-  else Log('install lazarus IDE:  no');
+  if cfg.InstallFpc then Log('install fpc-unleashed: yes ('+cfg.FpcBranch+')') else Log('install fpc-unleashed: no');
+  if cfg.InstallLazarus then Log('install lazarus IDE:  yes ('+cfg.LazBranch+')') else Log('install lazarus IDE:  no');
 
   FInstalling := True;
   SetInputsEnabled(False);
@@ -1186,7 +1181,9 @@ begin
   Close;
 end;
 
-// installer.lrs generated by `tools/lazres.exe src/installer.lrs src/installer.png`; linux uses Lazarus resource path because LCL gtk2/qt can't read PE icon group
+// cross-platform icon resource generated from src/installer.png via:
+//   tools/lazres.exe src/installer.lrs src/installer.png
+// Windows uses PE .ico via .res; this .lrs is consumed only on Linux (gtk2/qt LCL needs in-memory image for Application.Icon)
 {$ifdef LINUX}
 initialization
   {$I installer.lrs}

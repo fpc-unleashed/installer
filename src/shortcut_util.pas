@@ -6,7 +6,7 @@ unit shortcut_util;
 
 interface
 
-// win=.lnk via IShellLinkW; linux=.desktop in ~/Desktop + ~/.local/share/applications
+// Windows: .lnk via IShellLinkW; Linux: .desktop in ~/Desktop/ + ~/.local/share/applications/
 function CreateDesktopShortcut(const TargetPath, Args, ShortcutName: string): Boolean;
 
 implementation
@@ -22,7 +22,7 @@ var
   Buf: array[0..MAX_PATH] of AnsiChar;
 begin
   Result := '';
-  // CSIDL_DESKTOPDIRECTORY = physical Desktop dir; CSIDL_DESKTOP is the virtual folder (My Computer etc.)
+  // CSIDL_DESKTOPDIRECTORY = physical per-user desktop dir; CSIDL_DESKTOP is the virtual folder (My Computer etc)
   if SHGetFolderPathA(0, CSIDL_DESKTOPDIRECTORY, 0, 0, @Buf[0]) = S_OK then Result := AnsiString(Buf);
 end;
 
@@ -42,7 +42,7 @@ begin
     end;
     var WWorkDir: WideString := UTF8Decode(ExtractFilePath(TargetPath));
     Link.SetWorkingDirectory(PWideChar(WWorkDir));
-    // index 0 = first icon group inside the exe (Lazarus' own icon)
+    // icon index 0 = first icon group inside the exe
     Link.SetIconLocation(PWideChar(WTarget), 0);
 
     var Persist: IPersistFile := Link as IPersistFile;
@@ -55,12 +55,12 @@ end;
 {$endif}
 
 {$ifdef LINUX}
-// XDG Desktop Entry body; Categories=Development;IDE; lands under Programming menu on common DEs
+// XDG Desktop Entry body; Categories=Development;IDE; lands under Programming on GNOME/KDE/Cinnamon/XFCE
 function BuildDesktopEntry(const TargetPath, Args, ShortcutName: string): string;
 begin
   var ExecLine := TargetPath;
   if Args <> '' then ExecLine := TargetPath+' '+Args;
-  // icon filename varies across Lazarus versions; probe in size-descending order, miss is silent on linux
+  // probe icon names; Lazarus 2.x: ide_icon.png, 3.x: ide_icon48x48.png, 4.x+: ide_icon128x128.png. Missing Icon= => placeholder
   var LazDir := IncludeTrailingPathDelimiter(ExtractFilePath(TargetPath))+'images/';
   var IconCandidates: array of string := [LazDir+'ide_icon128x128.png', LazDir+'ide_icon48x48.png', LazDir+'ide_icon.png'];
   var IconPath: string := '';
@@ -69,10 +69,8 @@ begin
       IconPath := IconCandidates[i];
       Break;
     end;
-  Result :=
-    '[Desktop Entry]'#10+ 'Type=Application'#10+ 'Version=1.0'#10+ 'Name='+ShortcutName+#10+
-    'Comment=Lazarus IDE (FPC Unleashed)'#10+ 'Exec='+ExecLine+#10+ (if IconPath <> '' then 'Icon='+IconPath+#10 else '')+ 'Terminal=false'#10+
-    'Categories=Development;IDE;'#10+ 'StartupNotify=false'#10;
+  Result := '[Desktop Entry]'#10+'Type=Application'#10+'Version=1.0'#10+'Name='+ShortcutName+#10+'Comment=Lazarus IDE (FPC Unleashed)'#10+'Exec='+ExecLine+#10+
+            (if IconPath <> '' then 'Icon='+IconPath+#10 else '')+'Terminal=false'#10+'Categories=Development;IDE;'#10+'StartupNotify=false'#10;
 end;
 
 function WriteDesktopFile(const Path, Body: string): Boolean;
@@ -86,7 +84,7 @@ begin
   except
     Exit;
   end;
-  // GNOME 3.34+ needs +x for double-click launch (KDE indifferent); best-effort, non-fatal
+  // GNOME 3.34+ wants 0755 for double-click launch; KDE doesn't care. Best-effort; failure non-fatal
   RunSilent('/bin/chmod', ['0755', Path]);
   Result := True;
 end;
@@ -98,14 +96,13 @@ begin
   if Home = '' then Exit;
 
   var Body := BuildDesktopEntry(TargetPath, Args, ShortcutName);
-  // sanitize filename: keep [A-Za-z0-9._-], map whitespace to '-', drop rest
+  // sanitize filename: ascii letters/digits/dot/dash/underscore; whitespace -> '-'; everything else dropped
   var FileBase: string := '';
   for var i := 1 to Length(ShortcutName) do begin
     var c := ShortcutName[i];
     case c of
       'A'..'Z', 'a'..'z', '0'..'9', '.', '-', '_': FileBase := FileBase+c;
       ' ', #9: FileBase := FileBase+'-';
-      // skip anything else
     end;
   end;
   if FileBase = '' then FileBase := 'lazarus-unleashed';
@@ -113,7 +110,7 @@ begin
   var DesktopPath := IncludeTrailingPathDelimiter(Home)+'Desktop'+DirectorySeparator+FileBase+'.desktop';
   var MenuPath    := IncludeTrailingPathDelimiter(Home)+'.local/share/applications/'+FileBase+'.desktop';
 
-  // best-effort: succeed if either lands
+  // best-effort: write both. Succeed if either lands
   var WroteDesktop := WriteDesktopFile(DesktopPath, Body);
   var WroteMenu    := WriteDesktopFile(MenuPath, Body);
   Result := WroteDesktop or WroteMenu;

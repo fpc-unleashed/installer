@@ -18,7 +18,7 @@ uses
   fpsha256;
 
 const
-  CHUNK_SIZE = 64 * 1024;
+  CHUNK_SIZE = 64*1024;
 
 function SHA256OfFile(const Path: string): string;
 var
@@ -29,7 +29,7 @@ var
 begin
   Result := '';
   var Stream := autofree TFileStream.Create(Path, fmOpenRead or fmShareDenyWrite);
-  // TSHA256 is an advanced record; no Create / Free
+  // TSHA256 is an advanced record -- no Create/Free
   SHA.Init;
   repeat
     N := Stream.Read(Buf[0], Length(Buf));
