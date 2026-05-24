@@ -140,7 +140,9 @@ type
     FShowFired: Boolean;
     FShuttingDown: Boolean;
     FInstalling: Boolean;
-    FLaunchAfterInstall: Boolean;
+    // snapshot of cfg.InstallLazarus from current install run; combined with
+    // live CheckBoxLaunchAfter.Checked at OnInstallComplete to decide launch
+    FInstalledLazarus: Boolean;
     FInstallTargetDir: string;
     // last target dir for which cross checkboxes were synced; prevents RefreshTargetState clobbering toggles
     FCrossSyncedFor: string;
@@ -464,7 +466,7 @@ begin
     if (FLastState <> 'B') or (FLastStateDir <> rawDir) then ResetTargetControlsToDefaults;
     LabelMode.Caption := 'New installation';
     ButtonInstall.Caption := 'Install';
-    if FFetchPending = 0 then ButtonInstall.Enabled := True;
+    if (FFetchPending = 0) and (not FInstalling) then ButtonInstall.Enabled := True;
     FLastState := 'B';
     FLastStateDir := rawDir;
     Exit;
@@ -569,7 +571,7 @@ begin
     LabelMode.Caption := 'Partial install detected (manifest only) - Install will resume';
     ButtonInstall.Caption := 'Resume';
   end;
-  if FFetchPending = 0 then ButtonInstall.Enabled := True;
+  if (FFetchPending = 0) and (not FInstalling) then ButtonInstall.Enabled := True;
   FLastState := 'C';
   FLastStateDir := rawDir;
   finally
@@ -819,8 +821,8 @@ begin
       Log('cached branch lists (TTL '+IntToStr(CACHE_TTL_MINUTES)+' min, file="'+CacheFilePath+'")');
     end;
     SetStatus('Ready');
-    // folder-error gate keeps Install off even after successful fetch when target dir is bad
-    ButtonInstall.Enabled := not FFolderError;
+    // folder-error / install-in-progress gates keep Install off after a successful fetch
+    ButtonInstall.Enabled := (not FFolderError) and (not FInstalling);
   end;
 end;
 
@@ -848,7 +850,9 @@ begin
   var act := CheckBoxInstallLazarus.Checked and (not FInstalling);
   ComboBoxLazarusBranch.Enabled := act and FLazarusReady;
   CheckBoxLazarusLatest.Enabled := act;
-  CheckBoxLaunchAfter.Enabled := act;
+  // launch-after stays toggleable even during install -- user can change mind mid-install,
+  // OnInstallComplete reads the live checkbox value
+  CheckBoxLaunchAfter.Enabled := CheckBoxInstallLazarus.Checked;
   EditLazarusHash.Enabled := act and (not CheckBoxLazarusLatest.Checked);
   // addons nested under IDE
   CheckBoxMinimap.Enabled := act;
@@ -1082,7 +1086,7 @@ begin
   if T.Success then begin
     Log('=== INSTALL OK ===');
     SetStatus('Done');
-    if FLaunchAfterInstall then LaunchInstalledIde;
+    if FInstalledLazarus and CheckBoxLaunchAfter.Checked then LaunchInstalledIde;
   end else begin
     Log('=== INSTALL FAILED: '+T.ErrorMsg+' ===');
     SetStatus('Failed: '+T.ErrorMsg);
@@ -1149,9 +1153,9 @@ begin
   cfg.InstallToggleAffinity := CheckBoxToggleAffinity.Checked and cfg.InstallLazarus;
   cfg.LaunchAfter    := CheckBoxLaunchAfter.Checked;
 
-  // snapshot launch decision at start; user may toggle during install but original choice wins
-  FLaunchAfterInstall := cfg.InstallLazarus and CheckBoxLaunchAfter.Checked;
-  FInstallTargetDir   := cfg.TargetDir;
+  // snapshot IDE install decision; OnInstallComplete combines with live CheckBoxLaunchAfter.Checked to decide launch
+  FInstalledLazarus := cfg.InstallLazarus;
+  FInstallTargetDir := cfg.TargetDir;
   cfg.FpcLatest      := CheckBoxUnleashedLatest.Checked;
   cfg.FpcBranch      := ComboBoxUnleashedBranch.Text;
   cfg.FpcHash        := Trim(EditUnleashedHash.Text);
