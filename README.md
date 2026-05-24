@@ -33,6 +33,23 @@ Install dir defaults: `C:\fpcunleashed\` on Windows, `$HOME/fpcunleashed/` on Li
 | `i386-linux`    | cross           | cross; needs `i386-win32` as prereq          |
 | `wasm32-wasip1` | cross           | cross                                        |
 
+## Linux host requirements
+
+The native compile and Lazarus GTK2 build need a working toolchain on the host:
+
+```sh
+# Debian / Ubuntu / Mint
+sudo apt install -y curl build-essential libgtk2.0-dev xdg-utils
+
+# Fedora
+sudo dnf install -y curl make gcc binutils gtk2-devel xdg-utils
+
+# Arch / Manjaro
+sudo pacman -S --needed curl base-devel gtk2 xdg-utils
+```
+
+Tested baseline: glibc 2.28+ (Ubuntu 18.04+, Debian 10+, Fedora 29+).
+
 ## Filename hash pin
 
 A release binary can carry a compact `<len><payload>` blob in its filename so the installer pre-fills the FPC / Lazarus commit and branch fields on startup -- without baking long commit SHAs or branch names into the binary name.
@@ -96,23 +113,6 @@ installer_win64_x86_64.exe 0000366f366f
 ```
 
 The Commit edit fields and Branch combos fill in on startup. A benign / non-blob arg (path, flag) falls through to the filename path so launchers that already pass other args still work.
-
-## Linux host requirements
-
-The native compile and Lazarus GTK2 build need a working toolchain on the host:
-
-```sh
-# Debian / Ubuntu / Mint
-sudo apt install -y curl build-essential libgtk2.0-dev xdg-utils
-
-# Fedora
-sudo dnf install -y curl make gcc binutils gtk2-devel xdg-utils
-
-# Arch / Manjaro
-sudo pacman -S --needed curl base-devel gtk2 xdg-utils
-```
-
-Tested baseline: glibc 2.28+ (Ubuntu 18.04+, Debian 10+, Fedora 29+).
 
 ## License
 
