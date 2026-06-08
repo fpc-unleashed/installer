@@ -35,6 +35,9 @@ type
     // last launch-after-install state, restored to checkbox on re-run
     LaunchAfter: Boolean;
     InstalledAt: string;
+    // absolute path to install root recorded at write time; useful for tooling that
+    // wants to locate the install without re-running the picker
+    InstallPath: string;
   end;
 
 const
@@ -96,6 +99,7 @@ begin
   Result.InstallMetaDarkStyle  := StrToBoolDefSafe(Lines.Values['extras-metadarkstyle'], False);
   Result.LaunchAfter  := StrToBoolDefSafe(Lines.Values['launch-after-install'], True);
   Result.InstalledAt  := Lines.Values['installed-at'];
+  Result.InstallPath  := Lines.Values['install-path'];
   Result.Present      := True;
 end;
 
@@ -122,6 +126,7 @@ begin
   Lines.Add('extras-metadarkstyle='+BoolFlag(M.InstallMetaDarkStyle));
   Lines.Add('launch-after-install='+BoolFlag(M.LaunchAfter));
   Lines.Add('installed-at='+M.InstalledAt);
+  Lines.Add('install-path='+M.InstallPath);
   try
     Lines.SaveToFile(ManifestPathFor(InstallDir));
     Result := True;

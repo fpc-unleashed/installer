@@ -2905,6 +2905,8 @@ begin
 {$endif}
     Manifest.LaunchAfter := FCfg.LaunchAfter;
     Manifest.InstalledAt := FormatDateTime('yyyy-mm-dd"T"hh:nn:ss', Now);
+    // canonical absolute path; ExpandFileName resolves relative cwd-based input + normalises separators
+    Manifest.InstallPath := ExpandFileName(FCfg.TargetDir);
     if WriteManifest(FCfg.TargetDir, Manifest) then
       Log('Manifest written: ' + ManifestPathFor(FCfg.TargetDir))
     else
