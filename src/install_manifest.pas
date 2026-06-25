@@ -34,6 +34,9 @@ type
     InstallMetaDarkStyle: Boolean;
     // last launch-after-install state, restored to checkbox on re-run
     LaunchAfter: Boolean;
+    // which IDE launch shortcuts were created (at least one is required by the UI)
+    MakeDesktopShortcut: Boolean;
+    MakeFolderShortcut: Boolean;
     InstalledAt: string;
     // absolute path to install root recorded at write time; useful for tooling that
     // wants to locate the install without re-running the picker
@@ -98,6 +101,9 @@ begin
   Result.InstallToggleAffinity := StrToBoolDefSafe(Lines.Values['extras-toggle-affinity'], False);
   Result.InstallMetaDarkStyle  := StrToBoolDefSafe(Lines.Values['extras-metadarkstyle'], False);
   Result.LaunchAfter  := StrToBoolDefSafe(Lines.Values['launch-after-install'], True);
+  // legacy installs always made a desktop shortcut -> default True; folder shortcut is new -> default False
+  Result.MakeDesktopShortcut := StrToBoolDefSafe(Lines.Values['shortcut-desktop'], True);
+  Result.MakeFolderShortcut  := StrToBoolDefSafe(Lines.Values['shortcut-install-folder'], False);
   Result.InstalledAt  := Lines.Values['installed-at'];
   Result.InstallPath  := Lines.Values['install-path'];
   Result.Present      := True;
@@ -125,6 +131,8 @@ begin
   Lines.Add('extras-toggle-affinity='+BoolFlag(M.InstallToggleAffinity));
   Lines.Add('extras-metadarkstyle='+BoolFlag(M.InstallMetaDarkStyle));
   Lines.Add('launch-after-install='+BoolFlag(M.LaunchAfter));
+  Lines.Add('shortcut-desktop='+BoolFlag(M.MakeDesktopShortcut));
+  Lines.Add('shortcut-install-folder='+BoolFlag(M.MakeFolderShortcut));
   Lines.Add('installed-at='+M.InstalledAt);
   Lines.Add('install-path='+M.InstallPath);
   try

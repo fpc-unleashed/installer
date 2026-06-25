@@ -54,6 +54,11 @@ type
     // user-side preference; pipeline only persists it to manifest so
     // the next install run can restore the checkbox state.
     LaunchAfter:    Boolean;
+    // IDE launch shortcuts. UI requires at least one when InstallLazarus
+    // is on -- the shortcut carries --pcp, the only correct way to start
+    // the IDE (raw binary spills config + breaks the docked layout).
+    MakeDesktopShortcut: Boolean;
+    MakeFolderShortcut:  Boolean;
     // SHA we resolved at the UI layer (head of chosen branch or
     // user-provided hash). pipeline writes this into the manifest at
     // end of install so a later run can decide whether to refresh.
@@ -149,7 +154,7 @@ type
     function StepDownloadLazarusSource: Boolean;
     function StepBuildLazarus: Boolean;
     function StepGenerateLazarusConfig: Boolean;
-    function StepCreateDesktopShortcut: Boolean;
+    function StepCreateShortcuts: Boolean;
     function ResolveLazarusRef: string;
     function LazarusDir: string;
     function LazarusPcp: string;
@@ -2259,33 +2264,65 @@ begin
   Result := True;
 end;
 
-function TInstallThread.StepCreateDesktopShortcut: Boolean;
+function TInstallThread.StepCreateShortcuts: Boolean;
 begin
+  Result := False;
   var TargetExe := IncludeTrailingPathDelimiter(LazarusDir) + 'lazarus' + ExeExt;
-  // --pcp tells Lazarus to load our isolated config_lazarus instead of
-  // the default per-user dir (%LOCALAPPDATA%\lazarus on Windows,
-  // ~/.lazarus on Linux).
+  // --pcp loads our isolated config_lazarus instead of the default per-user
+  // dir (%LOCALAPPDATA%\lazarus on Windows, ~/.lazarus on Linux)
   var Args := '--pcp="' + LazarusPcp + '"';
   var Name := ShortcutLabel;
-  Log('Creating desktop shortcut: ' + Name);
-  Progress(-1, 'Creating desktop shortcut');
-  Result := CreateDesktopShortcut(TargetExe, Args, Name);
-  if not Result then begin
-    FErrorMsg := 'failed to create desktop shortcut';
-    Log('  ' + FErrorMsg);
-    Exit;
+  var Dir  := ExcludeTrailingPathDelimiter(FCfg.TargetDir);
+  var madeDesktop := False;
+  var madeFolder  := False;
+
+  if FCfg.MakeDesktopShortcut then begin
+    Log('Creating desktop shortcut: ' + Name);
+    Progress(-1, 'Creating desktop shortcut');
+    if not CreateDesktopShortcut(TargetExe, Args, Name) then begin
+      FErrorMsg := 'failed to create desktop shortcut';
+      Log('  ' + FErrorMsg);
+      Exit;
+    end;
+    madeDesktop := True;
+    Log('Shortcut placed on the desktop.');
   end;
-  Log('Shortcut placed on the desktop.');
-  Log('');
-  // marker phrase 'IMPORTANT' is picked up by main_form's owner-draw
-  // and rendered with a yellow background + bold black text
-  Log('============================================================');
-  Log('IMPORTANT: ALWAYS start Lazarus IDE from the desktop');
-  Log('IMPORTANT: shortcut "' + Name + '".');
-  Log('IMPORTANT: Running lazarus directly skips the --pcp flag,');
-  Log('IMPORTANT: spills config into the default per-user config dir,');
-  Log('IMPORTANT: and breaks the docked layout.');
-  Log('============================================================');
+
+  if FCfg.MakeFolderShortcut then begin
+    Log('Creating install-folder shortcut in ' + Dir);
+    Progress(-1, 'Creating install-folder shortcut');
+    if not CreateFolderShortcut(Dir, TargetExe, Args, Name) then begin
+      FErrorMsg := 'failed to create install-folder shortcut';
+      Log('  ' + FErrorMsg);
+      Exit;
+    end;
+    madeFolder := True;
+    Log('Shortcut placed in ' + Dir);
+  end;
+
+  // marker phrase 'IMPORTANT' is picked up by main_form's owner-draw and
+  // rendered with a yellow background + bold black text. Variant by which
+  // shortcuts were created so the user knows exactly where to click.
+  if madeDesktop or madeFolder then begin
+    var TgtDir := IncludeTrailingPathDelimiter(FCfg.TargetDir);
+    Log('');
+    Log('============================================================');
+    if madeDesktop and madeFolder then begin
+      Log('IMPORTANT: start the IDE from the desktop shortcut');
+      Log('IMPORTANT: "' + Name + '", or the copy inside the');
+      Log('IMPORTANT: install folder ' + TgtDir + '.');
+    end else if madeDesktop then begin
+      Log('IMPORTANT: start the IDE from the desktop shortcut');
+      Log('IMPORTANT: "' + Name + '".');
+    end else begin
+      Log('IMPORTANT: start the IDE from the shortcut inside the');
+      Log('IMPORTANT: install folder ' + TgtDir + '.');
+    end;
+    Log('IMPORTANT: The raw lazarus binary skips --pcp and breaks');
+    Log('IMPORTANT: the docked layout -- always use the shortcut.');
+    Log('============================================================');
+  end;
+  Result := True;
 end;
 
 function TInstallThread.StepGenerateFpcCfg: Boolean;
@@ -2847,7 +2884,7 @@ begin
       SetStage(isLazConfig);
       if not StepGenerateLazarusConfig then Exit;
       SetStage(isShortcut);
-      if not StepCreateDesktopShortcut then Exit;
+      if not StepCreateShortcuts then Exit;
     end
     else if hasLazExe and FCfg.InstallLazarus then begin
       // Lazarus is already built. Check whether the user changed any
@@ -2904,6 +2941,8 @@ begin
     Manifest.InstallToggleAffinity := FCfg.InstallToggleAffinity;
 {$endif}
     Manifest.LaunchAfter := FCfg.LaunchAfter;
+    Manifest.MakeDesktopShortcut := FCfg.MakeDesktopShortcut;
+    Manifest.MakeFolderShortcut  := FCfg.MakeFolderShortcut;
     Manifest.InstalledAt := FormatDateTime('yyyy-mm-dd"T"hh:nn:ss', Now);
     // canonical absolute path; ExpandFileName resolves relative cwd-based input + normalises separators
     Manifest.InstallPath := ExpandFileName(FCfg.TargetDir);

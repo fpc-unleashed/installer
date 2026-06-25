@@ -6,8 +6,10 @@ unit shortcut_util;
 
 interface
 
-// Windows: .lnk via IShellLinkW; Linux: .desktop in ~/Desktop/ + ~/.local/share/applications/
+// desktop shortcut. Windows: .lnk via IShellLinkW; Linux: .desktop in ~/Desktop/ + ~/.local/share/applications/
 function CreateDesktopShortcut(const TargetPath, Args, ShortcutName: string): Boolean;
+// shortcut placed directly inside Dir (the install folder). Windows: Dir\Name.lnk; Linux: Dir/<sanitized>.desktop
+function CreateFolderShortcut(const Dir, TargetPath, Args, ShortcutName: string): Boolean;
 
 implementation
 
@@ -26,11 +28,10 @@ begin
   if SHGetFolderPathA(0, CSIDL_DESKTOPDIRECTORY, 0, 0, @Buf[0]) = S_OK then Result := AnsiString(Buf);
 end;
 
-function CreateDesktopShortcut(const TargetPath, Args, ShortcutName: string): Boolean;
+// write a .lnk at LnkPath pointing at TargetPath with Args; icon index 0 = first group in the exe
+function WriteLnk(const LnkPath, TargetPath, Args: string): Boolean;
 begin
   Result := False;
-  var DesktopDir := GetDesktopPath;
-  if DesktopDir = '' then Exit;
   if FAILED(CoInitialize(nil)) then Exit;
   try
     var Link: IShellLinkW := CreateComObject(CLSID_ShellLink) as IShellLinkW;
@@ -42,15 +43,29 @@ begin
     end;
     var WWorkDir: WideString := UTF8Decode(ExtractFilePath(TargetPath));
     Link.SetWorkingDirectory(PWideChar(WWorkDir));
-    // icon index 0 = first icon group inside the exe
     Link.SetIconLocation(PWideChar(WTarget), 0);
-
     var Persist: IPersistFile := Link as IPersistFile;
-    var WLnkPath: WideString := UTF8Decode(IncludeTrailingPathDelimiter(DesktopDir)+ShortcutName+'.lnk');
+    var WLnkPath: WideString := UTF8Decode(LnkPath);
     Result := Persist.Save(PWideChar(WLnkPath), True) = S_OK;
   finally
     CoUninitialize;
   end;
+end;
+
+function CreateDesktopShortcut(const TargetPath, Args, ShortcutName: string): Boolean;
+begin
+  Result := False;
+  var DesktopDir := GetDesktopPath;
+  if DesktopDir = '' then Exit;
+  Result := WriteLnk(IncludeTrailingPathDelimiter(DesktopDir)+ShortcutName+'.lnk', TargetPath, Args);
+end;
+
+function CreateFolderShortcut(const Dir, TargetPath, Args, ShortcutName: string): Boolean;
+begin
+  Result := False;
+  if Dir = '' then Exit;
+  ForceDirectories(Dir);
+  Result := WriteLnk(IncludeTrailingPathDelimiter(Dir)+ShortcutName+'.lnk', TargetPath, Args);
 end;
 {$endif}
 
@@ -89,31 +104,41 @@ begin
   Result := True;
 end;
 
+// ascii letters/digits/dot/dash/underscore; whitespace -> '-'; everything else dropped
+function SanitizeName(const ShortcutName: string): string;
+begin
+  Result := '';
+  for var i := 1 to Length(ShortcutName) do begin
+    var c := ShortcutName[i];
+    case c of
+      'A'..'Z', 'a'..'z', '0'..'9', '.', '-', '_': Result := Result+c;
+      ' ', #9: Result := Result+'-';
+    end;
+  end;
+  if Result = '' then Result := 'lazarus-unleashed';
+end;
+
 function CreateDesktopShortcut(const TargetPath, Args, ShortcutName: string): Boolean;
 begin
   Result := False;
   var Home := GetEnvironmentVariable('HOME');
   if Home = '' then Exit;
-
   var Body := BuildDesktopEntry(TargetPath, Args, ShortcutName);
-  // sanitize filename: ascii letters/digits/dot/dash/underscore; whitespace -> '-'; everything else dropped
-  var FileBase: string := '';
-  for var i := 1 to Length(ShortcutName) do begin
-    var c := ShortcutName[i];
-    case c of
-      'A'..'Z', 'a'..'z', '0'..'9', '.', '-', '_': FileBase := FileBase+c;
-      ' ', #9: FileBase := FileBase+'-';
-    end;
-  end;
-  if FileBase = '' then FileBase := 'lazarus-unleashed';
-
+  var FileBase := SanitizeName(ShortcutName);
   var DesktopPath := IncludeTrailingPathDelimiter(Home)+'Desktop'+DirectorySeparator+FileBase+'.desktop';
   var MenuPath    := IncludeTrailingPathDelimiter(Home)+'.local/share/applications/'+FileBase+'.desktop';
-
   // best-effort: write both. Succeed if either lands
   var WroteDesktop := WriteDesktopFile(DesktopPath, Body);
   var WroteMenu    := WriteDesktopFile(MenuPath, Body);
   Result := WroteDesktop or WroteMenu;
+end;
+
+function CreateFolderShortcut(const Dir, TargetPath, Args, ShortcutName: string): Boolean;
+begin
+  Result := False;
+  if Dir = '' then Exit;
+  var Body := BuildDesktopEntry(TargetPath, Args, ShortcutName);
+  Result := WriteDesktopFile(IncludeTrailingPathDelimiter(Dir)+SanitizeName(ShortcutName)+'.desktop', Body);
 end;
 {$endif}
 

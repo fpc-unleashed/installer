@@ -187,48 +187,83 @@ object MainForm: TMainForm
       end
       object GroupBoxLazarus: TGroupBox
         Left = 10
-        Height = 166
+        Height = 239
         Top = 229
         Width = 583
         Align = alTop
         AutoSize = True
         BorderSpacing.Around = 10
         Caption = 'Lazarus Unleashed IDE'
-        ClientHeight = 146
+        ClientHeight = 219
         ClientWidth = 579
         TabOrder = 1
         object PanelLazarusBody: TPanel
           Left = 5
-          Height = 112
+          Height = 185
           Top = 29
           Width = 569
           Align = alClient
           BorderSpacing.Around = 5
           BevelOuter = bvNone
-          ClientHeight = 112
+          ClientHeight = 185
           ClientWidth = 569
           TabOrder = 0
           object Panel14: TPanel
             Left = 5
-            Height = 19
+            Height = 92
             Top = 88
             Width = 559
             Align = alTop
             AutoSize = True
             BorderSpacing.Around = 5
             BevelOuter = bvNone
-            ClientHeight = 19
+            ClientHeight = 92
             ClientWidth = 559
             TabOrder = 0
-            object CheckBoxLaunchAfter: TCheckBox
+            object CheckBoxDesktopShortcut: TCheckBox
               Left = 0
               Height = 19
               Top = 0
-              Width = 186
-              Caption = 'Launch IDE when install finishes'
+              Width = 559
+              Align = alTop
+              Caption = 'Create desktop (or in your home on Linux) shortcut to the IDE'
               Checked = True
               State = cbChecked
               TabOrder = 0
+              OnChange = OnSelectionChange
+            end
+            object CheckBoxInstallFolderShortcut: TCheckBox
+              Left = 0
+              Height = 19
+              Top = 19
+              Width = 559
+              Align = alTop
+              Caption = 'Keep a "Launch IDE" shortcut in the install folder too'
+              Checked = True
+              State = cbChecked
+              TabOrder = 1
+              OnChange = OnSelectionChange
+            end
+            object CheckBoxLaunchAfter: TCheckBox
+              Left = 0
+              Height = 19
+              Top = 38
+              Width = 559
+              Align = alTop
+              Caption = 'Launch IDE when install finishes'
+              Checked = True
+              State = cbChecked
+              TabOrder = 2
+            end
+            object PaintBoxLaunchWarn: TPaintBox
+              Left = 0
+              Height = 40
+              Top = 57
+              Width = 559
+              Align = alTop
+              BorderSpacing.Top = 5
+              Visible = False
+              OnPaint = PaintBoxLaunchWarnPaint
             end
           end
           object Panel15: TPanel

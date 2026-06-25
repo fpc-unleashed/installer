@@ -7,7 +7,7 @@ unit main_form;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Dialogs, Graphics, LCLType, LCLIntf, LResources, Menus, Clipbrd, RegExpr, fileinfo,
+  Classes, SysUtils, Types, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Dialogs, Graphics, LCLType, LCLIntf, LResources, Menus, Clipbrd, RegExpr, fileinfo,
   {$ifdef MSWINDOWS} Windows, ShellApi, {$endif}
   {$ifdef LINUX} process, {$endif}
   branch_fetch, branch_cache, install_pipeline, install_manifest, hash_branch, about_form;
@@ -47,7 +47,10 @@ type
     CheckBoxUnleashedLatest: TCheckBox;
     GroupBoxLazarus: TGroupBox;
     CheckBoxInstallLazarus: TCheckBox;
+    CheckBoxDesktopShortcut: TCheckBox;
+    CheckBoxInstallFolderShortcut: TCheckBox;
     CheckBoxLaunchAfter: TCheckBox;
+    PaintBoxLaunchWarn: TPaintBox;
     ComboBoxLazarusBranch: TComboBox;
     LabelLazarusHash: TLabel;
     EditLazarusHash: TEdit;
@@ -111,6 +114,7 @@ type
     procedure CheckBoxUnleashedLatestChange(Sender: TObject);
     procedure CheckBoxLazarusLatestChange(Sender: TObject);
     procedure OnAddonOrCrossChange(Sender: TObject);
+    procedure PaintBoxLaunchWarnPaint(Sender: TObject);
     procedure LabelLinkCPUViewClick(Sender: TObject);
     procedure LabelLinkMetaDarkStyleClick(Sender: TObject);
     procedure OnSelectionChange(Sender: TObject);
@@ -162,12 +166,15 @@ type
     FLazFetchOk: Boolean;
     // True while target dir is unusable (blank or non-empty w/o installer.ini); gates ButtonInstall
     FFolderError: Boolean;
+    // True when IDE install is on but neither shortcut picked; gates ButtonInstall + shows red LabelLaunchWarn
+    FShortcutError: Boolean;
     // re-entrancy guard for RefreshTargetState; state-B reset writes to controls whose OnChange re-enters here
     FRefreshingTarget: Boolean;
     procedure CopySelectedLogLines;
     procedure SetDoubleBufferedRecursive(c: TWinControl);
     procedure LaunchInstalledIde;
     procedure RefreshTargetState;
+    procedure UpdateShortcutError;
     procedure ResetTargetControlsToDefaults;
     procedure ApplyHashesFromBinaryName;
     function ResolveSelectedFpcSha: string;
@@ -428,6 +435,56 @@ begin
   RefreshTargetState;
 end;
 
+const
+  LAUNCH_WARN_MSG = 'Tick at least one IDE shortcut above. A shortcut is the only correct way to launch the IDE; the raw binary skips --pcp and breaks the config.';
+  LAUNCH_WARN_PAD = 5;     // inner text padding
+  LAUNCH_WARN_RADIUS = 4;  // corner radius
+
+// IDE needs at least one launch shortcut (desktop or install-folder) -- it's
+// the only --pcp-correct way to start it. Flag + show the red warning live
+procedure TMainForm.UpdateShortcutError;
+begin
+  FShortcutError := CheckBoxInstallLazarus.Checked and (not CheckBoxDesktopShortcut.Checked) and (not CheckBoxInstallFolderShortcut.Checked);
+  if FShortcutError then begin
+    // size the box to its wrapped text + vertical padding (top margin is BorderSpacing in the LFM)
+    var bmp := autofree Graphics.TBitmap.Create;
+    bmp.SetSize(8, 8);
+    bmp.Canvas.Font.Assign(PaintBoxLaunchWarn.Font);
+    bmp.Canvas.Font.Style := [fsBold];
+    var r := Types.Rect(0, 0, PaintBoxLaunchWarn.Width-2*LAUNCH_WARN_PAD, 4000);
+    LCLIntf.DrawText(bmp.Canvas.Handle, PChar(LAUNCH_WARN_MSG), Length(LAUNCH_WARN_MSG), r, DT_WORDBREAK or DT_CALCRECT);
+    PaintBoxLaunchWarn.Height := (r.Bottom-r.Top)+2*LAUNCH_WARN_PAD;
+    PaintBoxLaunchWarn.Invalidate;
+  end;
+  PaintBoxLaunchWarn.Visible := FShortcutError;
+end;
+
+procedure TMainForm.PaintBoxLaunchWarnPaint(Sender: TObject);
+begin
+  var pb := TPaintBox(Sender);
+  var cv := pb.Canvas;
+  // clear to parent colour so the rounded corners reveal the panel, not red
+  cv.Brush.Style := bsSolid;
+  cv.Brush.Color := pb.Color;
+  cv.FillRect(0, 0, pb.Width, pb.Height);
+  // rounded red fill (pen = fill so there's no contrasting border)
+  cv.Pen.Color := clRed;
+  cv.Brush.Color := clRed;
+  cv.RoundRect(0, 0, pb.Width, pb.Height, LAUNCH_WARN_RADIUS*2, LAUNCH_WARN_RADIUS*2);
+  // padded, wrapped, bold black text
+  cv.Brush.Style := bsClear;
+  cv.Font.Style := [fsBold];
+  cv.Font.Color := clBlack;
+  var ts: TTextStyle;
+  FillChar(ts, SizeOf(ts), 0);
+  ts.SingleLine := False;
+  ts.Wordbreak := True;
+  ts.Alignment := taLeftJustify;
+  ts.Layout := tlTop;
+  var r := Types.Rect(LAUNCH_WARN_PAD, LAUNCH_WARN_PAD, pb.Width-LAUNCH_WARN_PAD, pb.Height-LAUNCH_WARN_PAD);
+  cv.TextRect(r, r.Left, r.Top, LAUNCH_WARN_MSG, ts);
+end;
+
 // folder is authoritative; installer.ini carries build SHA for update detection
 //   A. blank path           -> error, Install disabled
 //   B. dir absent or empty  -> defaults, "New installation"
@@ -444,6 +501,7 @@ begin
   // optimistic reset; each branch re-sets the flag as needed
   FFolderError := False;
   LabelMode.Font.Color := clWindowText;
+  UpdateShortcutError;
 
   // ---- state A: no path entered ----
   if rawDir = '' then begin
@@ -466,7 +524,8 @@ begin
     if (FLastState <> 'B') or (FLastStateDir <> rawDir) then ResetTargetControlsToDefaults;
     LabelMode.Caption := 'New installation';
     ButtonInstall.Caption := 'Install';
-    if (FFetchPending = 0) and (not FInstalling) then ButtonInstall.Enabled := True;
+    UpdateShortcutError;
+    ButtonInstall.Enabled := (FFetchPending = 0) and (not FInstalling) and (not FShortcutError);
     FLastState := 'B';
     FLastStateDir := rawDir;
     Exit;
@@ -528,6 +587,8 @@ begin
       // skip windows-only checkbox restore on linux (FormCreate locked Enabled=False)
       if CheckBoxToggleAffinity.Enabled then CheckBoxToggleAffinity.Checked := m.InstallToggleAffinity;
       CheckBoxLaunchAfter.Checked  := m.LaunchAfter;
+      CheckBoxDesktopShortcut.Checked       := m.MakeDesktopShortcut;
+      CheckBoxInstallFolderShortcut.Checked := m.MakeFolderShortcut;
       if m.FpcBranch <> '' then begin
         ComboBoxUnleashedBranch.Text := m.FpcBranch;
         // always show last installed SHA in the hash field (display-only while Latest=on); restore explicit Latest flag
@@ -571,7 +632,8 @@ begin
     LabelMode.Caption := 'Partial install detected (manifest only) - Install will resume';
     ButtonInstall.Caption := 'Resume';
   end;
-  if (FFetchPending = 0) and (not FInstalling) then ButtonInstall.Enabled := True;
+  UpdateShortcutError;
+  ButtonInstall.Enabled := (FFetchPending = 0) and (not FInstalling) and (not FShortcutError);
   FLastState := 'C';
   FLastStateDir := rawDir;
   finally
@@ -601,6 +663,9 @@ begin
   CheckBoxUnleashedLatest.Checked  := True;
   CheckBoxLazarusLatest.Checked    := True;
   CheckBoxLaunchAfter.Checked      := True;
+  // both IDE shortcuts on by default
+  CheckBoxDesktopShortcut.Checked       := True;
+  CheckBoxInstallFolderShortcut.Checked := True;
 
   // hash fields are display-only while Latest=on; clear stale hex so the field is empty until user opts in
   EditUnleashedHash.Text := '';
@@ -821,8 +886,8 @@ begin
       Log('cached branch lists (TTL '+IntToStr(CACHE_TTL_MINUTES)+' min, file="'+CacheFilePath+'")');
     end;
     SetStatus('Ready');
-    // folder-error / install-in-progress gates keep Install off after a successful fetch
-    ButtonInstall.Enabled := (not FFolderError) and (not FInstalling);
+    // folder-error / shortcut-error / install-in-progress gates keep Install off after a successful fetch
+    ButtonInstall.Enabled := (not FFolderError) and (not FShortcutError) and (not FInstalling);
   end;
 end;
 
@@ -850,6 +915,9 @@ begin
   var act := CheckBoxInstallLazarus.Checked and (not FInstalling);
   ComboBoxLazarusBranch.Enabled := act and FLazarusReady;
   CheckBoxLazarusLatest.Enabled := act;
+  // shortcut choices feed the pipeline snapshot, so freeze them during install (unlike launch-after)
+  CheckBoxDesktopShortcut.Enabled       := act;
+  CheckBoxInstallFolderShortcut.Enabled := act;
   // launch-after stays toggleable even during install -- user can change mind mid-install,
   // OnInstallComplete reads the live checkbox value
   CheckBoxLaunchAfter.Enabled := CheckBoxInstallLazarus.Checked;
@@ -1051,8 +1119,8 @@ begin
   CheckBoxInstallLazarus.Enabled := act;
   EditTargetDir.Enabled := act;
   ButtonBrowse.Enabled := act;
-  // folder-error gate wins over act so post-install re-enable doesn't accidentally reopen Install when dir is bad
-  ButtonInstall.Enabled := act and (not FFolderError);
+  // folder-error / shortcut-error gates win over act so post-install re-enable doesn't reopen Install when invalid
+  ButtonInstall.Enabled := act and (not FFolderError) and (not FShortcutError);
   ApplyUnleashedEnabled;
   ApplyLazarusEnabled;
 end;
@@ -1128,8 +1196,10 @@ var
   cfg: TInstallConfig;
 begin
   if FInstalling then Exit;
-  // belt-and-braces: button is disabled while FFolderError, but a stale OnClick race could still land here
+  // belt-and-braces: button is disabled while these errors hold, but a stale OnClick race could still land here.
+  // refuse before touching the disk (no dir creation) when the IDE would have no launch shortcut
   if FFolderError then Exit;
+  if FShortcutError then Exit;
 
   cfg.TargetDir := Trim(EditTargetDir.Text);
   if cfg.TargetDir = '' then begin
@@ -1152,6 +1222,9 @@ begin
   // on linux this is always False (FormCreate locks Enabled+Checked=False), so no host ifdef needed
   cfg.InstallToggleAffinity := CheckBoxToggleAffinity.Checked and cfg.InstallLazarus;
   cfg.LaunchAfter    := CheckBoxLaunchAfter.Checked;
+  // shortcuts only when installing the IDE; UI guarantees >=1 of these when InstallLazarus is on
+  cfg.MakeDesktopShortcut := CheckBoxDesktopShortcut.Checked       and cfg.InstallLazarus;
+  cfg.MakeFolderShortcut  := CheckBoxInstallFolderShortcut.Checked and cfg.InstallLazarus;
 
   // snapshot IDE install decision; OnInstallComplete combines with live CheckBoxLaunchAfter.Checked to decide launch
   FInstalledLazarus := cfg.InstallLazarus;
