@@ -2057,6 +2057,14 @@ begin
   if not RunLazbuild(
     ['--build-ide=-dKeepInstalledPackages'], 'lazbuild --build-ide (~5 min)') then Exit;
 
+  // --build-ide builds lazarus.exe but not startlazarus, the launcher the
+  // IDE re-spawns to restart itself after Tools -> Build Lazarus. Without it
+  // the post-rebuild restart fails with "Cannot find Lazarus starter". Its
+  // .lpi outputs to <lazarus>/startlazarus, next to lazarus.exe.
+  if not RunLazbuild(
+    [IncludeTrailingPathDelimiter(LazarusDir) + 'ide' + DirectorySeparator + 'startlazarus.lpi'],
+    'lazbuild startlazarus') then Exit;
+
   // No toolbar XML touch on the fresh install path: the compiled IDE
   // already carries CPU-View as part of its default editor toolbar (the
   // Lazarus fork wires it in when the package is registered), so writing
