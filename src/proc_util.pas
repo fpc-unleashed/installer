@@ -47,6 +47,20 @@ begin
   end;
 end;
 
+{$ifdef LINUX}
+// WSL/Wine mounts on PATH can expose Windows GNU-utils (pwd.exe & co); FPC's generated makefiles probe every PATH dir for pwd.exe
+// and on a hit switch tool names to .exe + take basedir from the Windows pwd (a //wsl.localhost UNC the native compiler can't open)
+function strippwdexedirs(const path: string): string;
+begin
+  result := '';
+  for var dir in path.Split([':']) do begin
+    if (dir <> '') and FileExists(IncludeTrailingPathDelimiter(dir)+'pwd.exe') then Continue;
+    if result <> '' then result += ':';
+    result += dir;
+  end;
+end;
+{$endif}
+
 // copy parent env, optionally prepend Prefix to PATH, strip MAKEFLAGS/MFLAGS (would poison child `make`)
 procedure ApplyEnvWithPathPrefix(P: TProcess; const Prefix: string);
 begin
@@ -63,8 +77,12 @@ begin
 {$endif}
     if name = 'PATH' then begin
       // PathSeparator: ';' on Windows, ':' on Unix
-      if Prefix <> '' then P.Environment.Add('PATH='+Prefix+PathSeparator+Copy(envLine, 6, MaxInt))
-      else P.Environment.Add(envLine);
+      var parentpath := Copy(envLine, 6, MaxInt);
+{$ifdef LINUX}
+      parentpath := strippwdexedirs(parentpath);
+{$endif}
+      if Prefix <> '' then P.Environment.Add('PATH='+Prefix+PathSeparator+parentpath)
+      else P.Environment.Add('PATH='+parentpath);
       pathSeen := True;
     end else P.Environment.Add(envLine);
   end;
