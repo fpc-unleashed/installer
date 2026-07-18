@@ -134,6 +134,7 @@ type
     procedure WMEnterSizeMove(var Msg: TMessage); message WM_ENTERSIZEMOVE;
     procedure WMExitSizeMove(var Msg: TMessage); message WM_EXITSIZEMOVE;
     procedure WMNCPaint(var Msg: TMessage); message WM_NCPAINT;
+    procedure setComposited(enable: Boolean);
     {$endif}
   private
     {$ifdef MSWINDOWS}
@@ -274,16 +275,33 @@ begin
 end;
 
 {$ifdef MSWINDOWS}
-// WS_EX_COMPOSITED makes DWM composite form + ~50 child HWNDs atomically; without it restore/resize shows paint cascade
-procedure TMainForm.CreateParams(var Params: TCreateParams);
 const
   WS_EX_COMPOSITED = $02000000;
+
+// WS_EX_COMPOSITED makes DWM composite form + ~50 child HWNDs atomically; without it restore/resize shows paint cascade
+procedure TMainForm.CreateParams(var Params: TCreateParams);
 begin
   inherited CreateParams(Params);
-  Params.ExStyle := Params.ExStyle or WS_EX_COMPOSITED;
+  // not during install: see setComposited (guards a handle recreate mid-install)
+  if not FInstalling then Params.ExStyle := Params.ExStyle or WS_EX_COMPOSITED;
 end;
 
-// menu bar is in NC area which WS_EX_COMPOSITED doesn't cover; suppress NC paint during drag, redraw once on exit
+// composited off for the whole install: every log line invalidates a child, each recomposite
+// repaints the NC menu bar unbuffered, and DefWindowProc has paths (WM_NCACTIVATE, internal
+// menu draw) that bypass WMNCPaint, so swallowing that message alone still left flicker.
+// With per-control DoubleBuffered the plain paint path is clean; composition only earns its
+// keep on resize/restore, which install-time updates never trigger.
+procedure TMainForm.setComposited(enable: Boolean);
+begin
+  var ex := GetWindowLongPtr(Handle, GWL_EXSTYLE);
+  if enable then ex := ex or WS_EX_COMPOSITED else ex := ex and (not WS_EX_COMPOSITED);
+  SetWindowLongPtr(Handle, GWL_EXSTYLE, ex);
+  // frame recalc applies the style now; doubles as the one-shot NC repaint after install
+  SetWindowPos(Handle, 0, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE or SWP_NOZORDER or SWP_NOACTIVATE or SWP_FRAMECHANGED);
+end;
+
+// menu bar is in NC area which WS_EX_COMPOSITED doesn't cover: every recomposite repaints it
+// unbuffered (erase+draw = flicker). Suppress NC paint during drag; redraw the frame once on exit
 procedure TMainForm.WMEnterSizeMove(var Msg: TMessage);
 begin
   FInSizeMove := True;
@@ -1161,6 +1179,9 @@ begin
     ProgressBar.Position := 0;
   end;
   FInstalling := False;
+{$ifdef WINDOWS}
+  setComposited(True);
+{$endif}
   SetInputsEnabled(True);
 end;
 
@@ -1246,6 +1267,9 @@ begin
   if cfg.InstallLazarus then Log('install lazarus IDE:  yes ('+cfg.LazBranch+')') else Log('install lazarus IDE:  no');
 
   FInstalling := True;
+{$ifdef WINDOWS}
+  setComposited(False);
+{$endif}
   SetInputsEnabled(False);
   ProgressBar.Position := 0;
   ProgressBar.Style := pbstNormal;
