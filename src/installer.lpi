@@ -64,6 +64,9 @@
         </CompilerOptions>
       </Item2>
       <Item3 Name="linux64_debug">
+        <MacroValues Count="1">
+          <Macro1 Name="LCLWidgetType" Value="gtk2"/>
+        </MacroValues>
         <CompilerOptions>
           <Version Value="11"/>
           <PathDelim Value="\"/>
@@ -92,6 +95,9 @@
         </CompilerOptions>
       </Item3>
       <Item4 Name="linux64_release">
+        <MacroValues Count="1">
+          <Macro1 Name="LCLWidgetType" Value="gtk2"/>
+        </MacroValues>
         <CompilerOptions>
           <Version Value="11"/>
           <PathDelim Value="\"/>
@@ -126,6 +132,9 @@
           </Linking>
         </CompilerOptions>
       </Item4>
+      <SharedMatrixOptions Count="1">
+        <Item1 ID="linuxgtk2pin001" Modes="linux64_debug,linux64_release" Type="IDEMacro" MacroName="LCLWidgetType" Value="gtk2"/>
+      </SharedMatrixOptions>
     </BuildModes>
     <PublishOptions>
       <Version Value="2"/>
