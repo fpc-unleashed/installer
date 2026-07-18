@@ -76,7 +76,9 @@ type
   // bar via STAGE_END below. boundaries are tuned to typical wall-clock
   // proportions: build steps dominate, downloads + cfg are short.
   TInstallStage = (
-    isInit, isBootstrap,        //  0..8    download + extract bootstrap zip
+    isInit,
+    isCleanPrev,        //  0..5    verbose removal of previous build trees (update)
+    isBootstrap,        //  5..8    download + extract bootstrap zip
     isFpcSrc,           //  8..14   download + extract fpc source
     isFpcMakeAll,       // 14..40   make all (~5-10 min)
     isFpcMakeUtils,     // 40..44   make utils
@@ -178,6 +180,7 @@ type
     function HostFpcUnitsDir: string;   // <target>/.../units/  -- RTL+packages
     function HostFpcVersion: string;    // detected dir name under lib/fpc/
     procedure RemoveDir(const Path: string);
+    procedure removeDirVerbose(const path: string; pctFrom, pctTo: Integer);
     procedure EnsureCompilerSymlinks;
     procedure InstallFpcWrapper;
     function RunMake(const Args: array of string;
@@ -338,6 +341,7 @@ const
   // index 0 (isInit) is implicitly 0; subsequent values are the cap.
   STAGE_END: array[TInstallStage] of Byte = (
     0,    // isInit
+    5,    // isCleanPrev
     8,    // isBootstrap
     14,   // isFpcSrc
     40,   // isFpcMakeAll
@@ -358,7 +362,7 @@ const
     100); // isDone
 
   STAGE_NAME: array[TInstallStage] of string = (
-    'init', 'bootstrap FPC 3.2.2', 'fpc-unleashed source', 'building native FPC', 'building utils', 'installing FPC', 'fpc.cfg', 'building i386 cross compiler',
+    'init', 'cleaning previous build', 'bootstrap FPC 3.2.2', 'fpc-unleashed source', 'building native FPC', 'building utils', 'installing FPC', 'fpc.cfg', 'building i386 cross compiler',
     'building wasm cross compiler', 'building x86_64-linux cross compiler', 'building i386-linux cross compiler', 'lazarus source',
     'building lazbuild + LCL', 'fetching addon components', 'registering Lazarus packages', 'building Lazarus IDE', 'writing IDE config', 'desktop shortcut', 'done');
 
@@ -706,6 +710,60 @@ begin
 {$endif}
 end;
 
+// verbose removal for the multi-minute cleans: logs the delete command per subdir (two levels
+// down) and sweeps the current stage's progress across [pctFrom..pctTo]; a silent RemoveDir on
+// a tree like fpcsrc (~60k files) otherwise looks like a hang for several minutes
+procedure TInstallThread.removeDirVerbose(const path: string; pctFrom, pctTo: Integer);
+{$ifdef WINDOWS}
+const RM_CMD = 'rmdir /S /Q ';
+{$endif}
+{$ifdef LINUX}
+const RM_CMD = 'rm -rf ';
+{$endif}
+
+  procedure listEntries(const dir: string; dirs, files: TStringList);
+  var sr: TSearchRec;
+  begin
+    if FindFirst(IncludeTrailingPathDelimiter(dir)+'*', faAnyFile, sr) = 0 then
+    try
+      repeat
+        if (sr.Name = '.') or (sr.Name = '..') then Continue;
+        if (sr.Attr and faDirectory) <> 0 then dirs.Add(sr.Name) else files.Add(sr.Name);
+      until FindNext(sr) <> 0;
+    finally
+      SysUtils.FindClose(sr);
+    end;
+  end;
+
+begin
+  if not DirectoryExists(path) then exit;
+  Log('Removing '+path);
+  var topDirs  := autofree TStringList.Create;
+  var topFiles := autofree TStringList.Create;
+  listEntries(path, topDirs, topFiles);
+  for var i := 0 to topDirs.Count-1 do begin
+    var sub       := IncludeTrailingPathDelimiter(path)+topDirs[i];
+    var sliceFrom := pctFrom+((pctTo-pctFrom)*i) div (topDirs.Count+1);
+    var sliceTo   := pctFrom+((pctTo-pctFrom)*(i+1)) div (topDirs.Count+1);
+    Progress(sliceFrom, 'removing '+topDirs[i]);
+    // one level deeper so the biggest trees (fpcsrc\packages holds most of the files) show flow
+    var subDirs  := autofree TStringList.Create;
+    var subFiles := autofree TStringList.Create;
+    listEntries(sub, subDirs, subFiles);
+    for var j := 0 to subDirs.Count-1 do begin
+      Log('  '+RM_CMD+IncludeTrailingPathDelimiter(sub)+subDirs[j]);
+      Progress(sliceFrom+((sliceTo-sliceFrom)*j) div subDirs.Count, 'removing '+topDirs[i]+DirectorySeparator+subDirs[j]);
+      RemoveDir(IncludeTrailingPathDelimiter(sub)+subDirs[j]);
+    end;
+    // leftover files + the (now shallow) dir itself
+    Log('  '+RM_CMD+sub);
+    RemoveDir(sub);
+  end;
+  for var i := 0 to topFiles.Count-1 do SysUtils.DeleteFile(IncludeTrailingPathDelimiter(path)+topFiles[i]);
+  RemoveDir(path);
+  Progress(pctTo, 'removed '+path);
+end;
+
 function TInstallThread.StepBootstrap: Boolean;
 begin
   Result := False;
@@ -787,11 +845,7 @@ begin
   // (fpc, fpc322, lazarus, ...) already living in TargetDir
   var TempParent := IncludeTrailingPathDelimiter(FCfg.TargetDir) + '.fpcsrc-extract';
 
-  if DirectoryExists(Target) then begin
-    Log('Removing existing ' + Target);
-    Progress(-1, 'Cleaning previous source...');
-    RemoveDir(Target);
-  end;
+  if DirectoryExists(Target) then removeDirVerbose(Target, 0, 10);
   if DirectoryExists(TempParent) then
     RemoveDir(TempParent);
   ForceDirectories(TempParent);
@@ -1577,11 +1631,7 @@ begin
   // sits next to the install dir (fpc, fpc322, src, ...)
   var TempParent := IncludeTrailingPathDelimiter(FCfg.TargetDir) + '.lazarus-extract';
 
-  if DirectoryExists(Target) then begin
-    Log('Removing existing ' + Target);
-    Progress(-1, 'Cleaning previous lazarus...');
-    RemoveDir(Target);
-  end;
+  if DirectoryExists(Target) then removeDirVerbose(Target, 0, 10);
   if DirectoryExists(TempParent) then
     RemoveDir(TempParent);
   ForceDirectories(TempParent);
@@ -2697,11 +2747,21 @@ begin
       end;
     end;
 
+    // clean gets its own stage: the trees are huge and their removal runs minutes, so each dir
+    // gets an equal slice of the stage bar and removeDirVerbose streams per-subdir log lines
+    if wantFpcRefresh or wantLazRefresh then begin
+      SetStage(isCleanPrev);
+      var CleanDirs := autofree TStringList.Create;
+      if wantFpcRefresh then begin
+        CleanDirs.Add(TargetPrefix+'fpc');
+        CleanDirs.Add(TargetPrefix+'fpcsrc');
+        CleanDirs.Add(TargetPrefix+'cross');
+      end;
+      if wantLazRefresh then CleanDirs.Add(TargetPrefix+'lazarus');
+      for var i := 0 to CleanDirs.Count-1 do
+        removeDirVerbose(CleanDirs[i], (i*100) div CleanDirs.Count, ((i+1)*100) div CleanDirs.Count);
+    end;
     if wantFpcRefresh then begin
-      Progress(-1, 'Cleaning previous FPC build');
-      RemoveDir(TargetPrefix + 'fpc');
-      RemoveDir(TargetPrefix + 'fpcsrc');
-      RemoveDir(TargetPrefix + 'cross');
       hasFpcExe := False;
       hasCrossW32 := False;
       hasCrossWasm := False;
@@ -2713,11 +2773,7 @@ begin
 {$endif}
       hasCrossLinux32 := False;
     end;
-    if wantLazRefresh then begin
-      Progress(-1, 'Cleaning previous Lazarus build');
-      RemoveDir(TargetPrefix + 'lazarus');
-      hasLazExe := False;
-    end;
+    if wantLazRefresh then hasLazExe := False;
 
     // bootstrap is needed for any make-based step; only re-fetch if missing
     SetStage(isBootstrap);
