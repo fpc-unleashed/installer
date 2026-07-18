@@ -743,6 +743,22 @@ begin
   if FInstalling then CanClose := MessageDlg('Installation in progress', 'An installation is currently running. Closing now will leave the target directory in a half-built state. Close anyway?', mtConfirmation, [mbYes, mbNo], 0) = mrYes;
 end;
 
+// cache age for logs (LoadCache returns seconds); trims leading zero units: 13->"13s", 193->"3m 13s", 90061->"1d 1h 1m 1s"
+function ageStr(ageSeconds: Double): string;
+begin
+  var total := Round(ageSeconds);
+  if total < 0 then total := 0;
+  var d := total div 86400;
+  var h := (total div 3600) mod 24;
+  var m := (total div 60) mod 60;
+  var s := total mod 60;
+  result := '';
+  if d > 0 then result := result+IntToStr(d)+'d ';
+  if (result <> '') or (h > 0) then result := result+IntToStr(h)+'h ';
+  if (result <> '') or (m > 0) then result := result+IntToStr(m)+'m ';
+  result := result+IntToStr(s)+'s';
+end;
+
 procedure TMainForm.StartBranchFetch;
 
   // convert bare-name list to 'name=sha' form FillCombo expects; only 'main' gets a SHA from cache
@@ -769,7 +785,7 @@ begin
   var age: Double;
   var fpcMainSha, ideMainSha: string;
   if LoadCache(fpcNames, ideNames, age, fpcMainSha, ideMainSha) and (age < CACHE_TTL_MINUTES*60) then begin
-    Log('using cached branch lists ('+IntToStr(Round(age))+' sec(s) old, file="'+CacheFilePath+'")');
+    Log('using cached branch lists ('+ageStr(age)+' old, file="'+CacheFilePath+'")');
     var fpcCache := autofree TStringList.Create;
     var lazCache := autofree TStringList.Create;
     AppendWithMainSha(fpcNames, fpcCache, fpcMainSha);
@@ -811,7 +827,7 @@ begin
     if LoadCache(fpcNames, ideNames, age, fpcMainSha, ideMainSha) and (fpcNames.Count > 0) then begin
       var fallback := autofree TStringList.Create;
       NamesToShaListWithMain(fpcNames, fallback, fpcMainSha);
-      Log('FAILED to fetch '+REPO_FPC+' branches ('+T.ErrorMsg+'); using stale cache ('+IntToStr(Round(age))+' min old)');
+      Log('FAILED to fetch '+REPO_FPC+' branches ('+T.ErrorMsg+'); using stale cache ('+ageStr(age)+' old)');
       FillCombo(ComboBoxUnleashedBranch, REPO_FPC, fallback, '');
     end else FillCombo(ComboBoxUnleashedBranch, REPO_FPC, T.Branches, T.ErrorMsg);
     FFpcFetchOk := False;
@@ -836,7 +852,7 @@ begin
     if LoadCache(fpcNames, ideNames, age, fpcMainSha, ideMainSha) and (ideNames.Count > 0) then begin
       var fallback := autofree TStringList.Create;
       NamesToShaListWithMain(ideNames, fallback, ideMainSha);
-      Log('FAILED to fetch '+REPO_LAZARUS+' branches ('+T.ErrorMsg+'); using stale cache ('+IntToStr(Round(age))+' min old)');
+      Log('FAILED to fetch '+REPO_LAZARUS+' branches ('+T.ErrorMsg+'); using stale cache ('+ageStr(age)+' old)');
       FillCombo(ComboBoxLazarusBranch, REPO_LAZARUS, fallback, '');
     end else FillCombo(ComboBoxLazarusBranch, REPO_LAZARUS, T.Branches, T.ErrorMsg);
     FLazFetchOk := False;
