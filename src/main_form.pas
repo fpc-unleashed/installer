@@ -143,7 +143,6 @@ type
     FFetchPending: Integer;
     FUnleashedReady, FLazarusReady: Boolean;
     FShowFired: Boolean;
-    FShuttingDown: Boolean;
     FInstalling: Boolean;
     // snapshot of cfg.InstallLazarus from current install run; combined with
     // live CheckBoxLaunchAfter.Checked at OnInstallComplete to decide launch
@@ -201,6 +200,11 @@ var
 implementation
 
 {$R *.lfm}
+
+var
+  // set in FormDestroy; FreeOnTerminate-thread callbacks queued via Synchronize can fire after the
+  // form is freed, so they gate on this global; a form field there would be read from freed memory
+  GShuttingDown: Boolean = False;
 
 const
   // mirror install_pipeline's per-OS host paths so RefreshTargetState/LaunchInstalledIde see the same files
@@ -727,8 +731,8 @@ end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
-  // worker threads have FreeOnTerminate=True; flag stops the callback from touching destroyed widgets
-  FShuttingDown := True;
+  // worker threads have FreeOnTerminate=True; flag stops their callbacks from touching destroyed widgets
+  GShuttingDown := True;
   FFpcBranchShas.Free;
   FLazBranchShas.Free;
 end;
@@ -797,7 +801,7 @@ end;
 
 procedure TMainForm.OnUnleashedDone(Sender: TObject);
 begin
-  if FShuttingDown then Exit;
+  if GShuttingDown then exit;
   var T := TBranchFetchThread(Sender);
   if T.ErrorMsg <> '' then begin
     var fpcNames := autofree TStringList.Create;
@@ -822,7 +826,7 @@ end;
 
 procedure TMainForm.OnLazarusDone(Sender: TObject);
 begin
-  if FShuttingDown then Exit;
+  if GShuttingDown then exit;
   var T := TBranchFetchThread(Sender);
   if T.ErrorMsg <> '' then begin
     var fpcNames := autofree TStringList.Create;
@@ -1145,13 +1149,13 @@ end;
 
 procedure TMainForm.OnInstallLog(const msg: string);
 begin
-  if FShuttingDown then Exit;
+  if GShuttingDown then exit;
   Log(msg);
 end;
 
 procedure TMainForm.OnInstallProgress(Percent: Integer; const status: string);
 begin
-  if FShuttingDown then Exit;
+  if GShuttingDown then exit;
   if Percent < 0 then begin
     ProgressBar.Style := pbstMarquee;
     SetStatus(status);
@@ -1166,7 +1170,7 @@ end;
 
 procedure TMainForm.OnInstallComplete(Sender: TObject);
 begin
-  if FShuttingDown then Exit;
+  if GShuttingDown then exit;
   var T := TInstallThread(Sender);
   ProgressBar.Style := pbstNormal;
   if T.Success then begin
