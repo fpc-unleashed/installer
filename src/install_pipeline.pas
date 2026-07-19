@@ -131,6 +131,9 @@ type
     function StepDownloadFpcSource: Boolean;
     function StepBuildFpcNative: Boolean;
     function StepBuildFpcCross: Boolean;
+{$ifdef WINDOWS}
+    function stepStageWin64Binutils: Boolean;
+{$endif}
     function stepStageWin32Binutils(add: Boolean): Boolean;
     function StepRemoveCrossWin32: Boolean;
     function StepBuildFpcCrossWasm: Boolean;
@@ -262,6 +265,17 @@ const
   //   <prefix>/lib/fpc/3.2.2/fpc.cfg         config (placed by fpcmkcfg)
   HostFpcBinSubdir    = 'fpc/lib/fpc/3.2.2';
   HostFpcUtilSubdir   = 'fpc/bin';
+{$endif}
+
+{$ifdef WINDOWS}
+  // native x86_64-win64 binutils (from FPC's own fpcbuild install/binw64,
+  // statically linked). The default internal assembler+linker never needs
+  // them, but -a/-al/-as/-Xe switch to external assembling and expect
+  // as.exe next to the compiler; same layout as the upstream installer.
+  BINW64_URL =
+    'https://github.com/fpc-unleashed/freepascal/releases/download/bootstrappers-v1/binutils-2.28-x86_64-win64.zip';
+  BINW64_SHA =
+    'AE7C0D747C55EBB1760F8B4304BFA89BE78151594F5A21B5612DE252FE879E5A';
 {$endif}
 
   // codeload accepts branch name, tag, full or short SHA in <ref>
@@ -1045,6 +1059,28 @@ begin
     on E: Exception do result := False;
   end;
 end;
+
+{$ifdef WINDOWS}
+// native win64 external assembling (-a, -al, -as, -Xe) expects as.exe/ld.exe
+// beside the compiler; we build from source so nothing ever put them there.
+// Fetch FPC's own statically-linked set into fpc\bin\x86_64-win64\.
+function TInstallThread.stepStageWin64Binutils: Boolean;
+begin
+  result := True;
+  if FileExists(HostFpcBinDir+'as.exe') then exit;
+  result := False;
+
+  Log('Staging x86_64-win64 binutils in '+HostFpcBinDir);
+  var zip := IncludeTrailingPathDelimiter(GetTempDir)+'binutils-win64.zip';
+  if not DownloadAndVerify(BINW64_URL, BINW64_SHA, zip, 'binutils x86_64-win64') then exit;
+  if not ExtractZip(zip, ExcludeTrailingPathDelimiter(HostFpcBinDir), @Progress) then begin
+    FErrorMsg := 'binutils x86_64-win64 extract failed';
+    exit;
+  end;
+  DeleteFile(zip);
+  result := True;
+end;
+{$endif}
 
 // win32 needs real binutils as soon as anything forces external assembling
 // (-a, -al, -as, -Xe); the default internal writer path never touches them.
@@ -2874,6 +2910,8 @@ begin
 
     // cross i386-win32: smart add/remove based on checkbox + current state.
 {$ifdef MSWINDOWS}
+    // native binutils: unconditional, also repairs pre-existing installs
+    if not stepStageWin64Binutils then exit;
     if FCfg.CrossWin32 and (not hasCrossW32) then begin
       SetStage(isFpcCross);
       if not StepBuildFpcCross then Exit;
