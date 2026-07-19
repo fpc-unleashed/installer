@@ -1107,7 +1107,11 @@ begin
     ['crossinstall', 'OS_TARGET=wasip1', 'CPU_TARGET=wasm32', 'INSTALL_PREFIX=' + FpcInstallPrefix, 'PP=' + PpSelf], 'make crossinstall (wasm32-wasip1, ~2 min)') then Exit;
 
   Log('--- Cross-compiler ready: ' + HostFpcBinDir + 'ppcrosswasm32' + ExeExt + ' ---');
-  Result := True;
+  // stock cfg defines NEEDCROSSBINUTILS for any target that is not i386 /
+  // amd64, so wasm32 inherits -XPwasm32-wasip1- and external assembling
+  // (-al -Awasa) hunts for wasm32-wasip1-wasa.exe. FPC's own wasa lives
+  // unprefixed next to the compiler; reset the prefix to that directory.
+  result := PatchFpcCfgCrossSection('wasip1', 'wasm32', ExcludeTrailingPathDelimiter(HostFpcBinDir), '', '', True);
 end;
 
 function TInstallThread.StepRemoveCrossWasm: Boolean;
@@ -1128,6 +1132,7 @@ begin
     Log('  ' + UnitsDir);
     RemoveDir(UnitsDir);
   end;
+  PatchFpcCfgCrossSection('wasip1', 'wasm32', '', '', '', False);
 end;
 
 // download a zip to DestZip and verify its SHA256 matches the pinned Sha.
@@ -2915,6 +2920,8 @@ begin
       Log('cross compiler wasm32-wasip1 already installed, leaving as is')
     else
       Log('skipping cross compiler wasm32-wasip1 (not selected)');
+    // repairs installs made before the cfg block existed
+    if FCfg.CrossWasm then PatchFpcCfgCrossSection('wasip1', 'wasm32', ExcludeTrailingPathDelimiter(HostFpcBinDir), '', '', True);
 
 {$ifdef LINUX}
     // cross x86_64-win64 from a linux host: uses FPC's internal PE/COFF
