@@ -131,6 +131,7 @@ type
     function StepDownloadFpcSource: Boolean;
     function StepBuildFpcNative: Boolean;
     function StepBuildFpcCross: Boolean;
+    function stepStageWin32Binutils(add: Boolean): Boolean;
     function StepRemoveCrossWin32: Boolean;
     function StepBuildFpcCrossWasm: Boolean;
     function StepRemoveCrossWasm: Boolean;
@@ -1032,6 +1033,64 @@ begin
   Result := True;
 end;
 
+function copyFileTo(const src, dst: string): Boolean;
+begin
+  result := False;
+  try
+    var s := autofree TFileStream.Create(src, fmOpenRead or fmShareDenyWrite);
+    var d := autofree TFileStream.Create(dst, fmCreate);
+    d.CopyFrom(s, 0);
+    result := True;
+  except
+    on E: Exception do result := False;
+  end;
+end;
+
+// win32 needs real binutils as soon as anything forces external assembling
+// (-a, -al, -as, -Xe); the default internal writer path never touches them.
+// fpcmkcfg's stock cfg defines NEEDCROSSBINUTILS for every non-win64 target
+// and emits -XP$FPCTARGET-, so without these the compiler stops with
+// "Assembler i386-win32-as.exe not found". The 3.2.2 bootstrap ships a
+// matching i386 set (binutils 2.28, pe-i386), so no extra download.
+function TInstallThread.stepStageWin32Binutils(add: Boolean): Boolean;
+var
+  tools: TStringArray;
+begin
+  result := False;
+  tools := ['as', 'ld', 'ar', 'nm', 'objcopy', 'objdump', 'strip', 'windres', 'dlltool'];
+  var binDir := IncludeTrailingPathDelimiter(FCfg.TargetDir)+'cross'+DirectorySeparator+'i386-win32'+DirectorySeparator+'bin';
+  var srcDir := IncludeTrailingPathDelimiter(BootstrapBinDir);
+
+  if not add then begin
+    for var i := 0 to High(tools) do DeleteFile(IncludeTrailingPathDelimiter(binDir)+'i386-win32-'+tools[i]+ExeExt);
+    RemoveDir(binDir);
+    exit(PatchFpcCfgCrossSection('win32', 'i386', '', '', '', False));
+  end;
+
+  if not ForceDirectories(binDir) then begin
+    FErrorMsg := 'cannot create '+binDir;
+    exit;
+  end;
+
+  Log('Staging i386-win32 binutils in '+binDir);
+  for var i := 0 to High(tools) do begin
+    var src := srcDir+tools[i]+ExeExt;
+    var dst := IncludeTrailingPathDelimiter(binDir)+'i386-win32-'+tools[i]+ExeExt;
+    if FileExists(dst) then Continue;
+    if not FileExists(src) then begin
+      Log('  missing '+src+', skipped');
+      Continue;
+    end;
+    if not copyFileTo(src, dst) then begin
+      FErrorMsg := 'cannot copy '+src+' -> '+dst;
+      Log('  '+FErrorMsg);
+      exit;
+    end;
+  end;
+
+  result := PatchFpcCfgCrossSection('win32', 'i386', binDir, '', 'i386-win32-', True);
+end;
+
 function TInstallThread.StepBuildFpcCrossWasm: Boolean;
 begin
   Result := False;
@@ -1144,7 +1203,7 @@ begin
     Lines.Add('#ifdef cpu' + TargetCpu);
     Lines.Add('-XP' + IncludeTrailingPathDelimiter(BinDir) + BinPrefix);
     Lines.Add('-FD' + BinDir);
-    Lines.Add('-Fl' + LibDir);
+    if LibDir <> '' then Lines.Add('-Fl'+LibDir);
     Lines.Add('#endif');
     Lines.Add('#endif');
     Lines.Add('# END ' + Tag);
@@ -2620,6 +2679,7 @@ begin
     Log('  ' + UnitsDir);
     RemoveDir(UnitsDir);
   end;
+  stepStageWin32Binutils(False);
 end;
 
 procedure TInstallThread.StepM3Cleanup;
@@ -2821,6 +2881,9 @@ begin
       Log('cross compiler i386-win32 already installed, leaving as is')
     else
       Log('skipping cross compiler i386-win32 (not selected)');
+    // unconditional on every run with win32 ticked; installs made before
+    // this step exist without the binutils and get repaired here
+    if FCfg.CrossWin32 then if not stepStageWin32Binutils(True) then exit;
 {$endif}
 {$ifdef LINUX}
     // Linux host -> i386-win32: same staged pattern as cross-win64-from-linux,
