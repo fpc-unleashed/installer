@@ -4,6 +4,7 @@
 *.compiled
 *.ppu
 *.o
+src/installer.res
 src/lib/
 branchhash/lib/
 
