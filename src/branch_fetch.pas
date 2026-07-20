@@ -31,7 +31,7 @@ implementation
 
 uses
   fpjson, jsonparser
-  {$ifdef MSWINDOWS}, Windows, WinInet{$endif}
+  {$ifdef WINDOWS}, Windows, WinInet{$endif}
   {$ifdef LINUX}, process{$endif};
 
 const
@@ -57,7 +57,7 @@ begin
   inherited Destroy;
 end;
 
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
 // HTTPS GET via WinINet -- native TLS, no external curl (curl.exe missing on pre-1803 Windows)
 function HttpGet(const URL: string; out Body: string): Boolean;
 var

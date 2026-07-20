@@ -8,7 +8,7 @@ interface
 
 uses
   Classes, SysUtils, Types, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Dialogs, Graphics, LCLType, LCLIntf, Menus, Clipbrd, RegExpr, fileinfo,
-  {$ifdef MSWINDOWS} Windows, ShellApi, {$endif}
+  {$ifdef WINDOWS} Windows, ShellApi, {$endif}
   {$ifdef LINUX} process, {$endif}
   branch_fetch, branch_cache, install_pipeline, install_manifest, hash_branch, about_form;
 
@@ -129,7 +129,7 @@ type
     procedure MenuHelpDocsClick(Sender: TObject);
     procedure MenuHelpAboutClick(Sender: TObject);
   protected
-    {$ifdef MSWINDOWS}
+    {$ifdef WINDOWS}
     procedure CreateParams(var Params: TCreateParams); override;
     procedure WMEnterSizeMove(var Msg: TMessage); message WM_ENTERSIZEMOVE;
     procedure WMExitSizeMove(var Msg: TMessage); message WM_EXITSIZEMOVE;
@@ -137,7 +137,7 @@ type
     procedure setComposited(enable: Boolean);
     {$endif}
   private
-    {$ifdef MSWINDOWS}
+    {$ifdef WINDOWS}
     FInSizeMove: Boolean;
     {$endif}
     FFetchPending: Integer;
@@ -214,7 +214,7 @@ var
 
 const
   // mirror install_pipeline's per-OS host paths so RefreshTargetState/LaunchInstalledIde see the same files
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   HostFpcWrapperSub  = 'fpc\bin\x86_64-win64\fpc.exe';
   LazarusBinarySub   = 'lazarus\lazarus.exe';
 {$endif}
@@ -246,7 +246,7 @@ function ProbeCrossInstalled(const dir, target: string): Boolean;
 begin
   Result := False;
   if dir = '' then Exit;
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   Result := DirectoryExists(IncludeTrailingPathDelimiter(dir)+'fpc\units\'+target);
 {$endif}
 {$ifdef LINUX}
@@ -284,7 +284,7 @@ begin
   end;
 end;
 
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
 const
   WS_EX_COMPOSITED = $02000000;
 
@@ -583,7 +583,7 @@ begin
     parts := parts+'lazarus';
   end;
   // list every selectable target, native first. listing native explicitly makes the summary match the cross checkbox set
-  {$ifdef MSWINDOWS}
+  {$ifdef WINDOWS}
   var crossTargets: TStringArray := ['x86_64-win64', 'x86_64-linux', 'i386-win32', 'i386-linux', 'wasm32-wasip1'];
   {$endif}
   {$ifdef LINUX}
@@ -946,7 +946,7 @@ begin
   CheckBoxCrossWin32.Enabled   := act;
   CheckBoxCrossWasm.Enabled    := act;
   CheckBoxCrossLinux32.Enabled := act;
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   CheckBoxCrossLinux64.Enabled := act;     // cross direction (win -> linux)
 {$endif}
 {$ifdef LINUX}
@@ -972,7 +972,7 @@ begin
   CheckBoxCPUView.Enabled := act;
   CheckBoxMetaDarkStyle.Enabled := act;
   // toggle-affinity locked off on non-Windows hosts (FormCreate disables it once)
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   CheckBoxToggleAffinity.Enabled := act;
 {$endif}
   RefreshTargetState;
@@ -1217,7 +1217,7 @@ begin
   var ExePath := IncludeTrailingPathDelimiter(FInstallTargetDir)+LazarusBinarySub;
   var PcpArg  := '--pcp='+IncludeTrailingPathDelimiter(FInstallTargetDir)+'config_lazarus';
   Log('Launching '+ExePath);
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   // detached. ShellExecute wants args as one string; quotes protect spaces in target dir
   var Args := '"'+PcpArg+'"';
   ShellExecute(Handle, 'open', PChar(ExePath), PChar(Args), PChar(ExtractFilePath(ExePath)), SW_SHOWNORMAL);

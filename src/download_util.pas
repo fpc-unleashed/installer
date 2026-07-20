@@ -18,7 +18,7 @@ function DownloadFile(const URL, DestPath: string; OnProgress: TDownloadProgress
 
 implementation
 
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
 uses
   Windows, WinInet;
 

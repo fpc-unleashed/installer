@@ -15,10 +15,10 @@ implementation
 
 uses
   SysUtils
-  {$ifdef MSWINDOWS}, Windows, ActiveX, ComObj, ShlObj{$endif}
+  {$ifdef WINDOWS}, Windows, ActiveX, ComObj, ShlObj{$endif}
   {$ifdef LINUX}, Classes, proc_util{$endif};
 
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
 function GetDesktopPath: string;
 var
   Buf: array[0..MAX_PATH] of AnsiChar;

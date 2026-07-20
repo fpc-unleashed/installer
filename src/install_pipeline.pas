@@ -200,7 +200,7 @@ type
   end;
 
 const
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   // portable extract of fpc-3.2.2.i386-win32.exe (Inno Setup), unpacked
   // off-line to skip registry, PATH, file association, shortcut side effects.
   // ppc386.exe (FPC 3.2.2, i386-win32 native) bootstraps the unleashed
@@ -228,7 +228,7 @@ const
 {$endif}
 
   // Filename portion of the bootstrap zip (used for the local download path).
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   BOOTSTRAP_ZIP_NAME = 'fpc-3.2.2-i386-win32-portable.zip';
 {$endif}
 {$ifdef LINUX}
@@ -239,7 +239,7 @@ const
   // on Linux because they end up concatenated with TargetDir which is in
   // the platform's native separator already (TSelectDirectoryDialog returns
   // either form).
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   ExeExt              = '.exe';
   HostTargetOs        = 'win64';      // -> make OS_TARGET=
   // bootstrap zip lays out portable FPC 3.2.2 i386-win32 with ppc386.exe +
@@ -595,7 +595,7 @@ end;
 
 function TInstallThread.HostFpcBinDir: string;
 begin
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   Result := IncludeTrailingPathDelimiter(
     IncludeTrailingPathDelimiter(FCfg.TargetDir) + HostFpcBinSubdir);
 {$endif}
@@ -622,7 +622,7 @@ end;
 // writer to decide what cross targets are physically installed.
 function TInstallThread.HostFpcUnitsDir: string;
 begin
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   Result := IncludeTrailingPathDelimiter(
     IncludeTrailingPathDelimiter(FCfg.TargetDir) + 'fpc') + 'units' + PathDelim;
 {$endif}
@@ -717,7 +717,7 @@ end;
 // throughout the pipeline for cleanup of fpcsrc/, lazarus/, cross/...
 procedure TInstallThread.RemoveDir(const Path: string);
 begin
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   RunSilent('cmd.exe', ['/C', 'rmdir', '/S', '/Q', Path]);
 {$endif}
 {$ifdef LINUX}
@@ -906,7 +906,7 @@ end;
 function TInstallThread.RunMake(const Args: array of string;
   const StepLabel: string): Boolean;
 begin
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   var MakeExe    := IncludeTrailingPathDelimiter(BootstrapBinDir) + 'make.exe';
   var PathPrefix := BootstrapBinDir;
 {$endif}
@@ -982,7 +982,7 @@ begin
   // compiler/utils/fpc.pp:480-484, so a soft-x80 cross-rtl loaded by
   // a native compiler without the flag IEs 200208151 on first .ppu
   // read. Linux x86_64 has native x87 Extended and needs no flag.
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   var SoftX80: TStringArray := ['OPT=-dFPC_SOFT_FPUX80'];
 {$endif}
 {$ifdef LINUX}
@@ -993,7 +993,7 @@ begin
   Log('  source dir:      ' + WorkDir);
   Log('  bootstrap PP:    ' + PpBootstrap);
   Log('  install prefix:  ' + FpcInstallPrefix);
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   Log('  soft-x80:        enabled (Win64 host lacks native Extended)');
 {$endif}
 
@@ -1803,7 +1803,7 @@ const
   // pieces live inside the same .lpk -- there is no separate runtime/design
   // split for CPUView. Selection is forced at the host level here because
   // the .lpk explicitly carries the target triple in its name.
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   COMPONENTS_CPUVIEW_LPK = 'components-extra\CPUView\CPUView_win_x86_64_D.lpk';
 {$endif}
 {$ifdef LINUX}
@@ -1813,7 +1813,7 @@ const
   // ToggleDisplayAffinity ships a single .lpk at the zip root (no per-
   // platform variants). The const exists on every host so callers can
   // reference it without ifdef, but the only caller that touches disk
-  // is inside a {$ifdef MSWINDOWS} block.
+  // is inside a {$ifdef WINDOWS} block.
   COMPONENTS_TOGGLE_LPK = 'components-extra\ToggleDisplayAffinity\toggledisplayaffinity.lpk';
 
   // MetaDarkStyle ships its runtime + design-time .lpk side by side at
@@ -1829,7 +1829,7 @@ begin
   // Linux fpc post-install splits compiler binary (lib/fpc/<ver>/) from
   // user-facing wrappers + fpcmkcfg (bin/) -- prepend both so lazbuild's
   // PATH-based fpc.exe discovery finds the right wrapper / binary.
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   var PathPrefix  := HostFpcBinDir + PathSeparator + BootstrapBinDir;
 {$endif}
 {$ifdef LINUX}
@@ -2105,7 +2105,7 @@ end;
 function TInstallThread.StepBuildLazarus: Boolean;
 begin
   Result := False;
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   var MakeExe    := IncludeTrailingPathDelimiter(BootstrapBinDir) + 'make.exe';
   var FpcExe     := HostFpcBinDir + 'fpc' + ExeExt;
   // native fpc.exe before bootstrap so lazbuild's PATH-based compiler
@@ -2178,7 +2178,7 @@ begin
   else
     Log('Skipping MetaDarkStyle addon (not selected)');
 
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   if FCfg.InstallToggleAffinity then begin
     Log('Registering Toggle Display Affinity addon');
     var TogglePath := StringReplace(
@@ -2322,7 +2322,7 @@ begin
     UnregisterMetaDarkStylePackages;
   end;
 
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   // Toggle Display Affinity delta: same skeleton as CPU-View but a
   // single-package add/remove (no runtime dependency, no toolbar button
   // -- the plugin installs itself as a Window menu entry which the IDE
@@ -2377,7 +2377,7 @@ begin
   ForceDirectories(ProjectsDir);
 
   var Xml := ENV_OPTIONS_TEMPLATE;
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   var MakePath := IncludeTrailingPathDelimiter(BootstrapBinDir) + 'make' + ExeExt;
   // on Linux the FPC bootstrap zip has no make; the IDE picks up the
   // system /usr/bin/make from PATH at runtime if MakeFilename is empty
@@ -2391,7 +2391,7 @@ begin
   // On Linux the `fpc` shell wrapper in <prefix>/bin/ is what users
   // normally point IDEs at; it dispatches to ppcx64.
   var FpcCompilerPath :=
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
     HostFpcBinDir + 'fpc' + ExeExt;
 {$endif}
 {$ifdef LINUX}
@@ -2501,7 +2501,7 @@ begin
   // Using <install>/fpc on Linux makes the template resolve to
   // <install>/fpc/units/<target>/ which does not exist -> "Can't find
   // unit system" at first Lazarus compile.
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   var BasePath := IncludeTrailingPathDelimiter(FCfg.TargetDir) + 'fpc';
 {$endif}
 {$ifdef LINUX}
@@ -2640,7 +2640,7 @@ begin
   // ToggleDisplayAffinity only triggers the fetch on Windows hosts (its
   // checkbox is locked off elsewhere), so the guard reflects that.
   var WantAnything := FCfg.InstallCPUView or FCfg.InstallMetaDarkStyle;
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   WantAnything := WantAnything or FCfg.InstallToggleAffinity;
 {$endif}
   if not WantAnything then begin
@@ -2671,7 +2671,7 @@ begin
       Log('CPUView already present at ' + CpuDir + ', skipping fetch');
   end;
 
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
   if FCfg.InstallToggleAffinity then begin
     // Zip extracts flat (LICENSE / README.md / .lpk / .pas at root) into
     // <Base>/ToggleDisplayAffinity/. Presence-cache key is the .lpk file
@@ -2798,7 +2798,7 @@ begin
     // (ppcx64 / ppcross386 are multi-OS), so detect by RTL units presence.
     // x86_64-linux units only signal "cross is installed" on Windows host;
     // on Linux host that dir IS the native target -- ditto for win64.
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
     var hasCrossLinux64 := DirectoryExists(HostFpcUnitsDir + 'x86_64-linux');
     var hasCrossWin64   := True;  // n/a: host = win64; cross-to-win64 meaningless
 {$endif}
@@ -2866,7 +2866,7 @@ begin
       hasFpcExe := False;
       hasCrossW32 := False;
       hasCrossWasm := False;
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
       hasCrossLinux64 := False;
 {$endif}
 {$ifdef LINUX}
@@ -2909,7 +2909,7 @@ begin
     if not StepGenerateFpcCfg then Exit;
 
     // cross i386-win32: smart add/remove based on checkbox + current state.
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
     // native binutils: unconditional, also repairs pre-existing installs
     if not stepStageWin64Binutils then exit;
     if FCfg.CrossWin32 and (not hasCrossW32) then begin
@@ -2984,7 +2984,7 @@ begin
     // shipped with newer installer versions reach pre-existing installs
     // without forcing a full rebuild of the cross. On Linux host this is
     // native, not a cross -- guard the whole block.
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
     if FCfg.CrossLinux64 and (not hasCrossLinux64) then begin
       SetStage(isFpcCrossLinux64);
       if not StepBuildFpcCrossLinux64 then Exit;
@@ -3006,7 +3006,7 @@ begin
 
     // cross i386-linux: requires ppcross386 from the i386-win32 step
     // (same multi-target binary serves both -Twin32 and -Tlinux).
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
     if FCfg.CrossLinux32 and (not hasCrossLinux32) then begin
       SetStage(isFpcCrossLinux32);
       if not StepBuildFpcCrossLinux32 then Exit;
@@ -3064,7 +3064,7 @@ begin
       // so, run a smaller "add packages + rebuild IDE" step instead of
       // a full reinstall.
       var addonsChanged := (FCfg.InstallMinimap <> Manifest.InstallMinimap) or (FCfg.InstallCPUView <> Manifest.InstallCPUView) or (FCfg.InstallMetaDarkStyle <> Manifest.InstallMetaDarkStyle)
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
                            or (FCfg.InstallToggleAffinity <> Manifest.InstallToggleAffinity)
 {$endif}
                            ;
@@ -3091,7 +3091,7 @@ begin
     // signal). On Windows host x86_64-win64 is native (always present)
     // and CrossWin64 is meaningless -> record user's intent. On Linux
     // host x86_64-linux is native -> CrossLinux64 mirrors intent.
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
     Manifest.CrossWin64   := FCfg.CrossWin64;
     Manifest.CrossLinux64 := DirectoryExists(HostFpcUnitsDir + 'x86_64-linux');
 {$endif}
@@ -3109,7 +3109,7 @@ begin
     // always False (UI checkbox locked off), so writing it here would
     // erase a flag a previous Windows install set. Preserve whatever
     // ReadManifest returned on non-Windows hosts.
-{$ifdef MSWINDOWS}
+{$ifdef WINDOWS}
     Manifest.InstallToggleAffinity := FCfg.InstallToggleAffinity;
 {$endif}
     Manifest.LaunchAfter := FCfg.LaunchAfter;
