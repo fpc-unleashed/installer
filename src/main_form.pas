@@ -7,7 +7,7 @@ unit main_form;
 interface
 
 uses
-  Classes, SysUtils, Types, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Dialogs, Graphics, LCLType, LCLIntf, LResources, Menus, Clipbrd, RegExpr, fileinfo,
+  Classes, SysUtils, Types, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Dialogs, Graphics, LCLType, LCLIntf, Menus, Clipbrd, RegExpr, fileinfo,
   {$ifdef MSWINDOWS} Windows, ShellApi, {$endif}
   {$ifdef LINUX} process, {$endif}
   branch_fetch, branch_cache, install_pipeline, install_manifest, hash_branch, about_form;
@@ -201,6 +201,12 @@ implementation
 
 {$R *.lfm}
 
+{$ifdef LINUX}
+// Windows takes the icon from the PE .ico via the project .res; gtk2/qt LCL ignores that
+// and needs an in-memory image, so the PNG is baked into the binary here
+{$embedbytes INSTALLER_PNG 'installer.png'}
+{$endif}
+
 var
   // set in FormDestroy; FreeOnTerminate-thread callbacks queued via Synchronize can fire after the
   // form is freed, so they gate on this global; a form field there would be read from freed memory
@@ -330,13 +336,14 @@ begin
   FFpcBranchShas := TStringList.Create;
   FLazBranchShas := TStringList.Create;
 
-  // Linux LCL gtk2/qt doesn't consume the PE icon group; load the embedded PNG resource at runtime instead
   {$ifdef LINUX}
-  var IconStream := autofree TLazarusResourceStream.Create('installer', nil);
-  var Png        := autofree TPortableNetworkGraphic.Create;
-  Png.LoadFromStream(IconStream);
-  Application.Icon.Assign(Png);
-  Self.Icon.Assign(Png);
+  var IconStream := autofree TMemoryStream.Create;
+  IconStream.WriteBuffer(INSTALLER_PNG, SizeOf(INSTALLER_PNG));
+  IconStream.Position := 0;
+  var png := autofree TPortableNetworkGraphic.Create;
+  png.LoadFromStream(IconStream);
+  Application.Icon.Assign(png);
+  Self.Icon.Assign(png);
   {$endif}
 
   // augment LFM caption with version + build stamp
@@ -1301,13 +1308,5 @@ procedure TMainForm.ButtonCloseClick(Sender: TObject);
 begin
   Close;
 end;
-
-// cross-platform icon resource generated from src/installer.png via:
-//   tools/lazres.exe src/installer.lrs src/installer.png
-// Windows uses PE .ico via .res; this .lrs is consumed only on Linux (gtk2/qt LCL needs in-memory image for Application.Icon)
-{$ifdef LINUX}
-initialization
-  {$I installer.lrs}
-{$endif}
 
 end.
