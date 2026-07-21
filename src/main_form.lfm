@@ -9,7 +9,7 @@ object MainForm: TMainForm
   DoubleBuffered = True
   Menu = MainMenu1
   Position = poScreenCenter
-  Scaled = False
+  Scaled = True
   LCLVersion = '4.99.0.0'
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
@@ -886,7 +886,6 @@ object MainForm: TMainForm
           Top = 5
           Width = 283
           Align = alTop
-          AutoSize = False
           BorderSpacing.Around = 5
           Caption = 'FPC Cross Compilers:'
           Font.Style = [fsBold]
