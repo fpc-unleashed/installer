@@ -7,10 +7,10 @@ unit main_form;
 interface
 
 uses
-  Classes, SysUtils, Types, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Dialogs, Graphics, LCLType, LCLIntf, Menus, Clipbrd, RegExpr, fileinfo,
+  Classes, SysUtils, Types, Math, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Dialogs, Graphics, LCLType, LCLIntf, Menus, Clipbrd, RegExpr, fileinfo,
   {$ifdef WINDOWS} Windows, ShellApi, {$endif}
   {$ifdef LINUX} process, {$endif}
-  branch_fetch, branch_cache, install_pipeline, install_manifest, hash_branch, about_form;
+  branch_fetch, branch_cache, install_pipeline, install_manifest, hash_branch, about_form, app_settings;
 
 const
   GH_OWNER     = 'fpc-unleashed';
@@ -177,6 +177,8 @@ type
     procedure RefreshTargetState;
     procedure UpdateShortcutError;
     procedure ResetTargetControlsToDefaults;
+    function applyStoredSettings: Boolean;
+    procedure storeSettings;
     procedure ApplyHashesFromBinaryName;
     function ResolveSelectedFpcSha: string;
     function ResolveSelectedLazSha: string;
@@ -380,9 +382,87 @@ begin
   RefreshTargetState;
   ApplyHashesFromBinaryName;
 
-  // 80% of work area, re-centered vertically. LFM Position=poScreenCenter uses designer Height which cramps the log
-  Self.Height := Screen.WorkAreaHeight*80 div 100;
-  Self.Top := Screen.WorkAreaTop+(Screen.WorkAreaHeight-Self.Height) div 2;
+  // stored geometry wins; without it 80% of work area, re-centered vertically.
+  // LFM Position=poScreenCenter uses designer Height which cramps the log
+  if not applyStoredSettings then begin
+    Self.Height := Screen.WorkAreaHeight*80 div 100;
+    Self.Top := Screen.WorkAreaTop+(Screen.WorkAreaHeight-Self.Height) div 2;
+  end;
+end;
+
+// Preferences from installer_settings.ini. Returns True when it applied a
+// window geometry, so FormCreate knows to skip its own sizing. A manifest
+// in the target dir outranks the stored checkboxes: it describes what is
+// actually installed there, the settings only carry a habit.
+function TMainForm.applyStoredSettings: Boolean;
+begin
+  result := False;
+  var st := readSettings;
+  if not st.Present then exit;
+
+  if st.FpcBranch <> '' then ComboBoxUnleashedBranch.Text := st.FpcBranch;
+  if st.LazBranch <> '' then ComboBoxLazarusBranch.Text := st.LazBranch;
+  if st.TargetDir <> '' then EditTargetDir.Text := st.TargetDir;
+  CheckBoxSaveLog.Checked := st.SaveLog;
+
+  if not ReadManifest(Trim(EditTargetDir.Text)).Present then begin
+    // host-native cross boxes stay locked off (FormCreate disabled them)
+    if CheckBoxCrossWin64.Enabled then CheckBoxCrossWin64.Checked := st.CrossWin64;
+    if CheckBoxCrossLinux64.Enabled then CheckBoxCrossLinux64.Checked := st.CrossLinux64;
+    CheckBoxCrossWin32.Checked := st.CrossWin32;
+    CheckBoxCrossLinux32.Checked := st.CrossLinux32;
+    CheckBoxCrossWasm.Checked := st.CrossWasm;
+    CheckBoxMinimap.Checked := st.InstallMinimap;
+    CheckBoxCPUView.Checked := st.InstallCPUView;
+    CheckBoxMetaDarkStyle.Checked := st.InstallMetaDarkStyle;
+    if CheckBoxToggleAffinity.Enabled then CheckBoxToggleAffinity.Checked := st.InstallToggleAffinity;
+    CheckBoxHelpFiles.Checked := st.InstallHelpFiles;
+    CheckBoxDesktopShortcut.Checked := st.MakeDesktopShortcut;
+    CheckBoxInstallFolderShortcut.Checked := st.MakeFolderShortcut;
+    CheckBoxLaunchAfter.Checked := st.LaunchAfter;
+  end;
+
+  if (st.WindowWidth <= 0) or (st.WindowHeight <= 0) then exit;
+  // clamp into the current desktop: the monitor that held the window last
+  // run may be gone, and an off-screen window is unreachable
+  var w := Min(st.WindowWidth, Screen.DesktopWidth);
+  var h := Min(st.WindowHeight, Screen.DesktopHeight);
+  var l := Max(Screen.DesktopLeft, Min(st.WindowLeft, Screen.DesktopLeft+Screen.DesktopWidth-w));
+  var t := Max(Screen.DesktopTop, Min(st.WindowTop, Screen.DesktopTop+Screen.DesktopHeight-h));
+  SetBounds(l, t, w, h);
+  if st.WindowMaximized then WindowState := wsMaximized;
+  result := True;
+end;
+
+procedure TMainForm.storeSettings;
+begin
+  var st: TAppSettings;
+  st.Present := True;
+  // Restored* is the pre-maximize geometry; Left/Width would store the
+  // maximized frame and the window would never come back to its own size
+  st.WindowLeft   := RestoredLeft;
+  st.WindowTop    := RestoredTop;
+  st.WindowWidth  := RestoredWidth;
+  st.WindowHeight := RestoredHeight;
+  st.WindowMaximized := WindowState = wsMaximized;
+  st.TargetDir := Trim(EditTargetDir.Text);
+  st.FpcBranch := ComboBoxUnleashedBranch.Text;
+  st.LazBranch := ComboBoxLazarusBranch.Text;
+  st.CrossWin64   := CheckBoxCrossWin64.Checked;
+  st.CrossWin32   := CheckBoxCrossWin32.Checked;
+  st.CrossLinux64 := CheckBoxCrossLinux64.Checked;
+  st.CrossLinux32 := CheckBoxCrossLinux32.Checked;
+  st.CrossWasm    := CheckBoxCrossWasm.Checked;
+  st.InstallMinimap        := CheckBoxMinimap.Checked;
+  st.InstallCPUView        := CheckBoxCPUView.Checked;
+  st.InstallToggleAffinity := CheckBoxToggleAffinity.Checked;
+  st.InstallMetaDarkStyle  := CheckBoxMetaDarkStyle.Checked;
+  st.InstallHelpFiles      := CheckBoxHelpFiles.Checked;
+  st.MakeDesktopShortcut   := CheckBoxDesktopShortcut.Checked;
+  st.MakeFolderShortcut    := CheckBoxInstallFolderShortcut.Checked;
+  st.LaunchAfter := CheckBoxLaunchAfter.Checked;
+  st.SaveLog     := CheckBoxSaveLog.Checked;
+  writeSettings(st);
 end;
 
 procedure tmainform.button1click(sender: tobject);
@@ -744,6 +824,7 @@ end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
+  storeSettings;
   // worker threads have FreeOnTerminate=True; flag stops their callbacks from touching destroyed widgets
   GShuttingDown := True;
   FFpcBranchShas.Free;
