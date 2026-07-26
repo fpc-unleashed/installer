@@ -171,6 +171,10 @@ type
     FShortcutError: Boolean;
     // re-entrancy guard for RefreshTargetState; state-B reset writes to controls whose OnChange re-enters here
     FRefreshingTarget: Boolean;
+    // installer_settings.ini as read at startup; used as the fresh-install defaults
+    FStoredDefaults: TAppSettings;
+    // a commit the binary name pins is not a preference and cannot be reset
+    FPinnedHashes: Boolean;
     procedure CopySelectedLogLines;
     procedure SetDoubleBufferedRecursive(c: TWinControl);
     procedure LaunchInstalledIde;
@@ -341,6 +345,8 @@ procedure TMainForm.FormCreate(Sender: TObject);
 begin
   FFpcBranchShas := TStringList.Create;
   FLazBranchShas := TStringList.Create;
+  // read before any control is touched: RefreshTargetState's fresh-install reset consults it
+  FStoredDefaults := readSettings;
 
   {$ifdef LINUX}
   var IconStream := autofree TMemoryStream.Create;
@@ -407,7 +413,7 @@ end;
 function TMainForm.applyStoredSettings: Boolean;
 begin
   result := False;
-  var st := readSettings;
+  var st := FStoredDefaults;
   if not st.Present then exit;
 
   if st.FpcBranch <> '' then ComboBoxUnleashedBranch.Text := st.FpcBranch;
@@ -415,22 +421,8 @@ begin
   if st.TargetDir <> '' then EditTargetDir.Text := st.TargetDir;
   CheckBoxSaveLog.Checked := st.SaveLog;
 
-  if not ReadManifest(Trim(EditTargetDir.Text)).Present then begin
-    // host-native cross boxes stay locked off (FormCreate disabled them)
-    if CheckBoxCrossWin64.Enabled then CheckBoxCrossWin64.Checked := st.CrossWin64;
-    if CheckBoxCrossLinux64.Enabled then CheckBoxCrossLinux64.Checked := st.CrossLinux64;
-    CheckBoxCrossWin32.Checked := st.CrossWin32;
-    CheckBoxCrossLinux32.Checked := st.CrossLinux32;
-    CheckBoxCrossWasm.Checked := st.CrossWasm;
-    CheckBoxMinimap.Checked := st.InstallMinimap;
-    CheckBoxCPUView.Checked := st.InstallCPUView;
-    CheckBoxMetaDarkStyle.Checked := st.InstallMetaDarkStyle;
-    if CheckBoxToggleAffinity.Enabled then CheckBoxToggleAffinity.Checked := st.InstallToggleAffinity;
-    CheckBoxHelpFiles.Checked := st.InstallHelpFiles;
-    CheckBoxDesktopShortcut.Checked := st.MakeDesktopShortcut;
-    CheckBoxInstallFolderShortcut.Checked := st.MakeFolderShortcut;
-    CheckBoxLaunchAfter.Checked := st.LaunchAfter;
-  end;
+  if not ReadManifest(Trim(EditTargetDir.Text)).Present then ResetTargetControlsToDefaults;
+  RefreshTargetState;
 
   if (st.WindowWidth <= 0) or (st.WindowHeight <= 0) then exit;
   // clamp into the current desktop: the monitor that held the window last
@@ -472,6 +464,12 @@ begin
   st.MakeFolderShortcut    := CheckBoxInstallFolderShortcut.Checked;
   st.LaunchAfter := CheckBoxLaunchAfter.Checked;
   st.SaveLog     := CheckBoxSaveLog.Checked;
+  st.InstallFpc       := CheckBoxInstallUnleashed.Checked;
+  st.InstallLazarus   := CheckBoxInstallLazarus.Checked;
+  st.FpcLatest := CheckBoxUnleashedLatest.Checked;
+  st.LazLatest := CheckBoxLazarusLatest.Checked;
+  st.FpcHash   := Trim(EditUnleashedHash.Text);
+  st.LazHash   := Trim(EditLazarusHash.Text);
   writeSettings(st);
 end;
 
@@ -499,6 +497,7 @@ begin
   if not parsed.Present then parsed := ParseBinaryName(ExtractFileName(ParamStr(0)));
 
   if parsed.Present then begin
+    FPinnedHashes := True;
     // empty FpcCommit/LazCommit = '0' length digit = "latest of selected branch" sentinel -> tick Latest, clear hash
     Log('binary name carries pinned commit hashes: fpc='+(if parsed.FpcCommit = '' then '(latest)' else parsed.FpcCommit)+' ide='+(if parsed.LazCommit = '' then '(latest)' else parsed.LazCommit));
 
@@ -542,6 +541,7 @@ begin
   var FpcHash := LowerCase(R.&Match[1]);
   var LazHash := LowerCase(R.&Match[2]);
   Log('binary name carries pinned commit hashes (legacy): fpc='+FpcHash+' ide='+LazHash);
+  FPinnedHashes := True;
   EditUnleashedHash.Text       := FpcHash;
   CheckBoxUnleashedLatest.Checked := False;
   EditLazarusHash.Text         := LazHash;
@@ -767,34 +767,51 @@ end;
 
 procedure TMainForm.ResetTargetControlsToDefaults;
 begin
-  // cross checkboxes -- all unchecked; FormCreate handles host-native Enabled/Caption once at startup
-  CheckBoxCrossWin64.Checked   := False;
-  CheckBoxCrossLinux64.Checked := False;
-  CheckBoxCrossWin32.Checked   := False;
-  CheckBoxCrossLinux32.Checked := False;
-  CheckBoxCrossWasm.Checked    := False;
+  // last session's choices are the defaults for a fresh target; without a
+  // settings file fall back to the LFM first-time values
+  var d := FStoredDefaults;
+  if not d.Present then begin
+    d.InstallMinimap := True;
+    d.InstallCPUView := True;
+    d.InstallHelpFiles := True;
+    d.InstallFpc := True;
+    d.InstallLazarus := True;
+    d.FpcLatest := True;
+    d.LazLatest := True;
+    d.LaunchAfter := True;
+    d.MakeDesktopShortcut := True;
+    d.MakeFolderShortcut := True;
+  end;
 
-  // addons -- match LFM first-time defaults: lightweight IDE extras on, theme + windows-only plugin off
-  CheckBoxMinimap.Checked        := True;
-  CheckBoxCPUView.Checked        := True;
-  CheckBoxMetaDarkStyle.Checked  := False;
-  CheckBoxHelpFiles.Checked      := True;
+  // cross checkboxes -- FormCreate handles host-native Enabled/Caption once at startup
+  CheckBoxCrossWin64.Checked   := d.CrossWin64 and CheckBoxCrossWin64.Enabled;
+  CheckBoxCrossLinux64.Checked := d.CrossLinux64 and CheckBoxCrossLinux64.Enabled;
+  CheckBoxCrossWin32.Checked   := d.CrossWin32;
+  CheckBoxCrossLinux32.Checked := d.CrossLinux32;
+  CheckBoxCrossWasm.Checked    := d.CrossWasm;
+
+  CheckBoxMinimap.Checked        := d.InstallMinimap;
+  CheckBoxCPUView.Checked        := d.InstallCPUView;
+  CheckBoxMetaDarkStyle.Checked  := d.InstallMetaDarkStyle;
+  CheckBoxHelpFiles.Checked      := d.InstallHelpFiles;
   // toggle-affinity .Enabled=False on linux; writing False here is a no-op visually and keeps the data model clean
-  CheckBoxToggleAffinity.Checked := False;
+  CheckBoxToggleAffinity.Checked := d.InstallToggleAffinity and CheckBoxToggleAffinity.Enabled;
 
-  // master + latest + launch-after -- "fresh install" intent
-  CheckBoxInstallUnleashed.Checked := True;
-  CheckBoxInstallLazarus.Checked   := True;
-  CheckBoxUnleashedLatest.Checked  := True;
-  CheckBoxLazarusLatest.Checked    := True;
-  CheckBoxLaunchAfter.Checked      := True;
-  // both IDE shortcuts on by default
-  CheckBoxDesktopShortcut.Checked       := True;
-  CheckBoxInstallFolderShortcut.Checked := True;
+  CheckBoxInstallUnleashed.Checked := d.InstallFpc;
+  CheckBoxInstallLazarus.Checked   := d.InstallLazarus;
+  CheckBoxLaunchAfter.Checked      := d.LaunchAfter;
+  CheckBoxDesktopShortcut.Checked       := d.MakeDesktopShortcut;
+  CheckBoxInstallFolderShortcut.Checked := d.MakeFolderShortcut;
 
-  // hash fields are display-only while Latest=on; clear stale hex so the field is empty until user opts in
-  EditUnleashedHash.Text := '';
-  EditLazarusHash.Text   := '';
+  // a commit pinned by the binary name outranks anything stored
+  if not FPinnedHashes then begin
+    CheckBoxUnleashedLatest.Checked := d.FpcLatest;
+    CheckBoxLazarusLatest.Checked   := d.LazLatest;
+    EditUnleashedHash.Text := d.FpcHash;
+    EditLazarusHash.Text   := d.LazHash;
+  end;
+  if d.FpcBranch <> '' then ComboBoxUnleashedBranch.Text := d.FpcBranch;
+  if d.LazBranch <> '' then ComboBoxLazarusBranch.Text := d.LazBranch;
 
   // forget per-dir cross-sync cache so a transition into a manifest dir re-runs the FS + manifest restore
   FCrossSyncedFor := '';
@@ -1008,9 +1025,16 @@ begin
   var m := ReadManifest(Trim(EditTargetDir.Text));
   if m.Present then manifestBranch := if Combo = ComboBoxUnleashedBranch then m.FpcBranch else if Combo = ComboBoxLazarusBranch then m.LazBranch else '';
 
+  // last session's branch; the combo is csDropDownList so a name assigned
+  // before the fetch populated Items was dropped
+  var storedBranch: string := '';
+  if FStoredDefaults.Present then
+    storedBranch := if Combo = ComboBoxUnleashedBranch then FStoredDefaults.FpcBranch else if Combo = ComboBoxLazarusBranch then FStoredDefaults.LazBranch else '';
+
   var idx: Integer := -1;
   if pinnedBranch <> '' then idx := Combo.Items.IndexOf(pinnedBranch);
   if idx < 0 then if manifestBranch <> '' then idx := Combo.Items.IndexOf(manifestBranch);
+  if idx < 0 then if storedBranch <> '' then idx := Combo.Items.IndexOf(storedBranch);
   if idx < 0 then idx := Combo.Items.IndexOf('main');
   if idx < 0 then idx := Combo.Items.IndexOf('master');
   if idx < 0 then idx := 0;
