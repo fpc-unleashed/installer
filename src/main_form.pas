@@ -18,6 +18,9 @@ uses
   branch_fetch, branch_cache, install_pipeline, install_manifest, hash_branch, app_settings, ui_page;
 
 const
+  // the dropdowns of the menu bar, in the order they are drawn
+  MENU_DROPS: array[3] of string = ('file', 'repo', 'help');
+
   GH_OWNER     = 'fpc-unleashed';
   REPO_FPC     = 'freepascal';
   REPO_LAZARUS = 'lazarus';
@@ -127,6 +130,7 @@ type
     procedure setStatus(const msg: string);
     procedure log(const msg: string);
     procedure restoreHover;
+    function menuUnderPoint(x, y: Integer): string;
     function logItem: TPixieRenderItem;
     procedure applyLogScroll;
     procedure buildChecks;
@@ -143,6 +147,13 @@ var
 implementation
 
 {$R *.lfm}
+
+function isMenuDrop(const name: string): Boolean;
+begin
+  result := False;
+  for var m in MENU_DROPS do
+    if m = name then exit(True);
+end;
 
 {$ifdef LINUX}
 // Windows takes the icon from the PE .ico via the project .res; gtk2/qt LCL ignores that
@@ -1424,6 +1435,40 @@ procedure TMainForm.viewMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Int
 begin
   FMouseX := X;
   FMouseY := Y;
+
+  // an open menu follows the pointer along the bar, the way a native one does
+  if not isMenuDrop(st.openDrop) then Exit;
+  var over := menuUnderPoint(X, Y);
+  if (over = '') or (over = st.openDrop) or (not isMenuDrop(over)) then Exit;
+  st.openDrop := over;
+  queueRender;
+end;
+
+// which menu head the pointer sits on, '' when none. the dropdowns are the only
+// thing hit-tested here, so their own boxes are enough. AbsolutePos is the
+// content box, which for a button is just its caption: the padding and the
+// border are put back so the whole button counts
+function TMainForm.menuUnderPoint(x, y: Integer): string;
+begin
+  result := '';
+  if view.Document = nil then Exit;
+  var scale := 1.0;
+  if view.Document.Width > 0 then scale := view.ClientWidth/view.Document.Width;
+  if scale <= 0 then scale := 1;
+
+  var vx := x/scale;
+  var vy := y/scale+view.ScrollY;
+  for var name in MENU_DROPS do
+  begin
+    var el := view.Document.GetElementById('drop-'+name);
+    if el = nil then continue;
+    var ri := TPixieRenderItem(el.GetRenderItem);
+    if ri = nil then continue;
+    var box := ri.AbsolutePos;
+    box.AddMargins(ri.GetPaddings);
+    box.AddMargins(ri.GetBorders);
+    if box.IsPointInside(vx, vy) then exit(name);
+  end;
 end;
 
 // a click is the element the button went down on being the one it comes up on,

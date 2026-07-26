@@ -273,8 +273,9 @@ function dropdown(const st: TUiState; const id, act, caption: string; items: TSt
 begin
   var cls := 'dropbtn';
   if not enabled then cls := cls+' off';
-  var head := $'<div class="{cls}">{esc(caption)}<span class="car">&#9662;</span></div>';
-  if enabled then head := $'<div class="{cls}" data-act="drop" data-name="{id}">{esc(caption)}<span class="car">&#9662;</span></div>';
+  // the head carries an id so main_form can tell what the pointer is over
+  var head := $'<div class="{cls}" id="drop-{id}">{esc(caption)}<span class="car">&#9662;</span></div>';
+  if enabled then head := $'<div class="{cls}" id="drop-{id}" data-act="drop" data-name="{id}">{esc(caption)}<span class="car">&#9662;</span></div>';
 
   result := $'<div class="drop">{head}';
   if (not enabled) or (st.openDrop <> id) or (items = nil) then exit(result+'</div>');
