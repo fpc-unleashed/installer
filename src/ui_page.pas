@@ -134,7 +134,7 @@ const
     .btn.flat:hover { background: @hover; border-color: @dim; }
     .cols { flex-grow: 1; min-height: 0; display: flex; padding: 8px; }
     .col { flex-grow: 1; flex-shrink: 1; flex-basis: 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-    .col.left { flex-grow: 0; flex-shrink: 0; flex-basis: 520px; width: 520px; margin-right: 8px; overflow-y: auto; }
+    .col.left { flex-grow: 0; flex-shrink: 0; flex-basis: 528px; width: 528px; padding-right: 8px; overflow-y: auto; }
     .card { background: @panel; border: 1px solid @border; border-radius: 4px; margin-bottom: 8px; }
     .card.logcard { flex-grow: 1; min-height: 0; display: flex; flex-direction: column; margin-bottom: 0; }
     .card h2 { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: @dim; font-weight: 600; margin: 0; padding: 6px 9px; border-bottom: 1px solid @line; }
