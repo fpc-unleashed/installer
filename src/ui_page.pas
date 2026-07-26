@@ -90,6 +90,7 @@ type
 function esc(const s: string): string;
 function sanitize(const s: string): string;
 function barWidth(const st: TUiState): integer;
+function logLinesHtml(log: TStrings): string;
 function buildLogLines(const st: TUiState): string;
 function buildPage(const st: TUiState): string;
 
@@ -444,11 +445,12 @@ begin
 end;
 
 // the lines alone: while an install runs they are the only thing that changes,
-// and main_form drops them straight into the log element
-function buildLogLines(const st: TUiState): string;
+// and main_form drops them straight into the log element. pure string work on
+// a plain list, so a worker thread may run it on a snapshot of the log
+function logLinesHtml(log: TStrings): string;
 begin
   var count := 0;
-  if st.log <> nil then count := st.log.Count;
+  if log <> nil then count := log.Count;
   var first := count-LOG_TAIL;
   if first < 0 then first := 0;
 
@@ -456,7 +458,12 @@ begin
   if count = 0 then result := '<div class="lg make">nothing logged yet</div>';
   if first > 0 then result := result+$'<div class="lg make">... {first} earlier line(s) not shown</div>';
   for var i := first to count-1 do
-    result := result+$'<div class="{logClass(st.log[i])}">{esc(st.log[i])}</div>';
+    result := result+$'<div class="{logClass(log[i])}">{esc(log[i])}</div>';
+end;
+
+function buildLogLines(const st: TUiState): string;
+begin
+  result := logLinesHtml(st.log);
 end;
 
 function buildLog(const st: TUiState): string;

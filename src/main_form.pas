@@ -50,6 +50,8 @@ type
     FFollowLog: Boolean;
     FLogTop: Double;
     FLogRebuilt: Boolean;
+    // a live-update worker is building strings; the next one waits its turn
+    FLiveBusy: Boolean;
     FHoverDirty: Boolean;
     // defaults a fresh target dir starts from, built in and then overwritten
     // by installer_settings.ini
@@ -132,6 +134,7 @@ type
     procedure asyncRender(data: PtrInt);
     procedure render;
     procedure renderLive;
+    procedure applyLive(const linesHtml, statusText: string; percent: integer);
   end;
 
 var
@@ -1452,7 +1455,7 @@ end;
 
 procedure TMainForm.logTimerTimer(Sender: TObject);
 begin
-  if FMouseDown or (not FLogDirty) then Exit;
+  if FMouseDown or FLiveBusy or (not FLogDirty) then Exit;
   FLogDirty := False;
   renderLive;
 end;
@@ -1547,25 +1550,45 @@ end;
 
 // while an install runs only the log, the status and the progress move, and
 // they are written into the page that is already up: a fresh document would
-// drop what the pointer is over and what the log pane is scrolled to
+// drop what the pointer is over and what the log pane is scrolled to. the
+// string building runs on a worker, only the apply comes back to this thread
 procedure TMainForm.renderLive;
 begin
-  var doc := view.Document;
-  if doc = nil then
-  begin
-    render;
-    Exit;
+  if view.Document = nil then begin render; Exit; end;
+  FLiveBusy := True;
+
+  // the log is appended on this thread, so the worker gets its own copy
+  var tail := TStringList.Create;
+  tail.Assign(FLog);
+  var status := st.status;
+  var percent := barWidth(st);
+
+  async begin
+    try
+      var linesHtml := logLinesHtml(tail);
+      var statusText := sanitize(status);
+      sync applyLive(linesHtml, statusText, percent);
+    finally
+      tail.Free;
+      FLiveBusy := False;
+    end;
   end;
+end;
+
+procedure TMainForm.applyLive(const linesHtml, statusText: string; percent: integer);
+begin
+  var doc := view.Document;
+  if FClosing or (doc = nil) then Exit;
 
   doc.BeginUpdate;
   var el := doc.GetElementById('log');
-  if el <> nil then doc.SetInnerHtml(el, buildLogLines(st));
+  if el <> nil then doc.SetInnerHtml(el, linesHtml);
   el := doc.GetElementById('status');
-  if el <> nil then doc.SetElementText(el, sanitize(st.status));
+  if el <> nil then doc.SetElementText(el, statusText);
   el := doc.GetElementById('fill');
   if el <> nil then
   begin
-    el.SetAttr('style', 'width: '+IntToStr(barWidth(st))+'%');
+    el.SetAttr('style', 'width: '+IntToStr(percent)+'%');
     doc.Changed;
   end;
   doc.EndUpdate;
