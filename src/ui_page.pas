@@ -473,7 +473,7 @@ begin
   var right := buildLog(st);
 
   result := $'<html><head><style>{themeCss(st.theme)}</style></head><body data-act="closedrop">'+
-    $'<div class="top"><div class="logo">FPC Unleashed</div><div class="ver">{esc(st.title)}</div></div>'+
+    $'<div class="top"><div class="logo">Unleashed Pascal</div><div class="ver">{esc(st.title)}</div></div>'+
     buildMenu(st)+
     $'<div class="cols"><div class="col left">{left}</div><div class="col">{right}</div></div>'+
     buildBar(st)+buildModal(st)+

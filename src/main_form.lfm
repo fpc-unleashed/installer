@@ -3,7 +3,7 @@ object MainForm: TMainForm
   Height = 767
   Top = 100
   Width = 1100
-  Caption = 'FPC Unleashed Edition Installer'
+  Caption = 'Unleashed Pascal Installer'
   ClientHeight = 767
   ClientWidth = 1100
   Constraints.MinHeight = 560
