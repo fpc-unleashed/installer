@@ -1556,8 +1556,8 @@ begin
   SetLength(st.addons, 5);
   st.addons[0] := check('minimap', 'Minimap', 'source editor side panel', '', FMinimap, ide);
   st.addons[1] := check('cpuview', 'CPU-View', 'debugger', 'https://github.com/AlexanderBagel/CPUView', FCpuView, ide);
-  st.addons[2] := check('metadark', 'MetaDarkStyle', '', 'https://github.com/zamtmn/metadarkstyle', FMetaDark, ide);
-  st.addons[3] := check('helpfiles', 'Help files (CHM)', '', '', FHelpFiles, ide);
+  st.addons[2] := check('metadark', 'MetaDarkStyle', 'dark theme', 'https://github.com/zamtmn/metadarkstyle', FMetaDark, ide);
+  st.addons[3] := check('helpfiles', 'Help files (CHM)', 'help viewer and offline docs', '', FHelpFiles, ide);
   {$ifdef WINDOWS}
   st.addons[4] := check('affinity', 'Toggle Display Affinity', 'hides the IDE from screen capture', '', FToggleAffinity, ide);
   {$else}
