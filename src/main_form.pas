@@ -15,6 +15,7 @@ uses
   Pixie.HtmlView, Pixie.HtmlTag, Pixie.ElTextInput, Pixie.Document, Pixie.Element, Pixie.RenderItem, Pixie.Types, Generics.Collections,
   {$ifdef WINDOWS} Windows, ShellApi, Registry, {$endif}
   {$ifdef LINUX} process, {$endif}
+  {$ifdef LCLGTK2} ctypes, gtk2, gdk2, gdk2x, x, xlib, {$endif}
   branch_fetch, branch_cache, install_pipeline, install_manifest, hash_branch, app_settings, ui_page;
 
 const
@@ -131,6 +132,7 @@ type
     procedure onInstallComplete(Sender: TObject);
     procedure setStatus(const msg: string);
     procedure log(const msg: string);
+    procedure applyWindowTheme;
     procedure restoreHover;
     function menuUnderPoint(x, y: Integer): string;
     function logItem: TPixieRenderItem;
@@ -530,8 +532,8 @@ begin
     'close': Close;
     'quit!': begin FClosing := True; Close; end;
 
-    'themelight': if st.theme <> utLight then begin st.theme := utLight; queueRender; end;
-    'themedark':  if st.theme <> utDark then begin st.theme := utDark; queueRender; end;
+    'themelight': if st.theme <> utLight then begin st.theme := utLight; applyWindowTheme; queueRender; end;
+    'themedark':  if st.theme <> utDark then begin st.theme := utDark; applyWindowTheme; queueRender; end;
 
     'browse': begin
       if SelectDirDialog.Execute then
@@ -1009,6 +1011,8 @@ procedure TMainForm.FormShow(Sender: TObject);
 begin
   if FShowFired then Exit;
   FShowFired := True;
+  // the frame exists only once the window is up
+  applyWindowTheme;
   startBranchFetch;
 end;
 
@@ -1509,6 +1513,55 @@ end;
 procedure TMainForm.viewMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 begin
   FMouseDown := False;
+end;
+
+// the frame around the page belongs to the system, not to the page, so the
+// light/dark switch has to reach it on its own
+procedure TMainForm.applyWindowTheme;
+{$ifdef WINDOWS}
+type
+  TDwmSetWindowAttribute = function(wnd: HWND; attr: DWORD; value: Pointer; size: DWORD): HRESULT; stdcall;
+const
+  // the attribute was 19 on the builds that first carried it (Windows 10
+  // 1809), 20 from 20H1 on. asking with the wrong one just fails
+  DWMWA_DARK_MODE     = 20;
+  DWMWA_DARK_MODE_OLD = 19;
+{$endif}
+begin
+  if not HandleAllocated then Exit;
+
+{$ifdef WINDOWS}
+  var lib := LoadLibrary('dwmapi.dll');
+  if lib = 0 then Exit;
+  try
+    var setAttr := TDwmSetWindowAttribute(GetProcAddress(lib, 'DwmSetWindowAttribute'));
+    if setAttr = nil then Exit;
+    var dark: LongBool := st.theme = utDark;
+    if setAttr(Handle, DWMWA_DARK_MODE, @dark, SizeOf(dark)) <> S_OK then
+      setAttr(Handle, DWMWA_DARK_MODE_OLD, @dark, SizeOf(dark));
+
+    // the attribute alone leaves the caption as it was drawn. of the ways to
+    // ask for it again, this is the one windows 10 answers: SWP_FRAMECHANGED,
+    // RedrawWindow and a resize all leave the old caption up
+    SendMessage(Handle, WM_NCACTIVATE, 0, 0);
+    SendMessage(Handle, WM_NCACTIVATE, 1, 0);
+  finally
+    FreeLibrary(lib);
+  end;
+{$endif}
+
+{$ifdef LCLGTK2}
+  // the decorations are the window manager's, and _GTK_THEME_VARIANT is what
+  // it reads to pick the dark variant of its theme
+  var top := gtk_widget_get_toplevel(PGtkWidget(Handle));
+  if (top = nil) or (top^.window = nil) then Exit;
+
+  var dpy := gdk_x11_drawable_get_xdisplay(PGdkDrawable(top^.window));
+  var xid := GDK_WINDOW_XID(PGdkDrawable(top^.window));
+  var name: string := if st.theme = utDark then 'dark' else 'light';
+  XChangeProperty(dpy, xid, XInternAtom(dpy, '_GTK_THEME_VARIANT', False),
+    XInternAtom(dpy, 'UTF8_STRING', False), 8, PropModeReplace, Pcuchar(PChar(name)), Length(name));
+{$endif}
 end;
 
 // a rebuilt document knows nothing of the pointer, so what it is over would
