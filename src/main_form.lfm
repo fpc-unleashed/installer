@@ -2,10 +2,10 @@ object MainForm: TMainForm
   Left = 300
   Height = 767
   Top = 100
-  Width = 1100
+  Width = 1320
   Caption = 'Unleashed Pascal Installer'
   ClientHeight = 767
-  ClientWidth = 1100
+  ClientWidth = 1320
   Constraints.MinHeight = 560
   Constraints.MinWidth = 880
   KeyPreview = True
@@ -20,7 +20,7 @@ object MainForm: TMainForm
     Left = 0
     Height = 767
     Top = 0
-    Width = 1100
+    Width = 1320
     Align = alClient
     BorderStyle = bsNone
     OnAfterPaint = viewAfterPaint

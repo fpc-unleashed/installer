@@ -50,6 +50,8 @@ type
     FSelfScroll: Boolean;
     // where the pointer is, in client pixels; -1 when it is outside the window
     FMouseX, FMouseY: Integer;
+    // no settings file yet: the window takes its height from what it holds
+    FSizeToContent: Boolean;
     FFetchPending: Integer;
     FShowFired: Boolean;
     FInstalling: Boolean;
@@ -345,11 +347,9 @@ begin
   refreshTarget;
   applyHashesFromBinaryName;
 
-  // stored geometry wins; without it 80% of work area, re-centered vertically
-  if not applyStoredSettings then begin
-    Self.Height := Screen.WorkAreaHeight*80 div 100;
-    Self.Top := Screen.WorkAreaTop+(Screen.WorkAreaHeight-Self.Height) div 2;
-  end;
+  // stored geometry wins; without it the window is sized to its contents once
+  // the first layout says how tall they are
+  FSizeToContent := not applyStoredSettings;
 
   render;
 end;
@@ -1338,6 +1338,22 @@ end;
 
 procedure TMainForm.viewAfterPaint(Sender: TObject);
 begin
+  // how tall the page is is only known after it has been laid out, so the
+  // window is grown to it here, once
+  if FSizeToContent and (view.ContentHeight > 0) then
+  begin
+    FSizeToContent := False;
+    var scale := 1.0;
+    if view.Document.Width > 0 then scale := view.ClientWidth/view.Document.Width;
+    if scale <= 0 then scale := 1;
+
+    var wanted := Round(view.ContentHeight*scale)+(Height-ClientHeight);
+    if wanted > Screen.WorkAreaHeight then wanted := Screen.WorkAreaHeight;
+    if wanted < Constraints.MinHeight then wanted := Constraints.MinHeight;
+    Height := wanted;
+    Top := Screen.WorkAreaTop+(Screen.WorkAreaHeight-Height) div 2;
+  end;
+
   if not FScrollToBottom then Exit;
   FScrollToBottom := False;
   var bottom := view.ContentHeight-view.Height;
