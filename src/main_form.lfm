@@ -25,6 +25,7 @@ object MainForm: TMainForm
     BorderStyle = bsNone
     OnAfterPaint = viewAfterPaint
     OnElementClick = viewElementClick
+    OnMouseMove = viewMouseMove
     OnScrollChanged = viewScrollChanged
     TabOrder = 0
   end

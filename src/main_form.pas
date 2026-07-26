@@ -12,7 +12,7 @@ interface
 
 uses
   Classes, SysUtils, Types, Math, Forms, Controls, Dialogs, Graphics, LCLType, LCLIntf, Clipbrd, ExtCtrls, RegExpr, fileinfo,
-  Pixie.HtmlView, Pixie.HtmlTag, Pixie.ElTextInput, Pixie.Document,
+  Pixie.HtmlView, Pixie.HtmlTag, Pixie.ElTextInput, Pixie.Document, Pixie.Types, Generics.Collections,
   {$ifdef WINDOWS} Windows, ShellApi, Registry, {$endif}
   {$ifdef LINUX} process, {$endif}
   branch_fetch, branch_cache, install_pipeline, install_manifest, hash_branch, app_settings, ui_page;
@@ -36,6 +36,7 @@ type
     function viewElementClick(Sender: TObject; El: TObject): Boolean;
     procedure viewAfterPaint(Sender: TObject);
     procedure viewScrollChanged(Sender: TObject);
+    procedure viewMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure logTimerTimer(Sender: TObject);
     procedure liveTimerTimer(Sender: TObject);
   private
@@ -47,6 +48,8 @@ type
     FFollowLog: Boolean;
     FScrollToBottom: Boolean;
     FSelfScroll: Boolean;
+    // where the pointer is, in client pixels; -1 when it is outside the window
+    FMouseX, FMouseY: Integer;
     FFetchPending: Integer;
     FShowFired: Boolean;
     FInstalling: Boolean;
@@ -110,6 +113,7 @@ type
     procedure onInstallComplete(Sender: TObject);
     procedure setStatus(const msg: string);
     procedure log(const msg: string);
+    procedure restoreHover;
     procedure buildChecks;
     procedure queueRender;
     procedure asyncRender(data: PtrInt);
@@ -332,6 +336,7 @@ begin
   FLaunchAfter := True;
   st.saveLog := True;
   FFollowLog := True;
+  FMouseX := -1;
 
   // with nothing saved yet, the desktop decides
   if systemPrefersDark then st.theme := utDark else st.theme := utLight;
@@ -1335,9 +1340,32 @@ procedure TMainForm.viewAfterPaint(Sender: TObject);
 begin
   if not FScrollToBottom then Exit;
   FScrollToBottom := False;
+  var bottom := view.ContentHeight-view.Height;
+  if bottom < 0 then bottom := 0;
   FSelfScroll := True;
-  view.ScrollY := view.ContentHeight;
+  view.ScrollY := bottom;
   FSelfScroll := False;
+end;
+
+procedure TMainForm.viewMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+begin
+  FMouseX := X;
+  FMouseY := Y;
+end;
+
+// a rebuilt document knows nothing of the pointer, so what it is over would
+// only light up again on the next mouse move: it is told here instead
+procedure TMainForm.restoreHover;
+begin
+  if (view.Document = nil) or (FMouseX < 0) then Exit;
+  var scale := 1.0;
+  if view.Document.Width > 0 then scale := view.ClientWidth/view.Document.Width;
+  if scale <= 0 then scale := 1;
+
+  var vx := Round(FMouseX/scale);
+  var vy := Round(FMouseY/scale);
+  var boxes := autofree TPixiePositionVector.Create;
+  if view.Document.OnMouseOver(vx, vy+view.ScrollY, vx, vy, boxes) then view.Invalidate;
 end;
 
 // a scroll of the user's own decides whether the log keeps being followed
@@ -1442,6 +1470,7 @@ begin
   FSelfScroll := True;
   view.ScrollY := scroll;
   FSelfScroll := False;
+  restoreHover;
 end;
 
 end.
