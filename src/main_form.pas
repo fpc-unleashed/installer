@@ -1167,7 +1167,10 @@ begin
   for var i := 0 to branches.Count-1 do list.Add(branches.Names[i]);
   log('Got '+IntToStr(branches.Count)+' branches for '+repo);
 
-  // priority: pinned (filename) -> manifest -> main -> master -> first
+  // priority: pinned (filename) -> manifest -> what is already selected (the
+  // stored preference on startup, the user's pick on a refetch) -> main ->
+  // master -> first
+  var current := if fpc then st.fpcBranch else st.lazBranch;
   var pinnedBranch := '';
   if fpc then begin
     if FPinnedFpcBranchName <> '' then pinnedBranch := FPinnedFpcBranchName
@@ -1190,6 +1193,7 @@ begin
   var idx := -1;
   if pinnedBranch <> '' then idx := list.IndexOf(pinnedBranch);
   if idx < 0 then if manifestBranch <> '' then idx := list.IndexOf(manifestBranch);
+  if idx < 0 then if current <> '' then idx := list.IndexOf(current);
   if idx < 0 then idx := list.IndexOf('main');
   if idx < 0 then idx := list.IndexOf('master');
   if idx < 0 then idx := 0;
