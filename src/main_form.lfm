@@ -26,7 +26,6 @@ object MainForm: TMainForm
     OnAfterPaint = viewAfterPaint
     OnElementClick = viewElementClick
     OnMouseMove = viewMouseMove
-    OnScrollChanged = viewScrollChanged
     TabOrder = 0
   end
   object SelectDirDialog: TSelectDirectoryDialog

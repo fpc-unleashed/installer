@@ -82,9 +82,15 @@ type
     percent: integer;
     openDrop: string;
     modal: TUiModal;
+    // one pass with the page free to be as tall as it wants, so the first-run
+    // window can be sized to it
+    fitting: boolean;
   end;
 
 function esc(const s: string): string;
+function sanitize(const s: string): string;
+function barWidth(const st: TUiState): integer;
+function buildLogLines(const st: TUiState): string;
 function buildPage(const st: TUiState): string;
 
 implementation
@@ -109,11 +115,11 @@ const
     * { box-sizing: border-box; cursor: default; user-select: none; }
     input, textarea { cursor: text; user-select: text; }
     .log, .lg { user-select: text; }
-    body { margin: 0; padding-bottom: 62px; background: @bg; color: @text; font-family: "Segoe UI", system-ui, sans-serif; font-size: 12px; }
-    .top { display: flex; align-items: center; background: @panel; border-bottom: 1px solid @border; padding: 5px 10px; }
+    body { display: flex; flex-direction: column; height: 100vh; margin: 0; overflow: hidden; background: @bg; color: @text; font-family: "Segoe UI", system-ui, sans-serif; font-size: 12px; }
+    .top { flex-shrink: 0; display: flex; align-items: center; background: @panel; border-bottom: 1px solid @border; padding: 5px 10px; }
     .logo { font-size: 13px; font-weight: 600; color: @accent; margin-right: 10px; }
     .ver { color: @dim; flex-grow: 1; }
-    .menu { display: flex; background: @panel; border-bottom: 1px solid @border; padding: 4px 8px; }
+    .menu { flex-shrink: 0; display: flex; background: @panel; border-bottom: 1px solid @border; padding: 4px 8px; }
     .btn { padding: 3px 9px; margin-right: 4px; border: 1px solid @border; border-radius: 3px; background: @panel; color: @text; white-space: nowrap; }
     .btn:hover { background: @hover; border-color: @dim; }
     .btn:active { background: @hover2; }
@@ -123,10 +129,11 @@ const
     .btn.off:hover { background: @head; border-color: @border; }
     .btn.flat { border-color: @panel; background: @panel; }
     .btn.flat:hover { background: @hover; border-color: @dim; }
-    .cols { display: flex; padding: 8px; }
-    .col { flex-grow: 1; flex-shrink: 1; flex-basis: 0; min-width: 0; }
-    .col.left { flex-grow: 0; flex-shrink: 0; flex-basis: 520px; width: 520px; margin-right: 8px; }
+    .cols { flex-grow: 1; min-height: 0; display: flex; padding: 8px; }
+    .col { flex-grow: 1; flex-shrink: 1; flex-basis: 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+    .col.left { flex-grow: 0; flex-shrink: 0; flex-basis: 520px; width: 520px; margin-right: 8px; overflow-y: auto; }
     .card { background: @panel; border: 1px solid @border; border-radius: 4px; margin-bottom: 8px; }
+    .card.logcard { flex-grow: 1; min-height: 0; display: flex; flex-direction: column; margin-bottom: 0; }
     .card h2 { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: @dim; font-weight: 600; margin: 0; padding: 6px 9px; border-bottom: 1px solid @line; }
     .pad { padding: 7px 9px; }
     .row { display: flex; align-items: flex-start; margin-bottom: 5px; }
@@ -166,7 +173,7 @@ const
     .drop .items div { padding: 3px 7px; border-radius: 3px; }
     .drop .items div:hover { background: @hover; }
     .drop .items div.on { color: @accent; font-weight: 600; }
-    .log { padding: 5px 7px; font-family: Consolas, monospace; font-size: 11px; }
+    .log { flex-grow: 1; min-height: 0; overflow-y: auto; padding: 5px 7px; font-family: Consolas, monospace; font-size: 11px; }
     .lg { padding: 0 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
     .lg.err { color: @bad; }
     .lg.warn2 { color: @warn; }
@@ -174,7 +181,7 @@ const
     .lg.step { color: @ok; }
     .lg.make { color: @dim; }
     .lg.bang { background: @warnbg; color: @warn; font-weight: 600; }
-    .bar { position: fixed; left: 0; right: 0; bottom: 0; background: @panel; border-top: 1px solid @border; padding: 7px 10px; }
+    .bar { flex-shrink: 0; background: @panel; border-top: 1px solid @border; padding: 7px 10px; }
     .bar .line { display: flex; align-items: center; }
     .track { flex-grow: 1; flex-shrink: 1; flex-basis: 0; height: 8px; margin-right: 10px; border-radius: 4px; background: @head; border: 1px solid @border; }
     .fill { height: 6px; border-radius: 3px; background: @accent; }
@@ -184,6 +191,10 @@ const
     .modal h2 { font-size: 12px; text-transform: none; letter-spacing: 0; color: @text; font-weight: 600; margin: 0; padding: 8px 11px; border-bottom: 1px solid @line; }
     .modal .mtext { padding: 11px; color: @muted; }
     .modal .acts { border-top: 1px solid @line; padding: 8px 11px; display: flex; }
+    body.fit { height: auto; overflow: visible; }
+    body.fit .cols { flex-grow: 0; }
+    body.fit .col.left { overflow-y: visible; }
+    body.fit .log { overflow-y: visible; }
     .license { margin: 0 11px 11px 11px; padding: 7px 9px; height: 300px; width: 536px; border: 1px solid @border; border-radius: 3px; background: @input; color: @muted; font-family: Consolas, monospace; font-size: 11px; }
     ''';
 
@@ -431,6 +442,22 @@ begin
   result := 'lg';
 end;
 
+// the lines alone: while an install runs they are the only thing that changes,
+// and main_form drops them straight into the log element
+function buildLogLines(const st: TUiState): string;
+begin
+  var count := 0;
+  if st.log <> nil then count := st.log.Count;
+  var first := count-LOG_TAIL;
+  if first < 0 then first := 0;
+
+  result := '';
+  if count = 0 then result := '<div class="lg make">nothing logged yet</div>';
+  if first > 0 then result := result+$'<div class="lg make">... {first} earlier line(s) not shown</div>';
+  for var i := first to count-1 do
+    result := result+$'<div class="{logClass(st.log[i])}">{esc(st.log[i])}</div>';
+end;
+
 function buildLog(const st: TUiState): string;
 begin
   var saveBox: TUiCheck;
@@ -443,32 +470,27 @@ begin
 
   var count := 0;
   if st.log <> nil then count := st.log.Count;
-  var first := count-LOG_TAIL;
-  if first < 0 then first := 0;
 
-  result := '<div class="card"><h2>log</h2><div class="pad" style="padding-bottom: 0">'+
+  result := '<div class="card logcard"><h2>log</h2><div class="pad" style="padding-bottom: 0">'+
     '<div class="row"><div class="tight">'+checkbox(saveBox)+'</div>'+
     button('copylog', 'Copy', count > 0)+button('clearlog', 'Clear', count > 0)+
-    '</div></div><div class="log">';
+    '</div></div><div class="log" id="log">'+buildLogLines(st)+'</div></div>';
+end;
 
-  if count = 0 then result := result+'<div class="lg make">nothing logged yet</div>';
-  if first > 0 then result := result+$'<div class="lg make">... {first} earlier line(s) not shown</div>';
-  for var i := first to count-1 do
-    result := result+$'<div class="{logClass(st.log[i])}">{esc(st.log[i])}</div>';
-
-  result := result+'</div></div>';
+function barWidth(const st: TUiState): integer;
+begin
+  result := st.percent;
+  if result < 0 then result := 0;
+  if result > 100 then result := 100;
 end;
 
 function buildBar(const st: TUiState): string;
 begin
-  var width := st.percent;
-  if width < 0 then width := 0;
-  if width > 100 then width := 100;
-
+  var width := barWidth(st);
   var install := button('install', st.installLabel, st.canInstall, true);
   result := '<div class="bar"><div class="line">'+
-    $'<div class="track"><div class="fill" style="width: {width}%"></div></div>'+
-    $'<div class="status">{esc(st.status)}</div>{install}'+
+    $'<div class="track"><div class="fill" id="fill" style="width: {width}%"></div></div>'+
+    $'<div class="status" id="status">{esc(st.status)}</div>{install}'+
     button('close', 'Close', true)+
     '</div></div>';
 end;
@@ -489,7 +511,12 @@ begin
   var left := buildTarget(st)+buildRepoCard(st, true)+buildRepoCard(st, false);
   var right := buildLog(st);
 
-  result := $'<html><head><style>{themeCss(st.theme)}</style></head><body data-act="closedrop">'+
+  // the fit pass drops the viewport-tall layout so the page reports the height
+  // it would like to have, which is what the window is then sized to
+  var cls := '';
+  if st.fitting then cls := ' class="fit"';
+
+  result := $'<html><head><style>{themeCss(st.theme)}</style></head><body{cls} data-act="closedrop">'+
     $'<div class="top"><div class="logo">Unleashed Pascal</div><div class="ver">{esc(st.title)}</div></div>'+
     buildMenu(st)+
     $'<div class="cols"><div class="col left">{left}</div><div class="col">{right}</div></div>'+

@@ -12,7 +12,7 @@ interface
 
 uses
   Classes, SysUtils, Types, Math, Forms, Controls, Dialogs, Graphics, LCLType, LCLIntf, Clipbrd, ExtCtrls, RegExpr, fileinfo,
-  Pixie.HtmlView, Pixie.HtmlTag, Pixie.ElTextInput, Pixie.Document, Pixie.Types, Generics.Collections,
+  Pixie.HtmlView, Pixie.HtmlTag, Pixie.ElTextInput, Pixie.Document, Pixie.Element, Pixie.RenderItem, Pixie.Types, Generics.Collections,
   {$ifdef WINDOWS} Windows, ShellApi, Registry, {$endif}
   {$ifdef LINUX} process, {$endif}
   branch_fetch, branch_cache, install_pipeline, install_manifest, hash_branch, app_settings, ui_page;
@@ -35,7 +35,6 @@ type
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     function viewElementClick(Sender: TObject; El: TObject): Boolean;
     procedure viewAfterPaint(Sender: TObject);
-    procedure viewScrollChanged(Sender: TObject);
     procedure viewMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure logTimerTimer(Sender: TObject);
     procedure liveTimerTimer(Sender: TObject);
@@ -44,10 +43,11 @@ type
     FLog: TStringList;
     FLogDirty: Boolean;
     FRenderQueued: Boolean;
-    // the log is followed until the user scrolls away from its end
+    // the log pane scrolls on its own and is followed until the user scrolls
+    // away from its end; the window itself never scrolls
     FFollowLog: Boolean;
-    FScrollToBottom: Boolean;
-    FSelfScroll: Boolean;
+    FLogTop: Double;
+    FLogRebuilt: Boolean;
     FHoverDirty: Boolean;
     // where the pointer is, in client pixels; -1 when it is outside the window
     FMouseX, FMouseY: Integer;
@@ -117,10 +117,13 @@ type
     procedure setStatus(const msg: string);
     procedure log(const msg: string);
     procedure restoreHover;
+    function logItem: TPixieRenderItem;
+    procedure applyLogScroll;
     procedure buildChecks;
     procedure queueRender;
     procedure asyncRender(data: PtrInt);
     procedure render;
+    procedure renderLive;
   end;
 
 var
@@ -1331,7 +1334,6 @@ procedure TMainForm.log(const msg: string);
 begin
   FLog.Add(FormatDateTime('hh:nn:ss', Now)+'# '+msg);
   FLogDirty := True;
-  if FFollowLog then FScrollToBottom := True;
   if not FInstalling then queueRender;
 end;
 
@@ -1351,25 +1353,51 @@ begin
     if wanted < Constraints.MinHeight then wanted := Constraints.MinHeight;
     Height := wanted;
     Top := Screen.WorkAreaTop+(Screen.WorkAreaHeight-Height) div 2;
+    // back to the layout that keeps the page inside the window
+    queueRender;
   end;
 
-  if FScrollToBottom then
-  begin
-    FScrollToBottom := False;
-    var bottom := view.ContentHeight-view.Height;
-    if bottom < 0 then bottom := 0;
-    FSelfScroll := True;
-    view.ScrollY := bottom;
-    FSelfScroll := False;
-  end;
+  // the log pane only has a scroll offset once it has been laid out, which
+  // happens while painting
+  applyLogScroll;
 
-  // a document is laid out while it is painted, so hit-testing it any earlier
-  // than here finds nothing under the pointer
+  // for the same reason nothing can be hit-tested any earlier than here
   if FHoverDirty then
   begin
     FHoverDirty := False;
     restoreHover;
   end;
+end;
+
+function TMainForm.logItem: TPixieRenderItem;
+begin
+  result := nil;
+  if view.Document = nil then Exit;
+  var el := view.Document.GetElementById('log');
+  if el = nil then Exit;
+  result := TPixieRenderItem(el.GetRenderItem);
+end;
+
+// new lines reset the pane to its top, so after a rebuild it is put back where
+// it was, or at its end while the log is followed. every other paint is where a
+// wheel of the user's own is noticed, there being no event for it
+procedure TMainForm.applyLogScroll;
+begin
+  var ri := logItem;
+  if ri = nil then Exit;
+
+  if not FLogRebuilt then
+  begin
+    FLogTop := ri.GetScrollTop;
+    FFollowLog := not ri.IsVScrollable(24);
+    Exit;
+  end;
+
+  FLogRebuilt := False;
+  var want := FLogTop;
+  if FFollowLog then want := 1000000;
+  if ri.VScroll(want-ri.GetScrollTop) <> 0 then view.Invalidate;
+  FLogTop := ri.GetScrollTop;
 end;
 
 procedure TMainForm.viewMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
@@ -1393,18 +1421,11 @@ begin
   if view.Document.OnMouseOver(vx, vy+view.ScrollY, vx, vy, boxes) then view.Invalidate;
 end;
 
-// a scroll of the user's own decides whether the log keeps being followed
-procedure TMainForm.viewScrollChanged(Sender: TObject);
-begin
-  if FSelfScroll then Exit;
-  FFollowLog := view.ScrollY >= view.ContentHeight-view.Height-8;
-end;
-
 procedure TMainForm.logTimerTimer(Sender: TObject);
 begin
   if not FLogDirty then Exit;
   FLogDirty := False;
-  render;
+  renderLive;
 end;
 
 // the tick boxes are rebuilt from the flags they mirror, so the page and the
@@ -1463,8 +1484,7 @@ begin
   buildChecks;
   st.installing := FInstalling;
   st.canInstall := (FFetchPending = 0) and (not FInstalling);
-
-  var scroll := view.ScrollY;
+  st.fitting := FSizeToContent;
 
   // the rebuild throws the old document away, so where the caret was sitting
   // has to be carried over by hand
@@ -1492,9 +1512,36 @@ begin
       TBoxAccess(box).FCaretPos := caret;
     end;
   end;
-  FSelfScroll := True;
-  view.ScrollY := scroll;
-  FSelfScroll := False;
+  FLogRebuilt := True;
+  FHoverDirty := True;
+end;
+
+// while an install runs only the log, the status and the progress move, and
+// they are written into the page that is already up: a fresh document would
+// drop what the pointer is over and what the log pane is scrolled to
+procedure TMainForm.renderLive;
+begin
+  var doc := view.Document;
+  if doc = nil then
+  begin
+    render;
+    Exit;
+  end;
+
+  doc.BeginUpdate;
+  var el := doc.GetElementById('log');
+  if el <> nil then doc.SetInnerHtml(el, buildLogLines(st));
+  el := doc.GetElementById('status');
+  if el <> nil then doc.SetElementText(el, sanitize(st.status));
+  el := doc.GetElementById('fill');
+  if el <> nil then
+  begin
+    el.SetAttr('style', 'width: '+IntToStr(barWidth(st))+'%');
+    doc.Changed;
+  end;
+  doc.EndUpdate;
+
+  FLogRebuilt := True;
   FHoverDirty := True;
 end;
 
