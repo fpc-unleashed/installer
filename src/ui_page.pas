@@ -82,6 +82,8 @@ type
     percent: integer;
     openDrop: string;
     modal: TUiModal;
+    // an install that finished leaves the bar full and green
+    done: boolean;
     // one pass with the page free to be as tall as it wants, so the first-run
     // window can be sized to it
     fitting: boolean;
@@ -99,17 +101,17 @@ implementation
 const
   // every colour is a token the theme fills in. longer tokens come first, so
   // that "@accent" does not eat the front of "@accentsoft"
-  TOKENS: array[24] of string = (
+  TOKENS: array[26] of string = (
     '@accentsoft', '@accent2', '@accent', '@onaccent', '@bg', '@panel', '@border', '@line', '@text', '@muted',
-    '@dim', '@hover2', '@hover', '@rowhover', '@head2', '@head', '@input', '@ok', '@okbg', '@warn', '@warnbg', '@bad', '@badbg', '@navy');
+    '@dim', '@hover2', '@hover', '@rowhover', '@head2', '@head', '@input', '@track', '@okfill', '@ok', '@okbg', '@warn', '@warnbg', '@bad', '@badbg', '@navy');
 
-  LIGHT: array[24] of string = (
+  LIGHT: array[26] of string = (
     '#eef0ff', '#3730a3', '#4f46e5', '#ffffff', '#eef1f5', '#ffffff', '#dfe3e8', '#f0f2f5', '#1f2430', '#5b6472',
-    '#9aa1ab', '#c3ccdb', '#dbe2ec', '#eaeef4', '#e9ecf1', '#f6f7f9', '#ffffff', '#047857', '#ecfdf5', '#b45309', '#fff7ed', '#b91c1c', '#fef2f2', '#1d4ed8');
+    '#9aa1ab', '#c3ccdb', '#dbe2ec', '#eaeef4', '#e9ecf1', '#f6f7f9', '#ffffff', '#c5ccd6', '#16a34a', '#047857', '#ecfdf5', '#b45309', '#fff7ed', '#b91c1c', '#fef2f2', '#1d4ed8');
 
-  DARK: array[24] of string = (
+  DARK: array[26] of string = (
     '#272c3d', '#a5b4fc', '#818cf8', '#14161a', '#14161a', '#1c1f26', '#2c313b', '#23272f', '#e5e7eb', '#a5adb9',
-    '#6f7885', '#4b5566', '#3a4454', '#2a303b', '#2b323d', '#21252d', '#14161a', '#34d399', '#12291f', '#fbbf24', '#2a2113', '#f87171', '#2c1618', '#93b4ff');
+    '#6f7885', '#4b5566', '#3a4454', '#2a303b', '#2b323d', '#21252d', '#14161a', '#39414f', '#3fbf7f', '#34d399', '#12291f', '#fbbf24', '#2a2113', '#f87171', '#2c1618', '#93b4ff');
 
   CSS =
     '''
@@ -187,8 +189,9 @@ const
     .lg.bang { background: @warnbg; color: @warn; font-weight: 600; }
     .bar { flex-shrink: 0; background: @panel; border-top: 1px solid @border; padding: 7px 10px; }
     .bar .line { display: flex; align-items: center; }
-    .track { flex-grow: 1; flex-shrink: 1; flex-basis: 0; height: 8px; margin-right: 10px; border-radius: 4px; background: @head; border: 1px solid @border; }
+    .track { flex-grow: 1; flex-shrink: 1; flex-basis: 0; height: 8px; margin-right: 10px; border-radius: 4px; background: @track; border: 1px solid @border; }
     .fill { height: 6px; border-radius: 3px; background: @accent; }
+    .fill.ok { background: @okfill; }
     .status { flex-shrink: 0; width: 360px; margin-right: 10px; color: @muted; text-align: right; white-space: nowrap; overflow: hidden; }
     .overlay { position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 20; background: rgba(0, 0, 0, 0.35); }
     .modal { width: 560px; margin: 70px auto 0 auto; background: @panel; border: 1px solid @border; border-radius: 4px; }
@@ -501,9 +504,11 @@ end;
 function buildBar(const st: TUiState): string;
 begin
   var width := barWidth(st);
+  var fill := 'fill';
+  if st.done then fill := 'fill ok';
   var install := button('install', st.installLabel, st.canInstall, true);
   result := '<div class="bar"><div class="line">'+
-    $'<div class="track"><div class="fill" id="fill" style="width: {width}%"></div></div>'+
+    $'<div class="track"><div class="{fill}" id="fill" style="width: {width}%"></div></div>'+
     $'<div class="status" id="status">{esc(st.status)}</div>{install}'+
     button('close', 'Close', true)+
     '</div></div>';

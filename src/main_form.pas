@@ -1289,6 +1289,7 @@ begin
   FInstalling := True;
   setInputsEnabled(False);
   st.percent := 0;
+  st.done := False;
   // the pipeline logs faster than the page can be laid out, so during an install
   // the redraw runs on a timer instead of once per line
   logTimer.Enabled := True;
@@ -1320,6 +1321,8 @@ begin
   if T.Success then begin
     log('=== INSTALL OK ===');
     setStatus('Done');
+    st.done := True;
+    st.percent := 100;
     if FInstalledLazarus and FLaunchAfter then launchInstalledIde;
   end else begin
     log('=== INSTALL FAILED: '+T.ErrorMsg+' ===');
