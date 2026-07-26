@@ -153,9 +153,11 @@ const
     .chk.off { color: @dim; }
     .chk.off .box { border-color: @border; background: @head; }
     .chk.off.on .box { border-color: @dim; background: @dim; color: @panel; }
-    .chk .hint { color: @dim; margin-left: 6px; }
+    .chk .cap { flex-shrink: 0; min-width: 158px; padding-right: 8px; white-space: nowrap; }
+    .chk .hint { color: @dim; }
+    .chk .hint + .lnk { margin-left: 6px; }
     .tight { flex-grow: 1; flex-shrink: 1; min-width: 0; margin-right: 10px; white-space: nowrap; }
-    .lnk { color: @navy; margin-left: 6px; }
+    .lnk { color: @navy; }
     .lnk:hover { color: @accent; }
     .mode { padding: 4px 9px; color: @muted; }
     .mode.bad { color: @bad; }
@@ -298,7 +300,10 @@ begin
   if c.hint <> '' then tail := $'<span class="hint">{esc(c.hint)}</span>';
   if c.link <> '' then tail := tail+$'<span class="lnk" data-act="url" data-name="{esc(c.link)}">{esc(c.link)}</span>';
 
-  var body := $'<div class="box">{mark}</div><div>{esc(c.caption)}{tail}</div>';
+  // the caption sits in a column of its own so the hints and the links of a
+  // list start at the same place
+  var body := $'<div class="box">{mark}</div><div class="cap">{esc(c.caption)}</div>';
+  if tail <> '' then body := body+$'<div>{tail}</div>';
   if not c.enabled then exit($'<div class="{cls}">{body}</div>');
   result := $'<div class="{cls}" data-act="{c.act}">{body}</div>';
 end;
