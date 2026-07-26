@@ -460,6 +460,21 @@ const
     '  </Debugger>'#13#10 +
     '</CONFIG>'#13#10;
 
+  // Editor defaults that differ from stock Lazarus. mbaSelectColumn puts
+  // block selection on the middle mouse button (stock: paste). Written
+  // only when the file is absent so a re-install keeps the user's fonts
+  // and colour scheme.
+  EDITOR_OPTIONS: string =
+    '<?xml version="1.0" encoding="UTF-8"?>'#13#10 +
+    '<CONFIG>'#13#10 +
+    '  <EditorOptions Version="13">'#13#10 +
+    '    <Misc MultiCaretOnColumnSelect="True"/>'#13#10 +
+    '    <Mouse>'#13#10 +
+    '      <Default Version="1" TextMiddleClick="mbaSelectColumn"/>'#13#10 +
+    '    </Mouse>'#13#10 +
+    '  </EditorOptions>'#13#10 +
+    '</CONFIG>'#13#10;
+
 constructor TInstallThread.Create(const Cfg: TInstallConfig;
   ALog: TInstallLogEvent; AProgress: TInstallProgressEvent;
   AOnTerminate: TNotifyEvent);
@@ -2555,6 +2570,14 @@ begin
   Log('Writing ' + LazarusPcp + '\debuggeroptions.xml');
   if not WriteConfigFile(IncludeTrailingPathDelimiter(LazarusPcp) +
     'debuggeroptions.xml', DEBUGGER_OPTIONS) then Exit;
+
+  var EditorOptPath := IncludeTrailingPathDelimiter(LazarusPcp) + 'editoroptions.xml';
+  if FileExists(EditorOptPath) then
+    Log('editoroptions.xml already present, leaving it alone')
+  else begin
+    Log('Writing ' + LazarusPcp + '\editoroptions.xml');
+    if not WriteConfigFile(EditorOptPath, EDITOR_OPTIONS) then Exit;
+  end;
 
   Result := True;
 end;
