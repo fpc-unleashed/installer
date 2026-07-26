@@ -378,7 +378,7 @@ begin
   CheckBoxCrossLinux64.Enabled := False;
   CheckBoxCrossLinux64.Checked := False;
   CheckBoxCrossLinux64.Caption := 'x86_64-linux (native)';
-  EditTargetDir.Text := IncludeTrailingPathDelimiter(GetEnvironmentVariable('HOME'))+'fpcunleashed';
+  EditTargetDir.Text := IncludeTrailingPathDelimiter(GetEnvironmentVariable('HOME'))+'unleashed';
   // Toggle Display Affinity uses Set/GetWindowDisplayAffinity (user32). Package's Register is {$ifdef WINDOWS} so no-op on linux
   CheckBoxToggleAffinity.Enabled := False;
   CheckBoxToggleAffinity.Checked := False;
@@ -387,7 +387,7 @@ begin
   CheckBoxCrossWin64.Enabled := False;
   CheckBoxCrossWin64.Checked := False;
   CheckBoxCrossWin64.Caption := 'x86_64-win64 (native)';
-  EditTargetDir.Text := 'C:\fpcunleashed';
+  EditTargetDir.Text := 'C:\unleashed';
   {$endif}
   // per-child DoubleBuffered; form-level only covers background, each child HWND otherwise paints direct to screen
   SetDoubleBufferedRecursive(Self);
