@@ -121,7 +121,7 @@ const
     .top { flex-shrink: 0; display: flex; align-items: center; background: @panel; border-bottom: 1px solid @border; padding: 5px 10px; }
     .logo { font-size: 13px; font-weight: 600; color: @accent; margin-right: 10px; }
     .ver { color: @dim; flex-grow: 1; }
-    .menu { flex-shrink: 0; display: flex; background: @panel; border-bottom: 1px solid @border; padding: 4px 8px; }
+    .menu { flex-shrink: 0; display: flex; align-items: center; background: @panel; border-bottom: 1px solid @border; padding: 4px 8px; }
     .btn { padding: 3px 9px; margin-right: 4px; border: 1px solid @border; border-radius: 3px; background: @panel; color: @text; white-space: nowrap; }
     .btn:hover { background: @hover; border-color: @dim; }
     .btn:active { background: @hover2; }
@@ -167,12 +167,13 @@ const
     .dropbtn { padding: 3px 9px; border: 1px solid @border; border-radius: 3px; background: @panel; white-space: nowrap; }
     .dropbtn:hover { background: @hover; border-color: @dim; }
     .dropbtn.off { color: @dim; background: @head; }
-    .seg { display: flex; align-items: center; padding: 1px; border: 1px solid @border; border-radius: 3px; background: @head; }
-    .seg .opt { padding: 2px 10px; border-radius: 2px; color: @muted; }
+    .seg { display: flex; border: 1px solid @dim; border-radius: 12px; background: @head; }
+    .seg .opt { min-width: 56px; padding: 3px 12px; text-align: center; color: @muted; }
+    .seg .opt.l { border-radius: 11px 0 0 11px; }
+    .seg .opt.r { border-radius: 0 11px 11px 0; }
     .seg .opt:hover { background: @hover; color: @text; }
     .seg .opt.on { background: @accent; color: @onaccent; font-weight: 600; }
     .seg .opt.on:hover { background: @accent; color: @onaccent; }
-    .seg .sep { color: @dim; }
     .car { color: @dim; margin-left: 6px; }
     .drop .items { position: absolute; z-index: 30; width: 240px; margin-top: 2px; padding: 3px; background: @panel; border: 1px solid @border; border-radius: 3px; }
     .drop .items div { padding: 3px 7px; border-radius: 3px; }
@@ -370,9 +371,10 @@ begin
   var darkCls := '';
   if st.theme = utDark then darkCls := ' on' else lightCls := ' on';
 
-  var seg := $'<div class="seg"><div class="opt{lightCls}" data-act="themelight">Light</div>'+
-    '<div class="sep">|</div>'+
-    $'<div class="opt{darkCls}" data-act="themedark">Dark</div></div>';
+  // one pill split in two: each half rounds only on the side it owns, so they
+  // meet flat in the middle and fill the whole control
+  var seg := $'<div class="seg"><div class="opt l{lightCls}" data-act="themelight">Light</div>'+
+    $'<div class="opt r{darkCls}" data-act="themedark">Dark</div></div>';
 
   result := '<div class="menu">'+
     dropdown(st, 'file', 'menufile', 'File', files, '', true)+
