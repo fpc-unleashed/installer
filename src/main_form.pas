@@ -1154,13 +1154,18 @@ var
   cfg: TInstallConfig;
 begin
   if FInstalling then Exit;
-  // belt-and-braces: the button is dead while these hold, but a stale click could still land here
-  if FFolderError then Exit;
-  if FShortcutError then Exit;
+  if FFolderError then begin
+    note('Nothing to install into', st.mode);
+    Exit;
+  end;
+  if FShortcutError then begin
+    note('Pick a shortcut', LAUNCH_WARN_MSG);
+    Exit;
+  end;
 
   cfg.TargetDir := Trim(st.targetDir);
   if cfg.TargetDir = '' then begin
-    log('install dir is empty');
+    note('Nothing to install into', 'No target directory selected.');
     Exit;
   end;
 
@@ -1352,7 +1357,7 @@ procedure TMainForm.render;
 begin
   buildChecks;
   st.installing := FInstalling;
-  st.canInstall := (FFetchPending = 0) and (not FInstalling) and (not FFolderError) and (not FShortcutError);
+  st.canInstall := (FFetchPending = 0) and (not FInstalling);
 
   var atBottom := view.ScrollY >= view.ContentHeight-view.Height-4;
   var scroll := view.ScrollY;
