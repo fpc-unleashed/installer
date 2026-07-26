@@ -38,7 +38,6 @@ object MainForm: TMainForm
     Width = 740
     BorderStyle = bsNone
     OnAfterPaint = logViewAfterPaint
-    OnScrollChanged = logViewScrollChanged
     TabOrder = 1
   end
   object SelectDirDialog: TSelectDirectoryDialog

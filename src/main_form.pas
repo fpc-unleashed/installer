@@ -45,7 +45,6 @@ type
     procedure viewMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure viewMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure logViewAfterPaint(Sender: TObject);
-    procedure logViewScrollChanged(Sender: TObject);
     procedure logTimerTimer(Sender: TObject);
     procedure liveTimerTimer(Sender: TObject);
   private
@@ -57,9 +56,6 @@ type
     FRenderQueued: Boolean;
     // the log view scrolls on its own; whether its end is followed is the
     // Autoscroll box in st. the window itself never scrolls
-    FLogBottom: Double;
-    FLastScrollY: Double;
-    FSelfScroll: Boolean;
     // a live-update worker is building strings; the next one waits its turn
     FLiveBusy: Boolean;
     FHoverDirty: Boolean;
@@ -1487,16 +1483,13 @@ begin
   ri.VScroll(top);
 end;
 
-// puts the log at its end without that counting as a scroll of the user's own
+// puts the log at its end
 procedure TMainForm.followLogEnd;
 begin
   if logView.Document = nil then Exit;
   var bottom := logViewBottom;
-  FLogBottom := bottom;
   if Abs(logView.ScrollY-bottom) < 0.5 then Exit;
-  FSelfScroll := True;
   logView.ScrollY := bottom;
-  FSelfScroll := False;
   logView.Invalidate;
 end;
 
@@ -1797,7 +1790,6 @@ begin
   var prevWidth := 0.0;
   if logView.Document <> nil then prevWidth := logView.Document.Width;
 
-  FSelfScroll := True;
   logView.LoadFromString(buildLogDoc(st.theme, linesHtml));
   if (logView.Document <> nil) and (prevWidth > 0) then
   begin
@@ -1807,7 +1799,6 @@ begin
     if want > logViewBottom then want := logViewBottom;
     logView.ScrollY := want;
   end;
-  FSelfScroll := False;
 end;
 
 procedure TMainForm.renderLog;
@@ -1820,22 +1811,7 @@ end;
 // document and every resize
 procedure TMainForm.logViewAfterPaint(Sender: TObject);
 begin
-  if st.autoScroll then followLogEnd else FLogBottom := logViewBottom;
-  FLastScrollY := logView.ScrollY;
-end;
-
-// the Autoscroll box follows what the user does with the log: it goes off when
-// they scroll back up and on again when they reach the end. only a scroll that
-// moves upwards counts as theirs - a taller document and a resized view are
-// both reported as scrolls too, and neither means they have left the end
-procedure TMainForm.logViewScrollChanged(Sender: TObject);
-begin
-  if FSelfScroll then Exit;
-  var was := st.autoScroll;
-  if logView.ScrollY < FLastScrollY-0.5 then st.autoScroll := False;
-  if logView.ScrollY >= logViewBottom-8 then st.autoScroll := True;
-  FLastScrollY := logView.ScrollY;
-  if was <> st.autoScroll then queueRender;
+  if st.autoScroll then followLogEnd;
 end;
 
 end.
