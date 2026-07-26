@@ -351,10 +351,10 @@ begin
   // host-native target cannot be cross-built: it is the build itself
   {$ifdef LINUX}
   FNativeLinux64 := True;
-  st.targetDir := IncludeTrailingPathDelimiter(GetEnvironmentVariable('HOME'))+'fpcunleashed';
+  st.targetDir := IncludeTrailingPathDelimiter(GetEnvironmentVariable('HOME'))+'unleashed';
   {$else}
   FNativeWin64 := True;
-  st.targetDir := 'C:\fpcunleashed';
+  st.targetDir := 'C:\unleashed';
   {$endif}
 
   // what a fresh install looks like before installer_settings.ini says otherwise
