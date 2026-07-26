@@ -93,8 +93,9 @@ type
     isLazMakelazbuild,  // 80..84   make lazbuild prereqs
     isLazComponents,    // 84..85   download + extract optional addon zips
     isLazPackages,      // 85..89   N x lazbuild --add-package
-    isLazIde,           // 89..97   lazbuild --build-ide
-    isLazConfig,        // 97..98   write env opts + ack files
+    isLazIde,           // 89..96   lazbuild --build-ide
+    isLazConfig,        // 96..97   write env opts + ack files
+    isHelp,             // 97..98   lhelp viewer build
     isShortcut,         // 98..99   desktop shortcut
     isDone);            // 100
 
@@ -159,6 +160,8 @@ type
     procedure UnregisterIdePackage(const PkgName: string);
     function StepDownloadLazarusSource: Boolean;
     function StepBuildLazarus: Boolean;
+    function stepBuildLHelp: Boolean;
+    procedure runHelpSteps;
     function StepGenerateLazarusConfig: Boolean;
     function StepCreateShortcuts: Boolean;
     function ResolveLazarusRef: string;
@@ -371,15 +374,16 @@ const
     84,   // isLazMakelazbuild
     85,   // isLazComponents
     89,   // isLazPackages
-    97,   // isLazIde
-    98,   // isLazConfig
+    96,   // isLazIde
+    97,   // isLazConfig
+    98,   // isHelp
     99,   // isShortcut
     100); // isDone
 
   STAGE_NAME: array[TInstallStage] of string = (
     'init', 'cleaning previous build', 'bootstrap FPC 3.2.2', 'fpc-unleashed source', 'building native FPC', 'building utils', 'installing FPC', 'fpc.cfg', 'building i386 cross compiler',
     'building wasm cross compiler', 'building x86_64-linux cross compiler', 'building i386-linux cross compiler', 'lazarus source',
-    'building lazbuild + LCL', 'fetching addon components', 'registering Lazarus packages', 'building Lazarus IDE', 'writing IDE config', 'desktop shortcut', 'done');
+    'building lazbuild + LCL', 'fetching addon components', 'registering Lazarus packages', 'building Lazarus IDE', 'writing IDE config', 'help', 'desktop shortcut', 'done');
 
 const
   // baked minimal Lazarus environmentoptions.xml. Version 112 / Lazarus
@@ -2228,6 +2232,43 @@ begin
   Result := True;
 end;
 
+// Build lhelp, the standalone CHM viewer that chmhelppkg spawns for F1.
+// Upstream gets it from `make bigide`; our lazbuild path never reaches
+// that target, so the IDE would carry the help integration with nothing
+// behind it. The IDE can build lhelp itself on first F1, but only when
+// the install dir is writable and the user waits through it.
+function TInstallThread.stepBuildLHelp: Boolean;
+begin
+  result := False;
+  var lhelpDir := IncludeTrailingPathDelimiter(LazarusDir)+'components'+DirectorySeparator+'chmhelp'+DirectorySeparator+'lhelp'+DirectorySeparator;
+  if not FileExists(lhelpDir+'lhelp.lpi') then begin
+    FErrorMsg := 'lhelp.lpi not found at '+lhelpDir;
+    exit;
+  end;
+  if FileExists(lhelpDir+'lhelp'+ExeExt) then begin
+    Log('lhelp already built, skipping');
+    exit(True);
+  end;
+  // lhelp.lpi requires TurboPowerIPro, which is not in the IDE package
+  // set; register it link-only or lazbuild fails to resolve the dep.
+  if not AddPackage('components'+DirectorySeparator+'turbopower_ipro'+DirectorySeparator+'turbopoweripro.lpk', True) then exit;
+  result := RunLazbuild([lhelpDir+'lhelp.lpi'], 'lazbuild lhelp (CHM help viewer)');
+end;
+
+// Help viewer, optional: a failure is logged and the pipeline carries on.
+// Runs ahead of StepCreateShortcuts so the yellow "start the IDE from the
+// shortcut" banner stays the last thing in the log.
+procedure TInstallThread.runHelpSteps;
+begin
+  if not FCfg.InstallLazarus then exit;
+  if not FileExists(IncludeTrailingPathDelimiter(LazarusDir)+'lazarus'+ExeExt) then exit;
+  SetStage(isHelp);
+  if not stepBuildLHelp then begin
+    Log('WARNING: help viewer not built: '+FErrorMsg);
+    FErrorMsg := '';
+  end;
+end;
+
 // Edit Lazarus's miscellaneousoptions.xml + packagefiles.xml in-place
 // to drop the named package's registration. After this and a
 // `lazbuild --build-ide`, the resulting IDE binary no longer statically
@@ -3055,6 +3096,7 @@ begin
       if not StepBuildLazarus then Exit;
       SetStage(isLazConfig);
       if not StepGenerateLazarusConfig then Exit;
+      runHelpSteps;
       SetStage(isShortcut);
       if not StepCreateShortcuts then Exit;
     end
@@ -3074,6 +3116,8 @@ begin
       end
       else
         Log('lazarus already built at <target>\lazarus, no addon delta, skipping');
+      // update run: no shortcut step here, so help closes the log
+      runHelpSteps;
     end
     else
       Log('skipping Lazarus IDE (not selected)');
