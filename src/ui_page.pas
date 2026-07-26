@@ -149,7 +149,7 @@ const
     .chk { display: flex; align-items: flex-start; padding: 2px 3px; margin-bottom: 2px; border-radius: 2px; }
     .chk:hover { background: @rowhover; }
     .chk.off:hover { background: transparent; }
-    .chk .box { width: 13px; height: 13px; margin: 2px 7px 0 0; border: 1px solid @dim; border-radius: 2px; background: @input; color: @onaccent; text-align: center; font-size: 10px; }
+    .chk .box { width: 13px; height: 13px; margin: 2px 7px 0 0; border: 1px solid @dim; border-radius: 2px; background: @input; color: @onaccent; text-align: center; font-size: 10px; line-height: 11px; }
     .chk.on .box { background: @accent; border-color: @accent; }
     .chk.off { color: @dim; }
     .chk.off .box { border-color: @border; background: @head; }
