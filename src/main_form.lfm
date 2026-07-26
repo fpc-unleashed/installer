@@ -3,14 +3,13 @@ object MainForm: TMainForm
   Height = 767
   Top = 100
   Width = 918
-  Caption = 'FPC Unleashed Edition Installer'
+  Caption = 'Unleashed Pascal Installer'
   ClientHeight = 767
   ClientWidth = 918
   DoubleBuffered = True
   Menu = MainMenu1
   ParentDoubleBuffered = False
   Position = poScreenCenter
-  Scaled = True
   LCLVersion = '4.99.0.0'
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
