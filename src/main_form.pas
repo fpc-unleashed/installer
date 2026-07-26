@@ -35,6 +35,7 @@ type
     liveTimer: TTimer;
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
+    procedure FormResize(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
@@ -1025,6 +1026,14 @@ begin
   // the frame exists only once the window is up
   applyWindowTheme;
   startBranchFetch;
+end;
+
+// `vh` is turned into pixels while the styles are computed, so the page keeps
+// the height of the window it was built for until it is built again
+procedure TMainForm.FormResize(Sender: TObject);
+begin
+  if FClosing or FSizeToContent then Exit;
+  queueRender;
 end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
