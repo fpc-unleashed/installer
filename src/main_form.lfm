@@ -25,7 +25,9 @@ object MainForm: TMainForm
     BorderStyle = bsNone
     OnAfterPaint = viewAfterPaint
     OnElementClick = viewElementClick
+    OnMouseDown = viewMouseDown
     OnMouseMove = viewMouseMove
+    OnMouseUp = viewMouseUp
     TabOrder = 0
   end
   object SelectDirDialog: TSelectDirectoryDialog

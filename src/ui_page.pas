@@ -151,6 +151,7 @@ const
     .chk.on .box { background: @accent; border-color: @accent; }
     .chk.off { color: @dim; }
     .chk.off .box { border-color: @border; background: @head; }
+    .chk.off.on .box { border-color: @dim; background: @dim; color: @panel; }
     .chk .hint { color: @dim; margin-left: 6px; }
     .tight { flex-grow: 1; flex-shrink: 1; min-width: 0; margin-right: 10px; white-space: nowrap; }
     .lnk { color: @navy; margin-left: 6px; }

@@ -36,6 +36,8 @@ type
     function viewElementClick(Sender: TObject; El: TObject): Boolean;
     procedure viewAfterPaint(Sender: TObject);
     procedure viewMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+    procedure viewMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+    procedure viewMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure logTimerTimer(Sender: TObject);
     procedure liveTimerTimer(Sender: TObject);
   private
@@ -51,6 +53,7 @@ type
     FHoverDirty: Boolean;
     // where the pointer is, in client pixels; -1 when it is outside the window
     FMouseX, FMouseY: Integer;
+    FMouseDown: Boolean;
     // no settings file yet: the window takes its height from what it holds
     FSizeToContent: Boolean;
     FFetchPending: Integer;
@@ -1406,6 +1409,18 @@ begin
   FMouseY := Y;
 end;
 
+// a click is the element the button went down on being the one it comes up on,
+// so no update may touch the page in between: it would drop the click
+procedure TMainForm.viewMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  FMouseDown := True;
+end;
+
+procedure TMainForm.viewMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  FMouseDown := False;
+end;
+
 // a rebuilt document knows nothing of the pointer, so what it is over would
 // only light up again on the next mouse move: it is told here instead
 procedure TMainForm.restoreHover;
@@ -1423,7 +1438,7 @@ end;
 
 procedure TMainForm.logTimerTimer(Sender: TObject);
 begin
-  if not FLogDirty then Exit;
+  if FMouseDown or (not FLogDirty) then Exit;
   FLogDirty := False;
   renderLive;
 end;
