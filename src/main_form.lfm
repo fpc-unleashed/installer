@@ -456,14 +456,14 @@ object MainForm: TMainForm
       TabOrder = 1
       object Panel6: TPanel
         Left = 10
-        Height = 141
+        Height = 160
         Top = 104
         Width = 293
         Align = alTop
         AutoSize = True
         BorderSpacing.Around = 10
         BevelOuter = bvNone
-        ClientHeight = 141
+        ClientHeight = 160
         ClientWidth = 293
         TabOrder = 0
         object LabelLazarusAddons: TLabel
@@ -549,10 +549,22 @@ object MainForm: TMainForm
           TabOrder = 1
           OnChange = OnAddonOrCrossChange
         end
+        object CheckBoxHelpFiles: TCheckBox
+          Left = 0
+          Height = 19
+          Top = 131
+          Width = 293
+          Align = alTop
+          Caption = 'Help files (CHM documentation, ~31 MB)'
+          Checked = True
+          State = cbChecked
+          TabOrder = 4
+          OnChange = OnAddonOrCrossChange
+        end
         object Bevel2: TBevel
           Left = 0
           Height = 10
-          Top = 131
+          Top = 150
           Width = 293
           Align = alTop
           Shape = bsBottomLine

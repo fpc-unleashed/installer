@@ -32,6 +32,9 @@ type
     InstallToggleAffinity: Boolean;
     // MetaDarkStyle (runtime) + metadarkstyledsgn (design-time), travel together
     InstallMetaDarkStyle: Boolean;
+    // CHM documentation present in <lazarus>\docs\chm; recorded from disk
+    // state, not from the checkbox, so a failed download does not claim it
+    InstallHelpFiles: Boolean;
     // last launch-after-install state, restored to checkbox on re-run
     LaunchAfter: Boolean;
     // which IDE launch shortcuts were created (at least one is required by the UI)
@@ -100,6 +103,7 @@ begin
   Result.InstallCPUView := StrToBoolDefSafe(Lines.Values['extras-cpuview'], False);
   Result.InstallToggleAffinity := StrToBoolDefSafe(Lines.Values['extras-toggle-affinity'], False);
   Result.InstallMetaDarkStyle  := StrToBoolDefSafe(Lines.Values['extras-metadarkstyle'], False);
+  Result.InstallHelpFiles      := StrToBoolDefSafe(Lines.Values['help-chm'], False);
   Result.LaunchAfter  := StrToBoolDefSafe(Lines.Values['launch-after-install'], True);
   // legacy installs always made a desktop shortcut -> default True; folder shortcut is new -> default False
   Result.MakeDesktopShortcut := StrToBoolDefSafe(Lines.Values['shortcut-desktop'], True);
@@ -130,6 +134,7 @@ begin
   Lines.Add('extras-cpuview='+BoolFlag(M.InstallCPUView));
   Lines.Add('extras-toggle-affinity='+BoolFlag(M.InstallToggleAffinity));
   Lines.Add('extras-metadarkstyle='+BoolFlag(M.InstallMetaDarkStyle));
+  Lines.Add('help-chm='+BoolFlag(M.InstallHelpFiles));
   Lines.Add('launch-after-install='+BoolFlag(M.LaunchAfter));
   Lines.Add('shortcut-desktop='+BoolFlag(M.MakeDesktopShortcut));
   Lines.Add('shortcut-install-folder='+BoolFlag(M.MakeFolderShortcut));

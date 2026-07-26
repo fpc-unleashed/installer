@@ -31,6 +31,7 @@ type
     checkboxcrosswin64: tcheckbox;
     checkboxminimap: tcheckbox;
     checkboxtoggleaffinity: tcheckbox;
+    CheckBoxHelpFiles: TCheckBox;
     CheckBoxMetaDarkStyle: TCheckBox;
     GroupBoxTarget: TGroupBox;
     GroupBoxUnleashed: TGroupBox;
@@ -613,6 +614,8 @@ begin
       CheckBoxMinimap.Checked      := m.InstallMinimap;
       CheckBoxCPUView.Checked      := m.InstallCPUView;
       CheckBoxMetaDarkStyle.Checked := m.InstallMetaDarkStyle;
+      // help stays ticked once installed; unticking never removes the files, it just skips the fetch
+      CheckBoxHelpFiles.Checked    := m.InstallHelpFiles;
       // skip windows-only checkbox restore on linux (FormCreate locked Enabled=False)
       if CheckBoxToggleAffinity.Enabled then CheckBoxToggleAffinity.Checked := m.InstallToggleAffinity;
       CheckBoxLaunchAfter.Checked  := m.LaunchAfter;
@@ -641,6 +644,8 @@ begin
     if hasLaz and (CheckBoxMinimap.Checked <> m.InstallMinimap) then updates := updates+(if CheckBoxMinimap.Checked then ' +minimap' else ' -minimap');
     if hasLaz and (CheckBoxCPUView.Checked <> m.InstallCPUView) then updates := updates+(if CheckBoxCPUView.Checked then ' +cpuview' else ' -cpuview');
     if hasLaz and (CheckBoxMetaDarkStyle.Checked <> m.InstallMetaDarkStyle) then updates := updates+(if CheckBoxMetaDarkStyle.Checked then ' +metadarkstyle' else ' -metadarkstyle');
+    // help files are add-only: nothing gets deleted when the box goes off, so only the +delta is real
+    if hasLaz and CheckBoxHelpFiles.Checked and (not m.InstallHelpFiles) then updates := updates+' +help';
     // skip toggle-affinity delta on linux (user can't change it)
     if hasLaz and CheckBoxToggleAffinity.Enabled and (CheckBoxToggleAffinity.Checked <> m.InstallToggleAffinity) then updates := updates+(if CheckBoxToggleAffinity.Checked then ' +toggle-affinity' else ' -toggle-affinity');
     if hasFpc and CheckBoxCrossWin64.Enabled and (CheckBoxCrossWin64.Checked <> m.CrossWin64) then updates := updates+(if CheckBoxCrossWin64.Checked then ' +x86_64-win64' else ' -x86_64-win64');
@@ -683,6 +688,7 @@ begin
   CheckBoxMinimap.Checked        := True;
   CheckBoxCPUView.Checked        := True;
   CheckBoxMetaDarkStyle.Checked  := False;
+  CheckBoxHelpFiles.Checked      := True;
   // toggle-affinity .Enabled=False on linux; writing False here is a no-op visually and keeps the data model clean
   CheckBoxToggleAffinity.Checked := False;
 
@@ -971,6 +977,7 @@ begin
   CheckBoxMinimap.Enabled := act;
   CheckBoxCPUView.Enabled := act;
   CheckBoxMetaDarkStyle.Enabled := act;
+  CheckBoxHelpFiles.Enabled := act;
   // toggle-affinity locked off on non-Windows hosts (FormCreate disables it once)
 {$ifdef WINDOWS}
   CheckBoxToggleAffinity.Enabled := act;
@@ -1267,6 +1274,7 @@ begin
   cfg.InstallMinimap       := CheckBoxMinimap.Checked       and cfg.InstallLazarus;
   cfg.InstallCPUView       := CheckBoxCPUView.Checked       and cfg.InstallLazarus;
   cfg.InstallMetaDarkStyle := CheckBoxMetaDarkStyle.Checked and cfg.InstallLazarus;
+  cfg.InstallHelpFiles     := CheckBoxHelpFiles.Checked     and cfg.InstallLazarus;
   // on linux this is always False (FormCreate locks Enabled+Checked=False), so no host ifdef needed
   cfg.InstallToggleAffinity := CheckBoxToggleAffinity.Checked and cfg.InstallLazarus;
   cfg.LaunchAfter    := CheckBoxLaunchAfter.Checked;

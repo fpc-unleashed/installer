@@ -51,6 +51,10 @@ type
     // link-only as a dependency of the design-time piece
     // (metadarkstyledsgn.lpk) which carries the IDE integration.
     InstallMetaDarkStyle: Boolean;
+    // CHM documentation bundle (~31 MB) into <lazarus>\docs\chm. Without
+    // it F1 finds the viewer but has nothing to show. Not an IDE package:
+    // no lazbuild involved, just download + extract.
+    InstallHelpFiles: Boolean;
     // user-side preference; pipeline only persists it to manifest so
     // the next install run can restore the checkbox state.
     LaunchAfter:    Boolean;
@@ -95,7 +99,7 @@ type
     isLazPackages,      // 85..89   N x lazbuild --add-package
     isLazIde,           // 89..96   lazbuild --build-ide
     isLazConfig,        // 96..97   write env opts + ack files
-    isHelp,             // 97..98   lhelp viewer build
+    isHelp,             // 97..98   lhelp viewer build + CHM docs
     isShortcut,         // 98..99   desktop shortcut
     isDone);            // 100
 
@@ -161,6 +165,7 @@ type
     function StepDownloadLazarusSource: Boolean;
     function StepBuildLazarus: Boolean;
     function stepBuildLHelp: Boolean;
+    function stepInstallHelpFiles: Boolean;
     procedure runHelpSteps;
     function StepGenerateLazarusConfig: Boolean;
     function StepCreateShortcuts: Boolean;
@@ -336,6 +341,17 @@ const
   // exposes the theme through Tools -> Options). Both are LGPL; the
   // dsgn package pulls the runtime in via RequiredPkgs so registration
   // order matters: link-only the runtime first, then the design-time.
+  // Lazarus CHM documentation bundle: rtl/fcl/lcl/lazutils/prog/ref/user
+  // .chm plus the .xct cross-reference files lhelp needs to jump between
+  // them. Zip has a single top-level chm/ dir, so it extracts straight
+  // into <lazarus>\docs\. Mirrored from the upstream SourceForge release
+  // because that link redirects through rotating mirrors, which makes the
+  // payload unpinnable and lets an error page arrive as a 200.
+  DOCS_CHM_URL =
+    'https://github.com/fpc-unleashed/freepascal/releases/download/components-v1/doc-chm-fpc3.2.4-laz4.8-0.zip';
+  DOCS_CHM_SHA =
+    'E48DEA99C5AF62D3D1746479739F6A53874D726577203802550D90B24B013884';
+
   COMPONENTS_METADARK_URL =
     'https://github.com/fpc-unleashed/freepascal/releases/download/components-v1/MetaDarkStyle_0.9.zip';
   COMPONENTS_METADARK_SHA =
@@ -2255,9 +2271,84 @@ begin
   result := RunLazbuild([lhelpDir+'lhelp.lpi'], 'lazbuild lhelp (CHM help viewer)');
 end;
 
-// Help viewer, optional: a failure is logged and the pipeline carries on.
-// Runs ahead of StepCreateShortcuts so the yellow "start the IDE from the
-// shortcut" banner stays the last thing in the log.
+// Fetch the CHM documentation bundle into <lazarus>\docs\chm, the path
+// chmhelppkg searches by default. The SHA pin covers the transport; the
+// magic checks stay because they also catch a re-tagged release asset,
+// and lhelp hands whatever sits in docs\chm to the CHM reader.
+function TInstallThread.stepInstallHelpFiles: Boolean;
+
+  // compare the first Length(magic) bytes of the file against magic
+  function hasMagic(const path, magic: string): Boolean;
+  begin
+    result := False;
+    var buf: array[0..7] of Byte;
+    if Length(magic) > SizeOf(buf) then exit;
+    try
+      var f := autofree TFileStream.Create(path, fmOpenRead or fmShareDenyWrite);
+      if f.Read(buf[0], Length(magic)) <> Length(magic) then exit;
+    except
+      exit;
+    end;
+    for var i := 1 to Length(magic) do
+      if buf[i-1] <> Ord(magic[i]) then exit;
+    result := True;
+  end;
+
+begin
+  result := False;
+  var docsDir := IncludeTrailingPathDelimiter(LazarusDir)+'docs'+DirectorySeparator;
+  var chmDir  := docsDir+'chm'+DirectorySeparator;
+  // rtl + lcl are the two the IDE resolves F1 against; both present means
+  // a previous run already did this and a re-install has nothing to do
+  if FileExists(chmDir+'rtl.chm') and FileExists(chmDir+'lcl.chm') then begin
+    Log('CHM documentation already present in '+chmDir+', skipping download');
+    exit(True);
+  end;
+
+  var zipFile := IncludeTrailingPathDelimiter(GetTempDir)+'lazarus-doc-chm.zip';
+  if not DownloadAndVerify(DOCS_CHM_URL, DOCS_CHM_SHA, zipFile, 'CHM documentation') then exit;
+  if not hasMagic(zipFile, 'PK') then begin
+    DeleteFile(zipFile);
+    FErrorMsg := 'CHM documentation download is not a zip';
+    exit;
+  end;
+
+  Log('Extracting CHM documentation to '+docsDir);
+  Progress(-1, 'Extracting CHM documentation');
+  ForceDirectories(docsDir);
+  var extracted := ExtractZip(zipFile, docsDir, @Progress);
+  DeleteFile(zipFile);
+  if not extracted then begin
+    FErrorMsg := 'CHM documentation extract failed';
+    exit;
+  end;
+
+  // ITSF is the CHM container signature. Anything else under docs\chm
+  // would be handed to lhelp as help content, so drop it.
+  var rejected := 0;
+  var sr: TSearchRec;
+  if FindFirst(chmDir+'*.chm', faAnyFile, sr) = 0 then begin
+    repeat
+      if (sr.Attr and faDirectory) <> 0 then continue;
+      if hasMagic(chmDir+sr.Name, 'ITSF') then continue;
+      Log('  rejected '+sr.Name+': not a CHM file');
+      DeleteFile(chmDir+sr.Name);
+      Inc(rejected);
+    until FindNext(sr) <> 0;
+    FindClose(sr);
+  end;
+
+  if not (FileExists(chmDir+'rtl.chm') and FileExists(chmDir+'lcl.chm')) then begin
+    FErrorMsg := 'CHM documentation incomplete: rtl.chm / lcl.chm missing after extract';
+    exit;
+  end;
+  Log('CHM documentation installed in '+chmDir+(if rejected > 0 then ' ('+IntToStr(rejected)+' file(s) rejected)' else ''));
+  result := True;
+end;
+
+// Help viewer + docs, both optional: a failure is logged and the pipeline
+// carries on. Runs ahead of StepCreateShortcuts so the yellow "start the
+// IDE from the shortcut" banner stays the last thing in the log.
 procedure TInstallThread.runHelpSteps;
 begin
   if not FCfg.InstallLazarus then exit;
@@ -2265,6 +2356,11 @@ begin
   SetStage(isHelp);
   if not stepBuildLHelp then begin
     Log('WARNING: help viewer not built: '+FErrorMsg);
+    FErrorMsg := '';
+  end;
+  if not FCfg.InstallHelpFiles then exit;
+  if not stepInstallHelpFiles then begin
+    Log('WARNING: CHM documentation not installed: '+FErrorMsg);
     FErrorMsg := '';
   end;
 end;
@@ -3149,6 +3245,9 @@ begin
     Manifest.InstallMinimap := FCfg.InstallMinimap;
     Manifest.InstallCPUView := FCfg.InstallCPUView;
     Manifest.InstallMetaDarkStyle := FCfg.InstallMetaDarkStyle;
+    // record what actually landed on disk, not what was ticked -- a failed
+    // download must leave the next run willing to retry
+    Manifest.InstallHelpFiles := FileExists(IncludeTrailingPathDelimiter(LazarusDir)+'docs'+DirectorySeparator+'chm'+DirectorySeparator+'rtl.chm');
     // ToggleDisplayAffinity is Windows-only. On Linux, FCfg's value is
     // always False (UI checkbox locked off), so writing it here would
     // erase a flag a previous Windows install set. Preserve whatever
