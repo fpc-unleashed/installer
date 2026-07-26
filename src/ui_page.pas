@@ -141,7 +141,7 @@ const
     .pad { padding: 7px 9px; }
     .row { display: flex; align-items: flex-start; margin-bottom: 5px; }
     .grow { flex-grow: 1; flex-shrink: 1; flex-basis: 0; min-width: 0; }
-    .lbl { width: 110px; color: @muted; padding-top: 3px; }
+    .lbl { width: 58px; color: @muted; padding-top: 3px; }
     input { padding: 3px 7px; width: 100%; border: 1px solid @border; border-radius: 3px; background: @input; color: @text; font-family: Consolas, monospace; }
     input:hover { background: @rowhover; border-color: @dim; }
     input:focus { background: @input; border-color: @accent; }
@@ -450,7 +450,7 @@ begin
   var live := on and st.inputsOn;
   var latestBox: TUiCheck;
   latestBox.act := actLatest;
-  latestBox.caption := 'Latest commit of the branch';
+  latestBox.caption := 'latest';
   latestBox.hint := '';
   latestBox.link := '';
   latestBox.on := latest;
@@ -469,8 +469,8 @@ begin
     '<div class="row" style="margin-top: 6px"><div class="lbl">branch</div><div class="grow">'+
     dropdown(st, dropId, actBranch, branchName, list, branch, live and ready)+
     '</div></div>'+
-    checkbox(latestBox)+
-    $'<div class="row" style="margin-top: 4px"><div class="lbl">commit</div><div class="grow">{hashBox}</div></div>';
+    $'<div class="row" style="margin-top: 4px"><div class="lbl">commit</div><div class="grow">{hashBox}</div>'+
+    $'<div class="logopt" style="padding-left: 8px">{checkbox(latestBox)}</div></div>';
 
   if fpc then result := result+'<div class="lbl" style="width: auto; margin-top: 6px">cross targets</div>'+checkList(st.crosses)
   else begin
