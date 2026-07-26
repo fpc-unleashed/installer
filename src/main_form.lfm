@@ -225,7 +225,7 @@ object MainForm: TMainForm
               Top = 0
               Width = 614
               Align = alTop
-              Caption = 'Create desktop (or in your home on Linux) shortcut to the IDE'
+              Caption = 'Create desktop (or Home folder on Linux) shortcut'
               Checked = True
               State = cbChecked
               TabOrder = 0
@@ -237,7 +237,7 @@ object MainForm: TMainForm
               Top = 19
               Width = 614
               Align = alTop
-              Caption = 'Keep a "Launch IDE" shortcut in the install folder too'
+              Caption = 'Create installation folder shortcut'
               Checked = True
               State = cbChecked
               TabOrder = 1
@@ -249,7 +249,7 @@ object MainForm: TMainForm
               Top = 38
               Width = 614
               Align = alTop
-              Caption = 'Launch IDE when install finishes'
+              Caption = 'Launch IDE when setup is complete'
               Checked = True
               State = cbChecked
               TabOrder = 2
@@ -618,7 +618,7 @@ object MainForm: TMainForm
           Width = 228
           Align = alTop
           BorderSpacing.Around = 5
-          Caption = 'FPC Cross Compilers:'
+          Caption = 'Cross Compilers:'
           Font.Style = [fsBold]
           ParentFont = False
         end
@@ -743,10 +743,10 @@ object MainForm: TMainForm
           Left = 10
           Height = 40
           Top = 0
-          Width = 201
+          Width = 252
           Align = alLeft
           BorderSpacing.Left = 10
-          Caption = 'Save installation log to installer.log'
+          Caption = 'Write the log next to the install (installer.log)'
           Checked = True
           State = cbChecked
           TabOrder = 0
@@ -822,19 +822,19 @@ object MainForm: TMainForm
     object MenuRepo: TMenuItem
       Caption = 'Repository'
       object MenuRepoMain: TMenuItem
-        Caption = 'fpc-unleashed'
+        Caption = 'Unleashed GitHub Organization'
         OnClick = MenuRepoMainClick
       end
       object MenuRepoFreepascal: TMenuItem
-        Caption = 'FPC Unleashed Edition'
+        Caption = 'Unleashed Compiler'
         OnClick = MenuRepoFreepascalClick
       end
       object MenuRepoLazarus: TMenuItem
-        Caption = 'Unleashed Lazarus IDE'
+        Caption = 'Unleashed IDE'
         OnClick = MenuRepoLazarusClick
       end
       object MenuRepoInstaller: TMenuItem
-        Caption = 'Unleashed Installer'
+        Caption = 'Unleashed Pascal Installer'
         OnClick = MenuRepoInstallerClick
       end
     end

@@ -16,7 +16,7 @@ uses
 begin
   RequireDerivedFormResource := True;
   application.scaled := true;
-  application.title := 'FPC Unleashed Installer';
+  application.title := 'Unleashed Pascal Installer';
   Application.Initialize;
   Application.CreateForm(TMainForm, MainForm);
   Application.Run;
