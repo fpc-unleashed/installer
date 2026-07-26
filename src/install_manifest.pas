@@ -1,4 +1,4 @@
-{ Unleashed Installer - (c) 2026 fpc-unleashed. See LICENSE. }
+{ Unleashed Pascal Installer - (c) 2026 Unleashed Pascal. See LICENSE. }
 
 unit install_manifest;
 
