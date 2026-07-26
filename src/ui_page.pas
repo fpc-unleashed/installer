@@ -139,6 +139,7 @@ const
     .chk.off { color: @dim; }
     .chk.off .box { border-color: @border; background: @head; }
     .chk .hint { color: @dim; margin-left: 6px; }
+    .tight { flex-shrink: 0; white-space: nowrap; }
     .lnk { color: @navy; margin-left: 6px; }
     .lnk:hover { color: @accent; }
     .mode { padding: 4px 9px; color: @muted; }
@@ -429,7 +430,7 @@ begin
   if first < 0 then first := 0;
 
   result := '<div class="card"><h2>log</h2><div class="pad" style="padding-bottom: 0">'+
-    '<div class="row">'+checkbox(saveBox)+'<div class="grow"></div>'+
+    '<div class="row"><div class="tight">'+checkbox(saveBox)+'</div><div class="grow"></div>'+
     button('copylog', 'Copy', count > 0)+button('clearlog', 'Clear', count > 0)+
     '</div></div><div class="log">';
 
