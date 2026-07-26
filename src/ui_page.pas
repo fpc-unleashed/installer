@@ -179,7 +179,7 @@ const
     .drop .items div { padding: 3px 7px; border-radius: 3px; }
     .drop .items div:hover { background: @hover; }
     .drop .items div.on { color: @accent; font-weight: 600; }
-    .log { flex-grow: 1; min-height: 0; overflow-y: auto; padding: 5px 7px; font-family: Consolas, monospace; font-size: 11px; }
+    .log { flex-grow: 1; min-height: 0; overflow-y: auto; padding: 5px 7px 16px 7px; font-family: Consolas, monospace; font-size: 11px; }
     .lg { padding: 0 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
     .lg.err { color: @bad; }
     .lg.warn2 { color: @warn; }
