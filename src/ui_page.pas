@@ -144,12 +144,12 @@ const
     .mode { padding: 4px 9px; color: @muted; }
     .mode.bad { color: @bad; }
     .warn { margin: 5px 0 2px 0; padding: 6px 8px; border-radius: 3px; background: @badbg; color: @bad; font-weight: 600; }
-    .drop { margin-right: 4px; }
+    .drop { position: relative; margin-right: 4px; }
     .dropbtn { padding: 3px 9px; border: 1px solid @border; border-radius: 3px; background: @panel; white-space: nowrap; }
     .dropbtn:hover { background: @hover; }
     .dropbtn.off { color: @dim; background: @head; }
     .car { color: @dim; margin-left: 6px; }
-    .drop .items { width: 240px; margin-top: 2px; padding: 3px; background: @panel; border: 1px solid @border; border-radius: 3px; }
+    .drop .items { position: absolute; z-index: 30; width: 240px; margin-top: 2px; padding: 3px; background: @panel; border: 1px solid @border; border-radius: 3px; }
     .drop .items div { padding: 3px 7px; border-radius: 3px; }
     .drop .items div:hover { background: @hover; }
     .drop .items div.on { color: @accent; font-weight: 600; }
