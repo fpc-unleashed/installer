@@ -78,6 +78,7 @@ type
     // log and progress
     log: TStringList;
     saveLog: boolean;
+    autoScroll: boolean;
     status: string;
     percent: integer;
     openDrop: string;
@@ -157,8 +158,9 @@ const
     .chk.off.on .box { border-color: @dim; background: @dim; color: @panel; }
     .chk .cap { flex-shrink: 0; min-width: 184px; padding-right: 8px; white-space: nowrap; }
     .chk .hint { color: @dim; }
+    .logopt { flex-shrink: 0; margin-right: 10px; white-space: nowrap; }
+    .logopt .chk .cap { min-width: 0; }
     .chk .gap { flex-grow: 1; flex-shrink: 1; flex-basis: 0; min-width: 10px; }
-    .tight { flex-grow: 1; flex-shrink: 1; min-width: 0; margin-right: 10px; white-space: nowrap; }
     .lnk { flex-shrink: 0; color: @navy; }
     .lnk:hover { color: @accent; }
     .mode { padding: 4px 9px; color: @muted; }
@@ -204,7 +206,7 @@ const
   LOG_CSS =
     '''
     * { box-sizing: border-box; }
-    body { margin: 0; padding: 5px 7px 16px 7px; background: @panel; color: @text; font-family: Consolas, monospace; font-size: 11px; user-select: text; cursor: text; }
+    body { margin: 0; padding: 5px 7px 16px 7px; background: @panel; color: @text; font-family: Consolas, monospace; font-size: 11px; user-select: text; cursor: default; }
     .lg { padding: 0 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
     .lg.err { color: @bad; }
     .lg.warn2 { color: @warn; }
@@ -526,11 +528,22 @@ begin
   saveBox.on := st.saveLog;
   saveBox.enabled := st.inputsOn;
 
+  // the one box that stays live while installing: following the log is the
+  // thing the user wants to turn off exactly then
+  var followBox: TUiCheck;
+  followBox.act := 'toggleautoscroll';
+  followBox.caption := 'Autoscroll';
+  followBox.hint := '';
+  followBox.link := '';
+  followBox.on := st.autoScroll;
+  followBox.enabled := True;
+
   var count := 0;
   if st.log <> nil then count := st.log.Count;
 
   result := '<div class="card logcard"><h2>log</h2><div class="pad" style="padding-bottom: 0">'+
-    '<div class="row"><div class="tight">'+checkbox(saveBox)+'</div>'+
+    '<div class="row"><div class="logopt">'+checkbox(saveBox)+'</div>'+
+    '<div class="logopt">'+checkbox(followBox)+'</div><div class="grow"></div>'+
     button('copylog', 'Copy', count > 0)+button('clearlog', 'Clear', count > 0)+
     '</div></div><div class="logslot" id="logslot"></div></div>';
 end;

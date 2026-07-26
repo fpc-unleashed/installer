@@ -27,7 +27,7 @@ type
     CrossWin64, CrossWin32, CrossLinux64, CrossLinux32, CrossWasm: Boolean;
     InstallMinimap, InstallCPUView, InstallToggleAffinity, InstallMetaDarkStyle, InstallHelpFiles: Boolean;
     MakeDesktopShortcut, MakeFolderShortcut: Boolean;
-    LaunchAfter, SaveLog: Boolean;
+    LaunchAfter, SaveLog, AutoScroll: Boolean;
     // 'dark' or 'light'; empty means the desktop decides
     Theme: string;
   end;
@@ -100,6 +100,7 @@ begin
   result.MakeFolderShortcut    := toBool(lines.Values['shortcut-install-folder'], True);
   result.LaunchAfter           := toBool(lines.Values['launch-after-install'], True);
   result.SaveLog               := toBool(lines.Values['save-log'], False);
+  result.AutoScroll            := toBool(lines.Values['log-autoscroll'], True);
   result.Theme                 := lines.Values['theme'];
   result.Present := True;
 end;
@@ -137,6 +138,7 @@ begin
   lines.Add('shortcut-install-folder='+boolFlag(s.MakeFolderShortcut));
   lines.Add('launch-after-install='+boolFlag(s.LaunchAfter));
   lines.Add('save-log='+boolFlag(s.SaveLog));
+  lines.Add('log-autoscroll='+boolFlag(s.AutoScroll));
   lines.Add('theme='+s.Theme);
   try
     lines.SaveToFile(settingsPath);

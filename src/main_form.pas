@@ -54,10 +54,10 @@ type
     FLogDirty: Boolean;
     FStatusDirty: Boolean;
     FRenderQueued: Boolean;
-    // the log view scrolls on its own and is followed until the user scrolls
-    // away from its end; the window itself never scrolls
-    FFollowLog: Boolean;
+    // the log view scrolls on its own; whether its end is followed is the
+    // Autoscroll box in st. the window itself never scrolls
     FLogBottom: Double;
+    FLastScrollY: Double;
     FSelfScroll: Boolean;
     // a live-update worker is building strings; the next one waits its turn
     FLiveBusy: Boolean;
@@ -140,6 +140,7 @@ type
     function menuUnderPoint(x, y: Integer): string;
     procedure positionLogView;
     function logViewBottom: Double;
+    procedure followLogEnd;
     procedure settleDocument(layoutWidth: Double);
     procedure buildChecks;
     procedure queueRender;
@@ -385,7 +386,7 @@ begin
   FFolderShortcut := True;
   FLaunchAfter := True;
   st.saveLog := True;
-  FFollowLog := True;
+  st.autoScroll := True;
   FMouseX := -1;
 
   // with nothing saved yet, the desktop decides
@@ -420,6 +421,7 @@ begin
   if s.LazBranch <> '' then st.lazBranch := s.LazBranch;
   if s.TargetDir <> '' then st.targetDir := s.TargetDir;
   st.saveLog := s.SaveLog;
+  st.autoScroll := s.AutoScroll;
   if s.Theme = 'dark' then st.theme := utDark
   else if s.Theme = 'light' then st.theme := utLight;
 
@@ -472,6 +474,7 @@ begin
   s.MakeFolderShortcut    := FFolderShortcut;
   s.LaunchAfter := FLaunchAfter;
   s.SaveLog     := st.saveLog;
+  s.AutoScroll  := st.autoScroll;
   s.Theme       := if st.theme = utDark then 'dark' else 'light';
   writeSettings(s);
 end;
@@ -635,6 +638,12 @@ begin
     'foldersc':  begin FFolderShortcut := not FFolderShortcut; refreshTarget; queueRender; end;
     'launch':    begin FLaunchAfter := not FLaunchAfter; queueRender; end;
     'togglesavelog': begin st.saveLog := not st.saveLog; queueRender; end;
+    'toggleautoscroll': begin
+      st.autoScroll := not st.autoScroll;
+      // ticking it again catches up with whatever came in meanwhile
+      if st.autoScroll then followLogEnd;
+      queueRender;
+    end;
   end;
 end;
 
@@ -1450,6 +1459,19 @@ begin
   if result < 0 then result := 0;
 end;
 
+// puts the log at its end without that counting as a scroll of the user's own
+procedure TMainForm.followLogEnd;
+begin
+  if logView.Document = nil then Exit;
+  var bottom := logViewBottom;
+  FLogBottom := bottom;
+  if Abs(logView.ScrollY-bottom) < 0.5 then Exit;
+  FSelfScroll := True;
+  logView.ScrollY := bottom;
+  FSelfScroll := False;
+  logView.Invalidate;
+end;
+
 // pixie lays a document out while it is painted, so a rebuilt one would first
 // be drawn with the hover gone and the log at its top, and only then be put
 // right - one frame of flicker per update. laying it out here costs the layout
@@ -1741,7 +1763,7 @@ begin
   begin
     logView.Document.Render(prevWidth);
     var want := prev;
-    if FFollowLog then want := logViewBottom;
+    if st.autoScroll then want := logViewBottom;
     if want > logViewBottom then want := logViewBottom;
     logView.ScrollY := want;
   end;
@@ -1758,25 +1780,22 @@ end;
 // document and every resize
 procedure TMainForm.logViewAfterPaint(Sender: TObject);
 begin
-  var bottom := logViewBottom;
-  if FFollowLog and (Abs(logView.ScrollY-bottom) >= 0.5) then
-  begin
-    FSelfScroll := True;
-    logView.ScrollY := bottom;
-    FSelfScroll := False;
-    logView.Invalidate;
-  end;
-  FLogBottom := bottom;
+  if st.autoScroll then followLogEnd else FLogBottom := logViewBottom;
+  FLastScrollY := logView.ScrollY;
 end;
 
-// a scroll of the user's own decides whether the log keeps being followed. the
-// end it is measured against is the one from the last paint: the view also
-// reports a scroll when the document merely grew taller, and against the end it
-// has grown to that reads as the user having left it behind
+// the Autoscroll box follows what the user does with the log: it goes off when
+// they scroll back up and on again when they reach the end. only a scroll that
+// moves upwards counts as theirs - a taller document and a resized view are
+// both reported as scrolls too, and neither means they have left the end
 procedure TMainForm.logViewScrollChanged(Sender: TObject);
 begin
   if FSelfScroll then Exit;
-  FFollowLog := logView.ScrollY >= FLogBottom-8;
+  var was := st.autoScroll;
+  if logView.ScrollY < FLastScrollY-0.5 then st.autoScroll := False;
+  if logView.ScrollY >= logViewBottom-8 then st.autoScroll := True;
+  FLastScrollY := logView.ScrollY;
+  if was <> st.autoScroll then queueRender;
 end;
 
 end.
