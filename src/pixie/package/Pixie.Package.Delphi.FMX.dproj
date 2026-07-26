@@ -1,0 +1,259 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{6DB6A233-CB8F-4F47-9C40-F321C17C6EEB}</ProjectGuid>
+        <MainSource>Pixie.Package.Delphi.FMX.dpk</MainSource>
+        <Base>True</Base>
+        <Config Condition="'$(Config)'==''">Debug</Config>
+        <ProjectName Condition="'$(ProjectName)'==''">Pixie.Package.Delphi.FMX</ProjectName>
+        <TargetedPlatforms>1048577</TargetedPlatforms>
+        <AppType>Package</AppType>
+        <FrameworkType>FMX</FrameworkType>
+        <ProjectVersion>20.4</ProjectVersion>
+        <Platform Condition="'$(Platform)'==''">Win32</Platform>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Config)'=='Base' or '$(Base)'!=''">
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Android' and '$(Base)'=='true') or '$(Base_Android)'!=''">
+        <Base_Android>true</Base_Android>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Win32' and '$(Base)'=='true') or '$(Base_Win32)'!=''">
+        <Base_Win32>true</Base_Win32>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Base)'=='true') or '$(Base_Win64)'!=''">
+        <Base_Win64>true</Base_Win64>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Win64x' and '$(Base)'=='true') or '$(Base_Win64x)'!=''">
+        <Base_Win64x>true</Base_Win64x>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='WinARM64EC' and '$(Base)'=='true') or '$(Base_WinARM64EC)'!=''">
+        <Base_WinARM64EC>true</Base_WinARM64EC>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Config)'=='Release' or '$(Cfg_1)'!=''">
+        <Cfg_1>true</Cfg_1>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Config)'=='Debug' or '$(Cfg_2)'!=''">
+        <Cfg_2>true</Cfg_2>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Win32' and '$(Cfg_2)'=='true') or '$(Cfg_2_Win32)'!=''">
+        <Cfg_2_Win32>true</Cfg_2_Win32>
+        <CfgParent>Cfg_2</CfgParent>
+        <Cfg_2>true</Cfg_2>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Base)'!=''">
+        <DCC_E>false</DCC_E>
+        <DCC_F>false</DCC_F>
+        <DCC_K>false</DCC_K>
+        <DCC_N>false</DCC_N>
+        <DCC_S>false</DCC_S>
+        <DCC_ImageBase>00400000</DCC_ImageBase>
+        <GenDll>true</GenDll>
+        <GenPackage>true</GenPackage>
+        <SanitizedProjectName>Pixie_Package_Delphi_FMX</SanitizedProjectName>
+        <DCC_Description>Pixie - HTML/CSS rendering engine (FMX)</DCC_Description>
+        <VerInfo_Locale>1033</VerInfo_Locale>
+        <VerInfo_Keys>CompanyName=;FileDescription=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=;ProductVersion=1.0.0.0;Comments=;CFBundleName=</VerInfo_Keys>
+        <DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;$(DCC_Namespace)</DCC_Namespace>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Base_Android)'!=''">
+        <Android_LauncherIcon192>$(BDS)\bin\Artwork\Android\FM_LauncherIcon_192x192.png</Android_LauncherIcon192>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Base_Win32)'!=''">
+        <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;Bde;$(DCC_Namespace)</DCC_Namespace>
+        <BT_BuildType>Debug</BT_BuildType>
+        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
+        <VerInfo_Locale>1033</VerInfo_Locale>
+        <DCC_UsePackage>rtl;fmx;$(DCC_UsePackage)</DCC_UsePackage>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Base_Win64)'!=''">
+        <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;Bde;$(DCC_Namespace)</DCC_Namespace>
+        <DCC_UsePackage>rtl;fmx;$(DCC_UsePackage)</DCC_UsePackage>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Base_Win64x)'!=''">
+        <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;Bde;$(DCC_Namespace)</DCC_Namespace>
+        <DCC_UsePackage>rtl;fmx;$(DCC_UsePackage)</DCC_UsePackage>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Base_WinARM64EC)'!=''">
+        <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;Bde;$(DCC_Namespace)</DCC_Namespace>
+        <DCC_UsePackage>rtl;fmx;$(DCC_UsePackage)</DCC_UsePackage>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Cfg_1)'!=''">
+        <DCC_Define>RELEASE;$(DCC_Define)</DCC_Define>
+        <DCC_DebugInformation>0</DCC_DebugInformation>
+        <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
+        <DCC_SymbolReferenceInfo>0</DCC_SymbolReferenceInfo>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Cfg_2)'!=''">
+        <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
+        <DCC_Optimize>false</DCC_Optimize>
+        <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
+        <DCC_RangeChecking>true</DCC_RangeChecking>
+        <DCC_IntegerOverflowCheck>true</DCC_IntegerOverflowCheck>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Cfg_2_Win32)'!=''">
+        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
+    </PropertyGroup>
+    <ItemGroup>
+        <DelphiCompile Include="$(MainSource)">
+            <MainSource>MainSource</MainSource>
+        </DelphiCompile>
+        <DCCReference Include="rtl.dcp"/>
+        <DCCReference Include="fmx.dcp"/>
+        <DCCReference Include="..\source\common\Pixie.Types.pas"/>
+        <DCCReference Include="..\source\common\Pixie.StringId.pas"/>
+        <DCCReference Include="..\source\common\Pixie.Html.pas"/>
+        <DCCReference Include="..\source\common\Pixie.Utils.pas"/>
+        <DCCReference Include="..\source\common\Pixie.Utf8.pas"/>
+        <DCCReference Include="..\source\common\Pixie.CssLength.pas"/>
+        <DCCReference Include="..\source\common\Pixie.WebColor.pas"/>
+        <DCCReference Include="..\source\common\Pixie.Borders.pas"/>
+        <DCCReference Include="..\source\common\Pixie.FontDescription.pas"/>
+        <DCCReference Include="..\source\common\Pixie.Url.pas"/>
+        <DCCReference Include="..\source\common\Pixie.NumCvt.pas"/>
+        <DCCReference Include="..\source\common\Pixie.HtmlEntities.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.HtmlParser.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.CssTokenizer.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.CssParser.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.Style.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.CssSelector.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.Stylesheet.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.FontFace.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.MediaQuery.pas"/>
+        <DCCReference Include="..\source\common\Pixie.GradientLayer.pas"/>
+        <DCCReference Include="..\source\common\Pixie.DataUri.pas"/>
+        <DCCReference Include="..\source\common\Pixie.Encoding.pas"/>
+        <DCCReference Include="..\source\common\Pixie.ImageUtils.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.Gradient.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.Background.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.CssProperties.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.MasterCss.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.Element.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.HtmlTag.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.ElText.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.ElImage.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.ElSvg.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.ElTable.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.ElAnchor.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.ElMisc.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.ElDetails.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.ElBeforeAfter.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.ElInput.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.ElProgress.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.ElRange.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.ElTextInput.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.Document.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.Container.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.RenderItem.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.RenderBlock.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.RenderBlockContext.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.RenderInlineContext.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.RenderInline.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.RenderImage.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.RenderTable.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.RenderFlex.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.RenderGrid.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.RenderInput.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.LineBox.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.Table.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.FlexItem.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.GridItem.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.FormattingContext.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.Iterators.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.ScrollView.pas"/>
+        <DCCReference Include="..\source\common\Pixie.AnimatedImage.pas"/>
+        <DCCReference Include="..\source\common\Pixie.GifDecode.pas"/>
+        <DCCReference Include="..\source\common\Pixie.ApngDecode.pas"/>
+        <DCCReference Include="..\source\common\Pixie.Canvas.pas"/>
+        <DCCReference Include="..\source\common\Pixie.WebP.pas"/>
+        <DCCReference Include="..\source\common\Pixie.WebP.Decoder.pas"/>
+        <DCCReference Include="..\source\common\Pixie.WebPAnim.pas"/>
+        <DCCReference Include="..\source\common\Pixie.FontMetrics.pas"/>
+        <DCCReference Include="..\source\common\Pixie.Clipboard.pas"/>
+        <DCCReference Include="..\source\common\Pixie.Matrix.pas"/>
+        <DCCReference Include="..\source\common\Pixie.SimpleXml.pas"/>
+        <DCCReference Include="..\source\common\Pixie.SvgRenderer.pas"/>
+        <DCCReference Include="..\source\common\Pixie.Canvas.FMX.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.NativeContainer.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.TrueType.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.HtmlView.Core.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.HtmlView.FMX.Base.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.HtmlView.FMX.pas"/>
+        <DCCReference Include="..\source\markdown\Pixie.Markdown.Types.pas"/>
+        <DCCReference Include="..\source\markdown\Pixie.Markdown.Css.pas"/>
+        <DCCReference Include="..\source\markdown\Pixie.Markdown.HtmlWriter.pas"/>
+        <DCCReference Include="..\source\markdown\Pixie.Markdown.InlineParser.pas"/>
+        <DCCReference Include="..\source\markdown\Pixie.Markdown.Parser.pas"/>
+        <DCCReference Include="..\source\markdown\Pixie.Markdown.pas"/>
+        <DCCReference Include="..\source\markdown\Pixie.MarkdownView.FMX.pas"/>
+        <DCCReference Include="..\source\common\Pixie.SvgRenderer.Canvas.pas"/>
+        <DCCReference Include="..\source\common\Pixie.SvgToPdf.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.PdfWriter.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.Canvas.Pdf.pas"/>
+        <DCCReference Include="..\source\htmlview\Pixie.PdfExport.pas"/>
+        <DCCReference Include="..\source\svgview\Pixie.SvgView.FMX.pas"/>
+        <DCCReference Include="..\source\common\Pixie.ControlBase.FMX.pas"/>
+        <DCCReference Include="..\source\common\Pixie.CustomControl.FMX.pas"/>
+        <DCCReference Include="..\source\tagbar\Pixie.TagBar.Colors.pas"/>
+        <DCCReference Include="..\source\tagbar\Pixie.TagBar.Render.pas"/>
+        <DCCReference Include="..\source\tagbar\Pixie.TagBar.Base.pas"/>
+        <DCCReference Include="..\source\tagbar\Pixie.TagBar.FMX.pas"/>
+        <DCCReference Include="Pixie.Register.Delphi.FMX.pas"/>
+        <BuildConfiguration Include="Base">
+            <Key>Base</Key>
+        </BuildConfiguration>
+        <BuildConfiguration Include="Release">
+            <Key>Cfg_1</Key>
+            <CfgParent>Base</CfgParent>
+        </BuildConfiguration>
+        <BuildConfiguration Include="Debug">
+            <Key>Cfg_2</Key>
+            <CfgParent>Base</CfgParent>
+        </BuildConfiguration>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Delphi.Personality.12</Borland.Personality>
+        <Borland.ProjectType>Package</Borland.ProjectType>
+        <BorlandProject>
+            <Delphi.Personality>
+                <Source>
+                    <Source Name="MainSource">Pixie.Package.Delphi.FMX.dpk</Source>
+                </Source>
+                <Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dcloffice2k370.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dclofficexp370.bpl">Microsoft Office XP Sample Automation Server Wrapper Components</Excluded_Packages>
+                </Excluded_Packages>
+            </Delphi.Personality>
+            <Platforms>
+                <Platform value="Android">False</Platform>
+                <Platform value="iOSDevice32">False</Platform>
+                <Platform value="iOSSimulator">False</Platform>
+                <Platform value="Linux64">False</Platform>
+                <Platform value="OSX32">False</Platform>
+                <Platform value="Win32">True</Platform>
+                <Platform value="Win64">False</Platform>
+                <Platform value="Win64x">True</Platform>
+                <Platform value="WinARM64EC">False</Platform>
+            </Platforms>
+        </BorlandProject>
+        <ProjectFileVersion>12</ProjectFileVersion>
+    </ProjectExtensions>
+    <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Delphi.Targets')"/>
+    <Import Project="$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj" Condition="Exists('$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj')"/>
+</Project>

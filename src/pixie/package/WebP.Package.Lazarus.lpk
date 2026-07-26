@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <Package Version="5">
+    <Name Value="WebP.Package.Lazarus"/>
+    <Type Value="RunTime"/>
+    <CompilerOptions>
+      <Version Value="11"/>
+      <SearchPaths>
+        <OtherUnitFiles Value="../source/common;../source/webp"/>
+        <UnitOutputDirectory Value="../lib/webp/$(TargetCPU)-$(TargetOS)/$(LCLWidgetType)"/>
+      </SearchPaths>
+    </CompilerOptions>
+    <Description Value="Standalone native WebP decoder (pure Pascal, no libwebp). Loads .webp into TFPImage / TLazIntfImage and, via TPicture, into TImage. No dependency on Pixie."/>
+    <License Value="MIT"/>
+    <Version Major="1"/>
+    <Files>
+      <Item>
+        <Filename Value="../source/common/Pixie.WebP.Decoder.pas"/>
+        <UnitName Value="Pixie.WebP.Decoder"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/common/Pixie.WebP.pas"/>
+        <UnitName Value="Pixie.WebP"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/webp/Pixie.WebP.Reader.pas"/>
+        <UnitName Value="Pixie.WebP.Reader"/>
+      </Item>
+      <Item>
+        <Filename Value="../source/webp/Pixie.WebP.LclImage.pas"/>
+        <UnitName Value="Pixie.WebP.LclImage"/>
+      </Item>
+    </Files>
+    <RequiredPkgs>
+      <Item>
+        <PackageName Value="LCL"/>
+      </Item>
+      <Item>
+        <PackageName Value="FCL"/>
+      </Item>
+    </RequiredPkgs>
+    <UsageOptions>
+      <UnitPath Value="$(PkgOutDir)"/>
+    </UsageOptions>
+    <PublishOptions>
+      <Version Value="2"/>
+    </PublishOptions>
+  </Package>
+</CONFIG>

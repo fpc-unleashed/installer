@@ -1,0 +1,5 @@
+TPIXIEHTMLVIEW BITMAP "..\images\components\tpixiehtmlview.bmp"
+TPIXIESVGVIEW BITMAP "..\images\components\tpixiesvgview.bmp"
+TPIXIEPAINTBOX BITMAP "..\images\components\tpixiepaintbox.bmp"
+TPIXIEMARKDOWNVIEW BITMAP "..\images\components\tpixiemarkdownview.bmp"
+TPIXIETAGBAR BITMAP "..\images\components\tpixietagbar.bmp"

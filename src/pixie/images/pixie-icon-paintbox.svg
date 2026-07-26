@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Paint droplet -->
+  <path d="M12 2 C12 2 5 12 5 16 C5 19.87 8.13 23 12 23 C15.87 23 19 19.87 19 16 C19 12 12 2 12 2 Z" fill="#7F77DD"/>
+  <!-- Highlight -->
+  <ellipse cx="9.5" cy="15.5" rx="1.8" ry="2.8" fill="white" opacity="0.3" transform="rotate(-10 9.5 15.5)"/>
+</svg>

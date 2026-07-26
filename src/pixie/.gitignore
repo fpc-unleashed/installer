@@ -1,0 +1,51 @@
+# Lazarus / Free Pascal
+*.o
+*.ppu
+*.compiled
+*.bak
+*.lps
+*.dbg
+lib/
+
+# Delphi
+*.dcu
+*.drc
+*.map
+*.dres
+demo/delphi/Win32/
+demo/delphi/Win64/
+
+# Lazarus IDE backup files
+backup/
+*.~*
+
+# Build scripts
+*.sh
+*.bat
+
+# Build output
+demo/bin/
+demo/lib/
+*.exe
+*.dll
+*.so
+*.dylib
+*.res
+!package/*.res
+!demo/resources/*.res
+!demo/*.res
+
+# SVN
+.svn/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Tests (internal)
+tests/
+
+# Claude Code
+CLAUDE.md
+.claude/

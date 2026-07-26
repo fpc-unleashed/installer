@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 250">
+  <g transform="translate(8, 8)">
+    <!-- Pixel grid P shape -->
+    <rect x="0" y="0" width="36" height="36" rx="4" fill="#7F77DD" opacity="0.9"/>
+    <rect x="42" y="0" width="36" height="36" rx="4" fill="#7F77DD" opacity="0.95"/>
+    <rect x="84" y="0" width="36" height="36" rx="4" fill="#7F77DD"/>
+    <rect x="126" y="0" width="36" height="36" rx="4" fill="#AFA9EC" opacity="0.85"/>
+
+    <rect x="0" y="42" width="36" height="36" rx="4" fill="#7F77DD"/>
+    <rect x="126" y="42" width="36" height="36" rx="4" fill="#534AB7"/>
+
+    <rect x="0" y="84" width="36" height="36" rx="4" fill="#7F77DD"/>
+    <rect x="42" y="84" width="36" height="36" rx="4" fill="#7F77DD" opacity="0.95"/>
+    <rect x="84" y="84" width="36" height="36" rx="4" fill="#7F77DD"/>
+    <rect x="126" y="84" width="36" height="36" rx="4" fill="#AFA9EC" opacity="0.7"/>
+
+    <rect x="0" y="126" width="36" height="36" rx="4" fill="#534AB7"/>
+    <rect x="0" y="168" width="36" height="36" rx="4" fill="#534AB7" opacity="0.9"/>
+
+    <!-- "ixie" text -->
+    <text x="46" y="200" text-anchor="start" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="72" font-weight="500" fill="#5F5E5A">ixie</text>
+
+    <!-- Sparkle elements -->
+    <g fill="#EF9F27">
+      <polygon points="190,20 194,30 204,30 196,36 198,46 190,40 182,46 184,36 176,30 186,30" opacity="0.95"/>
+      <polygon points="170,80 173,86 179,86 174,90 176,96 170,92 164,96 166,90 161,86 167,86" opacity="0.7" transform="scale(0.7) translate(80, 40)"/>
+      <polygon points="200,100 202,104 206,104 203,107 204,111 200,108 196,111 197,107 194,104 198,104" opacity="0.55"/>
+    </g>
+
+    <!-- Scattered trailing pixels -->
+    <rect x="168" y="8" width="12" height="12" rx="2" fill="#CECBF6" opacity="0.5"/>
+    <rect x="155" y="55" width="8" height="8" rx="2" fill="#CECBF6" opacity="0.35"/>
+    <rect x="180" y="65" width="10" height="10" rx="2" fill="#AFA9EC" opacity="0.3"/>
+    <rect x="145" y="105" width="6" height="6" rx="1" fill="#CECBF6" opacity="0.25"/>
+
+    <!-- Subtitle -->
+    <text x="0" y="232" text-anchor="start" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="12" fill="#888780" letter-spacing="1.5">HTML RENDERING ENGINE</text>
+  </g>
+</svg>

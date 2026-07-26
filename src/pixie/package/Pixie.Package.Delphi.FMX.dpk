@@ -1,0 +1,138 @@
+package Pixie.Package.Delphi.FMX;
+
+{$R *.res}
+{$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO OFF}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS ON}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION OFF}
+{$OVERFLOWCHECKS ON}
+{$RANGECHECKS ON}
+{$REFERENCEINFO ON}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES ON}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DEFINE DEBUG}
+{$ENDIF IMPLICITBUILDING}
+{$DESCRIPTION 'Pixie - HTML/CSS rendering engine (FMX)'}
+{$IMPLICITBUILD ON}
+
+requires
+  rtl,
+  fmx;
+
+contains
+  Pixie.Types in '..\source\common\Pixie.Types.pas',
+  Pixie.StringId in '..\source\common\Pixie.StringId.pas',
+  Pixie.Html in '..\source\common\Pixie.Html.pas',
+  Pixie.Utils in '..\source\common\Pixie.Utils.pas',
+  Pixie.Utf8 in '..\source\common\Pixie.Utf8.pas',
+  Pixie.CssLength in '..\source\common\Pixie.CssLength.pas',
+  Pixie.Matrix in '..\source\common\Pixie.Matrix.pas',
+  Pixie.WebColor in '..\source\common\Pixie.WebColor.pas',
+  Pixie.Borders in '..\source\common\Pixie.Borders.pas',
+  Pixie.FontDescription in '..\source\common\Pixie.FontDescription.pas',
+  Pixie.Url in '..\source\common\Pixie.Url.pas',
+  Pixie.NumCvt in '..\source\common\Pixie.NumCvt.pas',
+  Pixie.HtmlEntities in '..\source\common\Pixie.HtmlEntities.pas',
+  Pixie.HtmlParser in '..\source\htmlview\Pixie.HtmlParser.pas',
+  Pixie.CssTokenizer in '..\source\htmlview\Pixie.CssTokenizer.pas',
+  Pixie.CssParser in '..\source\htmlview\Pixie.CssParser.pas',
+  Pixie.Style in '..\source\htmlview\Pixie.Style.pas',
+  Pixie.CssSelector in '..\source\htmlview\Pixie.CssSelector.pas',
+  Pixie.Stylesheet in '..\source\htmlview\Pixie.Stylesheet.pas',
+  Pixie.FontFace in '..\source\htmlview\Pixie.FontFace.pas',
+  Pixie.MediaQuery in '..\source\htmlview\Pixie.MediaQuery.pas',
+  Pixie.GradientLayer in '..\source\common\Pixie.GradientLayer.pas',
+  Pixie.DataUri in '..\source\common\Pixie.DataUri.pas',
+  Pixie.Encoding in '..\source\common\Pixie.Encoding.pas',
+  Pixie.ImageUtils in '..\source\common\Pixie.ImageUtils.pas',
+  Pixie.Gradient in '..\source\htmlview\Pixie.Gradient.pas',
+  Pixie.Background in '..\source\htmlview\Pixie.Background.pas',
+  Pixie.CssProperties in '..\source\htmlview\Pixie.CssProperties.pas',
+  Pixie.MasterCss in '..\source\htmlview\Pixie.MasterCss.pas',
+  Pixie.Element in '..\source\htmlview\Pixie.Element.pas',
+  Pixie.HtmlTag in '..\source\htmlview\Pixie.HtmlTag.pas',
+  Pixie.ElText in '..\source\htmlview\Pixie.ElText.pas',
+  Pixie.ElImage in '..\source\htmlview\Pixie.ElImage.pas',
+  Pixie.ElSvg in '..\source\htmlview\Pixie.ElSvg.pas',
+  Pixie.ElTable in '..\source\htmlview\Pixie.ElTable.pas',
+  Pixie.ElAnchor in '..\source\htmlview\Pixie.ElAnchor.pas',
+  Pixie.ElMisc in '..\source\htmlview\Pixie.ElMisc.pas',
+  Pixie.ElDetails in '..\source\htmlview\Pixie.ElDetails.pas',
+  Pixie.ElBeforeAfter in '..\source\htmlview\Pixie.ElBeforeAfter.pas',
+  Pixie.ElInput in '..\source\htmlview\Pixie.ElInput.pas',
+  Pixie.ElProgress in '..\source\htmlview\Pixie.ElProgress.pas',
+  Pixie.ElRange in '..\source\htmlview\Pixie.ElRange.pas',
+  Pixie.ElTextInput in '..\source\htmlview\Pixie.ElTextInput.pas',
+  Pixie.Document in '..\source\htmlview\Pixie.Document.pas',
+  Pixie.Container in '..\source\htmlview\Pixie.Container.pas',
+  Pixie.RenderItem in '..\source\htmlview\Pixie.RenderItem.pas',
+  Pixie.RenderBlock in '..\source\htmlview\Pixie.RenderBlock.pas',
+  Pixie.RenderBlockContext in '..\source\htmlview\Pixie.RenderBlockContext.pas',
+  Pixie.RenderInlineContext in '..\source\htmlview\Pixie.RenderInlineContext.pas',
+  Pixie.RenderInline in '..\source\htmlview\Pixie.RenderInline.pas',
+  Pixie.RenderImage in '..\source\htmlview\Pixie.RenderImage.pas',
+  Pixie.RenderTable in '..\source\htmlview\Pixie.RenderTable.pas',
+  Pixie.RenderFlex in '..\source\htmlview\Pixie.RenderFlex.pas',
+  Pixie.RenderGrid in '..\source\htmlview\Pixie.RenderGrid.pas',
+  Pixie.RenderInput in '..\source\htmlview\Pixie.RenderInput.pas',
+  Pixie.LineBox in '..\source\htmlview\Pixie.LineBox.pas',
+  Pixie.Table in '..\source\htmlview\Pixie.Table.pas',
+  Pixie.FlexItem in '..\source\htmlview\Pixie.FlexItem.pas',
+  Pixie.GridItem in '..\source\htmlview\Pixie.GridItem.pas',
+  Pixie.FormattingContext in '..\source\htmlview\Pixie.FormattingContext.pas',
+  Pixie.Iterators in '..\source\htmlview\Pixie.Iterators.pas',
+  Pixie.ScrollView in '..\source\htmlview\Pixie.ScrollView.pas',
+  Pixie.AnimatedImage in '..\source\common\Pixie.AnimatedImage.pas',
+  Pixie.GifDecode in '..\source\common\Pixie.GifDecode.pas',
+  Pixie.ApngDecode in '..\source\common\Pixie.ApngDecode.pas',
+  Pixie.Canvas in '..\source\common\Pixie.Canvas.pas',
+  Pixie.WebP in '..\source\common\Pixie.WebP.pas',
+  Pixie.WebP.Decoder in '..\source\common\Pixie.WebP.Decoder.pas',
+  Pixie.WebPAnim in '..\source\common\Pixie.WebPAnim.pas',
+  Pixie.FontMetrics in '..\source\common\Pixie.FontMetrics.pas',
+  Pixie.Clipboard in '..\source\common\Pixie.Clipboard.pas',
+  Pixie.SimpleXml in '..\source\common\Pixie.SimpleXml.pas',
+  Pixie.SvgRenderer in '..\source\common\Pixie.SvgRenderer.pas',
+  Pixie.Canvas.FMX in '..\source\common\Pixie.Canvas.FMX.pas',
+  Pixie.NativeContainer in '..\source\htmlview\Pixie.NativeContainer.pas',
+  Pixie.TrueType in '..\source\htmlview\Pixie.TrueType.pas',
+  Pixie.HtmlView.Core in '..\source\htmlview\Pixie.HtmlView.Core.pas',
+  Pixie.HtmlView.FMX.Base in '..\source\htmlview\Pixie.HtmlView.FMX.Base.pas',
+  Pixie.HtmlView.FMX in '..\source\htmlview\Pixie.HtmlView.FMX.pas',
+  Pixie.Markdown.Types in '..\source\markdown\Pixie.Markdown.Types.pas',
+  Pixie.Markdown.Css in '..\source\markdown\Pixie.Markdown.Css.pas',
+  Pixie.Markdown.HtmlWriter in '..\source\markdown\Pixie.Markdown.HtmlWriter.pas',
+  Pixie.Markdown.InlineParser in '..\source\markdown\Pixie.Markdown.InlineParser.pas',
+  Pixie.Markdown.Parser in '..\source\markdown\Pixie.Markdown.Parser.pas',
+  Pixie.Markdown in '..\source\markdown\Pixie.Markdown.pas',
+  Pixie.MarkdownView.FMX in '..\source\markdown\Pixie.MarkdownView.FMX.pas',
+  Pixie.SvgRenderer.Canvas in '..\source\common\Pixie.SvgRenderer.Canvas.pas',
+  Pixie.SvgToPdf in '..\source\common\Pixie.SvgToPdf.pas',
+  Pixie.PdfWriter in '..\source\htmlview\Pixie.PdfWriter.pas',
+  Pixie.Canvas.Pdf in '..\source\htmlview\Pixie.Canvas.Pdf.pas',
+  Pixie.PdfExport in '..\source\htmlview\Pixie.PdfExport.pas',
+  Pixie.SvgView.FMX in '..\source\svgview\Pixie.SvgView.FMX.pas',
+  Pixie.DrawingCanvas in '..\source\paintbox\Pixie.DrawingCanvas.pas',
+  Pixie.PaintBox.FMX in '..\source\paintbox\Pixie.PaintBox.FMX.pas',
+  Pixie.Register.Delphi.FMX in 'Pixie.Register.Delphi.FMX.pas',
+  Pixie.ControlBase.FMX in '..\source\common\Pixie.ControlBase.FMX.pas',
+  Pixie.CustomControl.FMX in '..\source\common\Pixie.CustomControl.FMX.pas',
+  Pixie.TagBar.Colors in '..\source\tagbar\Pixie.TagBar.Colors.pas',
+  Pixie.TagBar.Render in '..\source\tagbar\Pixie.TagBar.Render.pas',
+  Pixie.TagBar.Base in '..\source\tagbar\Pixie.TagBar.Base.pas',
+  Pixie.TagBar.FMX in '..\source\tagbar\Pixie.TagBar.FMX.pas';
+
+end.
