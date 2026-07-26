@@ -1686,9 +1686,11 @@ begin
   st.fitting := FSizeToContent;
 
   // the rebuild throws the old document away, so where the caret was sitting
-  // has to be carried over by hand
+  // and what was selected have to be carried over by hand
   var focusId := '';
   var caret := 0;
+  var selFrom := -1;
+  var selTo := -1;
   if view.Document <> nil then
   begin
     var was := view.Document.FocusedElement;
@@ -1696,6 +1698,8 @@ begin
     begin
       focusId := TPixieHtmlTag(was).GetAttr('id');
       caret := TBoxAccess(was).FCaretPos;
+      selFrom := TBoxAccess(was).FSelStart;
+      selTo := TBoxAccess(was).FSelEnd;
     end;
   end;
 
@@ -1711,8 +1715,13 @@ begin
     if box is TPixieElTextBase then
     begin
       view.Document.SetFocus(box);
-      if caret > Length(TPixieElTextBase(box).Value) then caret := Length(TPixieElTextBase(box).Value);
+      var len := Length(TPixieElTextBase(box).Value);
+      if caret > len then caret := len;
+      if selFrom > len then selFrom := len;
+      if selTo > len then selTo := len;
       TBoxAccess(box).FCaretPos := caret;
+      TBoxAccess(box).FSelStart := selFrom;
+      TBoxAccess(box).FSelEnd := selTo;
     end;
   end;
   settleDocument(layoutWidth);
