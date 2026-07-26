@@ -89,8 +89,6 @@ type
     // last target dir for which cross checkboxes were synced; prevents refreshTarget clobbering toggles
     FCrossSyncedFor: string;
     // gate for state-B reset so a re-entry from a checkbox toggle won't clobber the just-made change
-    FLastState: Char;
-    FLastStateDir: string;
     // raw 'name=sha' lists from branch_fetch; Values[branch] yields head SHA
     FFpcBranchShas: TStringList;
     FLazBranchShas: TStringList;
@@ -764,8 +762,6 @@ begin
     FFolderError := True;
     st.modeBad := True;
     st.mode := 'No target directory selected';
-    FLastState := 'A';
-    FLastStateDir := rawDir;
     Exit;
   end;
 
@@ -774,14 +770,12 @@ begin
   var dirExists      := DirectoryExists(dir);
 
   // ---- state B: target absent or empty (no manifest) -> fresh install ----
-  // reset only on entry into state-B so a checkbox toggle re-entry doesn't wipe the change
+  // nothing to restore from, so the window keeps whatever is ticked: retyping
+  // the path is not a reason to lose the choices made for this install
   if (not manifestExists) and ((not dirExists) or IsDirEffectivelyEmpty(dir)) then begin
-    if (FLastState <> 'B') or (FLastStateDir <> rawDir) then resetTargetToDefaults;
     st.mode := 'New installation';
     st.installLabel := 'Install';
     updateShortcutError;
-    FLastState := 'B';
-    FLastStateDir := rawDir;
     Exit;
   end;
 
@@ -791,9 +785,7 @@ begin
     FFolderError := True;
     st.modeBad := True;
     st.mode := 'Target folder is not empty and is not an Unleashed install (installer.ini not found). Choose an empty directory or an existing Unleashed install location.';
-    FLastState := 'D';
-    FLastStateDir := rawDir;
-    Exit;
+      Exit;
   end;
 
   // ---- state C: manifest present -> restore + update / reinstall ----
@@ -825,6 +817,9 @@ begin
   var updates := '';
   // sync once per target dir; gate on manifest-presence so a partial install still triggers restore
   if FCrossSyncedFor <> dir then begin
+    // this dir describes itself, so the window starts over from the stored
+    // preferences and the manifest below has the last word
+    resetTargetToDefaults;
     FCrossSyncedFor := dir;
     // {Win64,Linux64} cross synced only on the host where they are not native
     if not FNativeWin64 then FCrossWin64 := ProbeCrossInstalled(rawDir, 'x86_64-win64');
@@ -891,8 +886,6 @@ begin
     st.installLabel := 'Resume';
   end;
   updateShortcutError;
-  FLastState := 'C';
-  FLastStateDir := rawDir;
   finally
     FRefreshingTarget := False;
   end;
