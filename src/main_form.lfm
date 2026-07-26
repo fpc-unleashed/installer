@@ -41,7 +41,7 @@ object MainForm: TMainForm
   end
   object logTimer: TTimer
     Enabled = False
-    Interval = 150
+    Interval = 250
     OnTimer = logTimerTimer
     Left = 760
     Top = 40

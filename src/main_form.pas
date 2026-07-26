@@ -1307,7 +1307,9 @@ end;
 procedure TMainForm.setStatus(const msg: string);
 begin
   st.status := msg;
-  queueRender;
+  // a download reports every 256 KB, so during an install the page is left to
+  // the timer: laying it out per report starves the window of everything else
+  if FInstalling then FLogDirty := True else queueRender;
 end;
 
 procedure TMainForm.log(const msg: string);
