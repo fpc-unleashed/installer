@@ -210,6 +210,9 @@ implementation
 {$embedbytes INSTALLER_PNG 'installer.png'}
 {$endif}
 
+// logo lives in the binary, not in the LFM - keeps main_form.lfm small enough to stay workable in the designer
+{$embedbytes INSTALLER_LOGO_PNG 'installer_logo.png'}
+
 var
   // set in FormDestroy; FreeOnTerminate-thread callbacks queued via Synchronize can fire after the
   // form is freed, so they gate on this global; a form field there would be read from freed memory
@@ -348,6 +351,13 @@ begin
   Application.Icon.Assign(png);
   Self.Icon.Assign(png);
   {$endif}
+
+  var LogoStream := autofree TMemoryStream.Create;
+  LogoStream.WriteBuffer(INSTALLER_LOGO_PNG, SizeOf(INSTALLER_LOGO_PNG));
+  LogoStream.Position := 0;
+  var LogoPNG := autofree TPortableNetworkGraphic.Create;
+  LogoPNG.LoadFromStream(LogoStream);
+  ImageLogo.Picture.Assign(LogoPNG);
 
   // augment LFM caption with version + build stamp
   var BuildDate := StringReplace(BUILD_DATE_RAW, '/', '-', [rfReplaceAll]);
