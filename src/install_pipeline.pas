@@ -172,6 +172,7 @@ type
     function ResolveLazarusRef: string;
     function LazarusDir: string;
     function LazarusPcp: string;
+    function ComponentsExtraDir: string;
     function RunLazbuild(const Args: array of string;
       const StepLabel: string): Boolean;
     function AddPackage(const LpkRel: string; LinkOnly: Boolean = False): Boolean;
@@ -315,7 +316,7 @@ const
   // components-v1 release. Two upstream projects shipped here:
   //   FWHexView 2.0.16 -- cross-platform HEX viewer (MIT)
   //   CPUView 1.0      -- debugger plugin (MIT), depends on FWHexView.LCL
-  // Each download lands as a zip in TargetDir/components-extra/ and is
+  // Each download lands as a zip in TargetDir/components_extra/ and is
   // extracted in place. Sources only -- lazbuild rebuilds .lpk into
   // .ppu against the freshly-built host RTL.
   COMPONENTS_FWHEX_URL =
@@ -1742,6 +1743,15 @@ begin
   Result := IncludeTrailingPathDelimiter(FCfg.TargetDir) + 'config_lazarus';
 end;
 
+// installs made before the rename carry the dashed folder; reuse it when
+// it is there so their add-ons keep resolving. New installs get the underscore
+function TInstallThread.ComponentsExtraDir: string;
+begin
+  var Legacy := IncludeTrailingPathDelimiter(FCfg.TargetDir) + 'components-extra';
+  if DirectoryExists(Legacy) then Exit(Legacy);
+  Result := IncludeTrailingPathDelimiter(FCfg.TargetDir) + 'components_extra';
+end;
+
 function TInstallThread.StepDownloadLazarusSource: Boolean;
 begin
   Result := False;
@@ -1812,37 +1822,37 @@ const
 
   // Optional CPU-View add-on lives outside the lazarus checkout to keep
   // the lazarus repo small (sources are downloaded on demand from the
-  // components-v1 release into <install>/components-extra/). FWHexView
+  // components-v1 release into <install>/components_extra/). FWHexView
   // ships its design-time .lpk under a single name on all platforms;
   // CPUView has a per-platform .lpk because the runtime pulls in
   // platform-specific debugger glue (Windows API vs ptrace/lldb).
-  // Paths here are relative to <TargetDir>; AddPackage prepends LazarusDir
+  // Paths here are relative to ComponentsExtraDir; AddPackage prepends LazarusDir
   // which is wrong for these -- the wired-up loop below uses absolute
   // paths via a helper instead.
-  COMPONENTS_FWHEX_RUNTIME_LPK = 'components-extra\FWHexView\FWHexView.LCL.lpk';
-  COMPONENTS_FWHEX_DESIGN_LPK  = 'components-extra\FWHexView\FWHexView_D.LCL.lpk';
+  COMPONENTS_FWHEX_RUNTIME_LPK = 'FWHexView\FWHexView.LCL.lpk';
+  COMPONENTS_FWHEX_DESIGN_LPK  = 'FWHexView\FWHexView_D.LCL.lpk';
   // Host-platform-specific CPUView design-time .lpk filename. The runtime
   // pieces live inside the same .lpk -- there is no separate runtime/design
   // split for CPUView. Selection is forced at the host level here because
   // the .lpk explicitly carries the target triple in its name.
 {$ifdef WINDOWS}
-  COMPONENTS_CPUVIEW_LPK = 'components-extra\CPUView\CPUView_win_x86_64_D.lpk';
+  COMPONENTS_CPUVIEW_LPK = 'CPUView\CPUView_win_x86_64_D.lpk';
 {$endif}
 {$ifdef LINUX}
-  COMPONENTS_CPUVIEW_LPK = 'components-extra\CPUView\CPUView_lin_x86_64_D.lpk';
+  COMPONENTS_CPUVIEW_LPK = 'CPUView\CPUView_lin_x86_64_D.lpk';
 {$endif}
 
   // ToggleDisplayAffinity ships a single .lpk at the zip root (no per-
   // platform variants). The const exists on every host so callers can
   // reference it without ifdef, but the only caller that touches disk
   // is inside a {$ifdef WINDOWS} block.
-  COMPONENTS_TOGGLE_LPK = 'components-extra\ToggleDisplayAffinity\toggledisplayaffinity.lpk';
+  COMPONENTS_TOGGLE_LPK = 'ToggleDisplayAffinity\toggledisplayaffinity.lpk';
 
   // MetaDarkStyle ships its runtime + design-time .lpk side by side at
   // the zip root. Both are LCL-based so they compile on any LCL target;
   // no per-platform variant.
-  COMPONENTS_METADARK_RUNTIME_LPK = 'components-extra\MetaDarkStyle\metadarkstyle.lpk';
-  COMPONENTS_METADARK_DESIGN_LPK  = 'components-extra\MetaDarkStyle\metadarkstyledsgn.lpk';
+  COMPONENTS_METADARK_RUNTIME_LPK = 'MetaDarkStyle\metadarkstyle.lpk';
+  COMPONENTS_METADARK_DESIGN_LPK  = 'MetaDarkStyle\metadarkstyledsgn.lpk';
 
 function TInstallThread.RunLazbuild(const Args: array of string;
   const StepLabel: string): Boolean;
@@ -1893,7 +1903,7 @@ begin
 end;
 
 // Same as AddPackage but for packages outside LazarusDir (the optional
-// add-ons under <TargetDir>/components-extra/). lazbuild itself does
+// add-ons under <TargetDir>/components_extra/). lazbuild itself does
 // not care where the .lpk lives, only that it can resolve required
 // packages -- which it does via the per-user pcp's known-package list,
 // populated by `--add-package` / `--add-package-link` itself.
@@ -1927,7 +1937,7 @@ function TInstallThread.RegisterCPUViewPackages: Boolean;
 
 begin
   Result := False;
-  var Base := IncludeTrailingPathDelimiter(FCfg.TargetDir);
+  var Base := IncludeTrailingPathDelimiter(ComponentsExtraDir);
   var FwhexRt   := HostPath(Base + COMPONENTS_FWHEX_RUNTIME_LPK);
   var FwhexDsgn := HostPath(Base + COMPONENTS_FWHEX_DESIGN_LPK);
   var Cpuview   := HostPath(Base + COMPONENTS_CPUVIEW_LPK);
@@ -1990,7 +2000,7 @@ function TInstallThread.RegisterMetaDarkStylePackages: Boolean;
 
 begin
   Result := False;
-  var Base := IncludeTrailingPathDelimiter(FCfg.TargetDir);
+  var Base := IncludeTrailingPathDelimiter(ComponentsExtraDir);
   var RuntimeLpk := HostPath(Base + COMPONENTS_METADARK_RUNTIME_LPK);
   var DesignLpk  := HostPath(Base + COMPONENTS_METADARK_DESIGN_LPK);
 
@@ -2204,7 +2214,7 @@ begin
   if FCfg.InstallToggleAffinity then begin
     Log('Registering Toggle Display Affinity addon');
     var TogglePath := StringReplace(
-      IncludeTrailingPathDelimiter(FCfg.TargetDir) + COMPONENTS_TOGGLE_LPK, '\', DirectorySeparator, [rfReplaceAll]);
+      IncludeTrailingPathDelimiter(ComponentsExtraDir) + COMPONENTS_TOGGLE_LPK, '\', DirectorySeparator, [rfReplaceAll]);
     if not FileExists(TogglePath) then begin
       FErrorMsg := 'Toggle Display Affinity addon: missing ' + TogglePath +
                    ' (was StepDownloadComponents skipped?)';
@@ -2429,7 +2439,7 @@ begin
   if FCfg.InstallCPUView and (not Prev.InstallCPUView) then begin
     Log('Adding CPU-View addon');
     // sources may already be cached from a prior tick-then-untick run,
-    // but a fresh tick still has to fetch them if components-extra/ was
+    // but a fresh tick still has to fetch them if components_extra/ was
     // wiped between runs. Hook the download here so re-installs don't
     // require running the full bootstrap path again.
     SetStage(isLazComponents);
@@ -2472,7 +2482,7 @@ begin
     if not StepDownloadComponents then Exit;
     SetStage(isLazPackages);
     var TogglePath := StringReplace(
-      IncludeTrailingPathDelimiter(FCfg.TargetDir) + COMPONENTS_TOGGLE_LPK, '\', DirectorySeparator, [rfReplaceAll]);
+      IncludeTrailingPathDelimiter(ComponentsExtraDir) + COMPONENTS_TOGGLE_LPK, '\', DirectorySeparator, [rfReplaceAll]);
     if not AddPackageAbs(TogglePath) then Exit;
   end
   else if (not FCfg.InstallToggleAffinity) and Prev.InstallToggleAffinity then begin
@@ -2750,7 +2760,7 @@ begin
 end;
 
 // Pull the optional add-on packages (FWHexView + CPUView) off the
-// components-v1 release into <TargetDir>/components-extra/. We never
+// components-v1 release into <TargetDir>/components_extra/. We never
 // re-download: presence of the unzipped folder is the cache key.
 // Failure here is fatal because the caller already decided the user
 // wants the add-on -- proceeding without it would silently produce
@@ -2795,7 +2805,7 @@ begin
     Exit;
   end;
 
-  var Base := IncludeTrailingPathDelimiter(FCfg.TargetDir) + 'components-extra';
+  var Base := ComponentsExtraDir;
   ForceDirectories(Base);
 
   if FCfg.InstallCPUView then begin
