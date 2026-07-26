@@ -111,10 +111,15 @@ type
     FSuccess: Boolean;
     FErrorMsg: string;
     FStage: TInstallStage;
-    // marshalled fields (thread writes, main reads in Sync*)
-    FLogMsg: string;
-    FProgressMsg: string;
-    FProgressPct: Integer;
+    // events cross to the main thread through Queue, never Synchronize: a
+    // blocking hand-off made the downloader sit out every window redraw.
+    // the lock guards the mailbox; FEvQueued keeps at most one drain pending
+    FEvLock: TRTLCriticalSection;
+    FEvLines: TStringList;
+    FEvMsg: string;
+    FEvPct: Integer;
+    FEvHasProgress: Boolean;
+    FEvQueued: Boolean;
     // optional installer.log writer; nil when save-log is off. owned
     // and freed inside Execute so lifetime is exactly the pipeline run.
     FLogStream: TFileStream;
@@ -125,8 +130,8 @@ type
     // can be a different version than the 3.2.2 bootstrap, so we scan
     // lib/fpc/<ver>/ at runtime instead of hardcoding it)
     FHostFpcVersion: string;
-    procedure SyncLog;
-    procedure SyncProgress;
+    procedure PostEvents;
+    procedure DrainEvents;
     procedure Log(const msg: string);
     procedure Progress(Percent: Integer; const status: string);
     procedure SetStage(s: TInstallStage);
@@ -204,6 +209,7 @@ type
     constructor Create(const Cfg: TInstallConfig;
       ALog: TInstallLogEvent; AProgress: TInstallProgressEvent;
       AOnTerminate: TNotifyEvent);
+    destructor Destroy; override;
     property Success: Boolean read FSuccess;
     property ErrorMsg: string read FErrorMsg;
   end;
@@ -484,19 +490,52 @@ begin
   FCfg := Cfg;
   FOnLog := ALog;
   FOnProgress := AProgress;
+  InitCriticalSection(FEvLock);
+  FEvLines := TStringList.Create;
   FreeOnTerminate := True;
   OnTerminate := AOnTerminate;
   Start;
 end;
 
-procedure TInstallThread.SyncLog;
+// TThread.Destroy pulls this thread's pending queue entries, so a drain can
+// never fire on a freed object
+destructor TInstallThread.Destroy;
 begin
-  if Assigned(FOnLog) then FOnLog(FLogMsg);
+  FEvLines.Free;
+  DoneCriticalSection(FEvLock);
+  inherited Destroy;
 end;
 
-procedure TInstallThread.SyncProgress;
+procedure TInstallThread.PostEvents;
 begin
-  if Assigned(FOnProgress) then FOnProgress(FProgressPct, FProgressMsg);
+  EnterCriticalSection(FEvLock);
+  var post := not FEvQueued;
+  FEvQueued := True;
+  LeaveCriticalSection(FEvLock);
+  if post then Queue(@DrainEvents);
+end;
+
+// main thread. OnTerminate goes through Synchronize, which shares the queue
+// with these drains, so every line is out before the completion callback
+procedure TInstallThread.DrainEvents;
+begin
+  EnterCriticalSection(FEvLock);
+  var lines := FEvLines;
+  FEvLines := TStringList.Create;
+  var hasProgress := FEvHasProgress;
+  var pct := FEvPct;
+  var msg := FEvMsg;
+  FEvHasProgress := False;
+  FEvQueued := False;
+  LeaveCriticalSection(FEvLock);
+
+  try
+    if Assigned(FOnLog) then
+      for var i := 0 to lines.Count-1 do FOnLog(lines[i]);
+    if hasProgress and Assigned(FOnProgress) then FOnProgress(pct, msg);
+  finally
+    lines.Free;
+  end;
 end;
 
 procedure TInstallThread.Log(const msg: string);
@@ -506,8 +545,10 @@ begin
     if Length(line) > 0 then
       FLogStream.WriteBuffer(line[1], Length(line));
   end;
-  FLogMsg := msg;
-  Synchronize(@SyncLog);
+  EnterCriticalSection(FEvLock);
+  FEvLines.Add(msg);
+  LeaveCriticalSection(FEvLock);
+  PostEvents;
 end;
 
 // Percent is the LOCAL pct of the current stage (0..100), or -1 for marquee.
@@ -517,15 +558,20 @@ procedure TInstallThread.Progress(Percent: Integer; const status: string);
 begin
   var rangeStart := if FStage = isInit then 0 else STAGE_END[Pred(FStage)];
   var rangeEnd   := STAGE_END[FStage];
-  if Percent < 0 then
-    FProgressPct := -1
-  else
+  var pct := -1;
+  if Percent >= 0 then
   begin
     if Percent > 100 then Percent := 100;
-    FProgressPct := rangeStart + Round((rangeEnd - rangeStart) * Percent / 100);
+    pct := rangeStart + Round((rangeEnd - rangeStart) * Percent / 100);
   end;
-  FProgressMsg := STAGE_NAME[FStage] + ': ' + status;
-  Synchronize(@SyncProgress);
+  // only the latest report matters, so a second one before the drain simply
+  // overwrites the first
+  EnterCriticalSection(FEvLock);
+  FEvPct := pct;
+  FEvMsg := STAGE_NAME[FStage] + ': ' + status;
+  FEvHasProgress := True;
+  LeaveCriticalSection(FEvLock);
+  PostEvents;
 end;
 
 procedure TInstallThread.SetStage(s: TInstallStage);
@@ -2969,8 +3015,7 @@ begin
       on E: Exception do begin
         FLogStream := nil;
         // surface, but don't abort - logging is a nice-to-have
-        FLogMsg := 'WARNING: could not open installer.log: ' + E.Message;
-        Synchronize(@SyncLog);
+        Log('WARNING: could not open installer.log: ' + E.Message);
       end;
     end;
 

@@ -93,7 +93,7 @@ function esc(const s: string): string;
 function sanitize(const s: string): string;
 function barWidth(const st: TUiState): integer;
 function logLinesHtml(log: TStrings): string;
-function buildLogLines(const st: TUiState): string;
+function buildLogDoc(theme: TUiTheme; const linesHtml: string): string;
 function buildPage(const st: TUiState): string;
 
 implementation
@@ -117,7 +117,6 @@ const
     '''
     * { box-sizing: border-box; cursor: default; user-select: none; }
     input, textarea { cursor: text; user-select: text; }
-    .log, .lg { user-select: text; }
     body { display: flex; flex-direction: column; height: 100vh; margin: 0; overflow: hidden; background: @bg; color: @text; font-family: "Segoe UI", system-ui, sans-serif; font-size: 12px; }
     .top { flex-shrink: 0; display: flex; align-items: center; background: @panel; border-bottom: 1px solid @border; padding: 5px 10px; }
     .logo { font-size: 13px; font-weight: 600; color: @accent; margin-right: 10px; }
@@ -179,14 +178,7 @@ const
     .drop .items div { padding: 3px 7px; border-radius: 3px; }
     .drop .items div:hover { background: @hover; }
     .drop .items div.on { color: @accent; font-weight: 600; }
-    .log { flex-grow: 1; min-height: 0; overflow-y: auto; padding: 5px 7px 16px 7px; font-family: Consolas, monospace; font-size: 11px; }
-    .lg { padding: 0 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .lg.err { color: @bad; }
-    .lg.warn2 { color: @warn; }
-    .lg.head { color: @navy; }
-    .lg.step { color: @ok; }
-    .lg.make { color: @dim; }
-    .lg.bang { background: @warnbg; color: @warn; font-weight: 600; }
+    .logslot { flex-grow: 1; min-height: 0; }
     .bar { flex-shrink: 0; background: @panel; border-top: 1px solid @border; padding: 7px 10px; }
     .bar .line { display: flex; align-items: center; }
     .track { flex-grow: 1; flex-shrink: 1; flex-basis: 0; height: 8px; margin-right: 10px; border-radius: 4px; background: @track; border: 1px solid @border; }
@@ -201,16 +193,35 @@ const
     body.fit { height: auto; overflow: visible; }
     body.fit .cols { flex-grow: 0; }
     body.fit .col.left { overflow-y: visible; }
-    body.fit .log { overflow-y: visible; }
     .license { margin: 0 11px 11px 11px; padding: 7px 9px; height: 300px; width: 536px; border: 1px solid @border; border-radius: 3px; background: @input; color: @muted; font-family: Consolas, monospace; font-size: 11px; }
     ''';
 
-function themeCss(theme: TUiTheme): string;
+  // the log pane is its own document in its own view, so a new batch of lines
+  // reparses these few rules and nothing else
+  LOG_CSS =
+    '''
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 5px 7px 16px 7px; background: @panel; color: @text; font-family: Consolas, monospace; font-size: 11px; user-select: text; cursor: text; }
+    .lg { padding: 0 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .lg.err { color: @bad; }
+    .lg.warn2 { color: @warn; }
+    .lg.head { color: @navy; }
+    .lg.step { color: @ok; }
+    .lg.make { color: @dim; }
+    .lg.bang { background: @warnbg; color: @warn; font-weight: 600; }
+    ''';
+
+function themeTokens(const css: string; theme: TUiTheme): string;
 begin
-  result := CSS;
+  result := css;
   for var i := 0 to high(TOKENS) do
     if theme = utDark then result := StringReplace(result, TOKENS[i], DARK[i], [rfReplaceAll])
     else result := StringReplace(result, TOKENS[i], LIGHT[i], [rfReplaceAll]);
+end;
+
+function themeCss(theme: TUiTheme): string;
+begin
+  result := themeTokens(CSS, theme);
 end;
 
 // how many bytes the utf-8 sequence starting here takes, or 0 when the bytes do
@@ -233,10 +244,24 @@ end;
 
 // the engine reads the page as utf-8, so a raw byte that is not part of a valid
 // sequence swallows the markup that follows it. make and curl put whatever the
-// tool wrote into the log, so every string is filtered on the way in
-function sanitize(const s: string): string;
+// tool wrote into the log, so every string is filtered on the way in.
+// one pass into a preallocated buffer: growing the result char by char over
+// hundreds of log lines was where a whole core went, and so was chaining four
+// StringReplace calls on top - escaping happens in the same sweep
+function escape(const s: string; entities: boolean): string;
+var
+  w: integer;
+
+  procedure put(const t: string);
+  begin
+    Move(t[1], result[w+1], Length(t));
+    inc(w, Length(t));
+  end;
+
 begin
-  result := '';
+  // upper bound: '"' -> '&quot;' is 6 bytes, a raw byte -> '\xNN' is 4
+  SetLength(result, Length(s)*6);
+  w := 0;
   var i := 1;
   while i <= Length(s) do
   begin
@@ -244,21 +269,32 @@ begin
     var run := utf8Run(s, i);
     if (run = 0) or ((c < ' ') and (c <> #9) and (c <> #10) and (c <> #13)) then
     begin
-      result := result+'\x'+IntToHex(ord(c), 2);
+      put('\x'+IntToHex(ord(c), 2));
       inc(i);
       continue;
     end;
-    result := result+Copy(s, i, run);
+    if entities then
+      case c of
+        '&': begin put('&amp;'); inc(i); continue; end;
+        '<': begin put('&lt;'); inc(i); continue; end;
+        '>': begin put('&gt;'); inc(i); continue; end;
+        '"': begin put('&quot;'); inc(i); continue; end;
+      end;
+    Move(s[i], result[w+1], run);
+    inc(w, run);
     inc(i, run);
   end;
+  SetLength(result, w);
+end;
+
+function sanitize(const s: string): string;
+begin
+  result := escape(s, false);
 end;
 
 function esc(const s: string): string;
 begin
-  result := StringReplace(sanitize(s), '&', '&amp;', [rfReplaceAll]);
-  result := StringReplace(result, '<', '&lt;', [rfReplaceAll]);
-  result := StringReplace(result, '>', '&gt;', [rfReplaceAll]);
-  result := StringReplace(result, '"', '&quot;', [rfReplaceAll]);
+  result := escape(s, true);
 end;
 
 function button(const act, caption: string; enabled: boolean; primary: boolean=false; flat: boolean=false): string;
@@ -469,9 +505,10 @@ begin
     result := result+$'<div class="{logClass(log[i])}">{esc(log[i])}</div>';
 end;
 
-function buildLogLines(const st: TUiState): string;
+// the whole document of the log view
+function buildLogDoc(theme: TUiTheme; const linesHtml: string): string;
 begin
-  result := logLinesHtml(st.log);
+  result := $'<html><head><style>{themeTokens(LOG_CSS, theme)}</style></head><body>{linesHtml}</body></html>';
 end;
 
 function buildLog(const st: TUiState): string;
@@ -490,7 +527,7 @@ begin
   result := '<div class="card logcard"><h2>log</h2><div class="pad" style="padding-bottom: 0">'+
     '<div class="row"><div class="tight">'+checkbox(saveBox)+'</div>'+
     button('copylog', 'Copy', count > 0)+button('clearlog', 'Clear', count > 0)+
-    '</div></div><div class="log" id="log">'+buildLogLines(st)+'</div></div>';
+    '</div></div><div class="logslot" id="logslot"></div></div>';
 end;
 
 function barWidth(const st: TUiState): integer;

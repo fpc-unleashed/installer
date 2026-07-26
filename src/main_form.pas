@@ -30,6 +30,7 @@ type
   TMainForm = class(TForm)
     SelectDirDialog: TSelectDirectoryDialog;
     view: TPixieHtmlView;
+    logView: TPixieHtmlView;
     logTimer: TTimer;
     liveTimer: TTimer;
     procedure FormCreate(Sender: TObject);
@@ -42,6 +43,8 @@ type
     procedure viewMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure viewMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure viewMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+    procedure logViewAfterPaint(Sender: TObject);
+    procedure logViewScrollChanged(Sender: TObject);
     procedure logTimerTimer(Sender: TObject);
     procedure liveTimerTimer(Sender: TObject);
   private
@@ -51,11 +54,11 @@ type
     FLogDirty: Boolean;
     FStatusDirty: Boolean;
     FRenderQueued: Boolean;
-    // the log pane scrolls on its own and is followed until the user scrolls
+    // the log view scrolls on its own and is followed until the user scrolls
     // away from its end; the window itself never scrolls
     FFollowLog: Boolean;
-    FLogTop: Double;
-    FLogRebuilt: Boolean;
+    FLogBottom: Double;
+    FSelfScroll: Boolean;
     // a live-update worker is building strings; the next one waits its turn
     FLiveBusy: Boolean;
     FHoverDirty: Boolean;
@@ -135,16 +138,16 @@ type
     procedure applyWindowTheme;
     procedure restoreHover;
     function menuUnderPoint(x, y: Integer): string;
-    function logItem: TPixieRenderItem;
-    procedure restoreLogScroll;
-    procedure noticeLogScroll;
+    procedure positionLogView;
+    function logViewBottom: Double;
     procedure settleDocument(layoutWidth: Double);
     procedure buildChecks;
     procedure queueRender;
     procedure asyncRender(data: PtrInt);
     procedure render;
-    procedure renderLive(withLog: Boolean);
-    procedure applyLive(const linesHtml, statusText: string; percent: integer; withLog: Boolean);
+    procedure applyStatus;
+    procedure applyLog(const linesHtml: string);
+    procedure renderLog;
   end;
 
 var
@@ -396,7 +399,10 @@ begin
   // the first layout says how tall they are
   FSizeToContent := not applyStoredSettings;
 
+  // the log view floats over the pane the page keeps for it
+  logView.BringToFront;
   render;
+  renderLog;
 end;
 
 // Preferences from installer_settings.ini. Returns True when it applied a
@@ -532,8 +538,9 @@ begin
     'close': Close;
     'quit!': begin FClosing := True; Close; end;
 
-    'themelight': if st.theme <> utLight then begin st.theme := utLight; applyWindowTheme; queueRender; end;
-    'themedark':  if st.theme <> utDark then begin st.theme := utDark; applyWindowTheme; queueRender; end;
+    // the log document carries its own themed stylesheet, so it follows along
+    'themelight': if st.theme <> utLight then begin st.theme := utLight; applyWindowTheme; renderLog; queueRender; end;
+    'themedark':  if st.theme <> utDark then begin st.theme := utDark; applyWindowTheme; renderLog; queueRender; end;
 
     'browse': begin
       if SelectDirDialog.Execute then
@@ -545,7 +552,7 @@ begin
     end;
 
     'install':  startInstall;
-    'clearlog': begin FLog.Clear; queueRender; end;
+    'clearlog': begin FLog.Clear; renderLog; queueRender; end;
     'copylog':  begin Clipboard.AsText := FLog.Text; queueRender; end;
 
     'menufile': if el.GetAttr('data-name') = 'Exit' then Close;
@@ -1379,8 +1386,7 @@ end;
 procedure TMainForm.log(const msg: string);
 begin
   FLog.Add(FormatDateTime('hh:nn:ss', Now)+'# '+msg);
-  FLogDirty := True;
-  if not FInstalling then queueRender;
+  if FInstalling then FLogDirty := True else renderLog;
 end;
 
 procedure TMainForm.viewAfterPaint(Sender: TObject);
@@ -1403,9 +1409,9 @@ begin
     queueRender;
   end;
 
-  // a page settleDocument could not lay out itself is caught up with here
-  if FLogRebuilt then begin FLogRebuilt := False; restoreLogScroll; end
-  else noticeLogScroll;
+  // the log view is a control of its own, parked over the pane the page
+  // reserves for it, so it moves whenever the page has been laid out again
+  positionLogView;
 
   if FHoverDirty then
   begin
@@ -1414,52 +1420,50 @@ begin
   end;
 end;
 
-function TMainForm.logItem: TPixieRenderItem;
+procedure TMainForm.positionLogView;
 begin
-  result := nil;
   if view.Document = nil then Exit;
-  var el := view.Document.GetElementById('log');
+  var el := view.Document.GetElementById('logslot');
   if el = nil then Exit;
-  result := TPixieRenderItem(el.GetRenderItem);
+  var ri := TPixieRenderItem(el.GetRenderItem);
+  if ri = nil then Exit;
+
+  var scale := 1.0;
+  if view.Document.Width > 0 then scale := view.ClientWidth/view.Document.Width;
+  if scale <= 0 then scale := 1;
+
+  var box := ri.AbsolutePos;
+  logView.SetBounds(Round(box.X*scale), Round(box.Y*scale), Round(box.Width*scale), Round(box.Height*scale));
+  // the page modal cannot dim a sibling control, so the log makes room for it
+  logView.Visible := st.modal.kind = umNone;
 end;
 
-// a rebuild throws the scroll offset away with the render tree, so the pane is
-// put back where it was, or at its end while the log is followed
-procedure TMainForm.restoreLogScroll;
+// the furthest the log view can scroll, in document units
+function TMainForm.logViewBottom: Double;
 begin
-  var ri := logItem;
-  if ri = nil then Exit;
-  var want := FLogTop;
-  if FFollowLog then want := 1000000;
-  ri.VScroll(want-ri.GetScrollTop);
-  FLogTop := ri.GetScrollTop;
-end;
-
-// there is no event for the wheel over a pane, so where the user left it is
-// read off every paint that did not rebuild the page
-procedure TMainForm.noticeLogScroll;
-begin
-  var ri := logItem;
-  if ri = nil then Exit;
-  FLogTop := ri.GetScrollTop;
-  FFollowLog := not ri.IsVScrollable(24);
+  result := 0;
+  if logView.Document = nil then Exit;
+  var scale := 1.0;
+  if logView.Document.Width > 0 then scale := logView.ClientWidth/logView.Document.Width;
+  if scale <= 0 then scale := 1;
+  result := logView.Document.Height-logView.ClientHeight/scale;
+  if result < 0 then result := 0;
 end;
 
 // pixie lays a document out while it is painted, so a rebuilt one would first
-// be drawn with the log pane at its top and nothing under the pointer, and only
-// then be put right - one frame of flicker per update. laying it out here costs
-// that layout twice but never shows the wrong frame
+// be drawn with the hover gone and the log at its top, and only then be put
+// right - one frame of flicker per update. laying it out here costs the layout
+// twice but never shows the wrong frame
 procedure TMainForm.settleDocument(layoutWidth: Double);
 begin
   if (view.Document = nil) or (layoutWidth <= 0) then
   begin
-    FLogRebuilt := True;
     FHoverDirty := True;
     Exit;
   end;
 
   view.Document.Render(layoutWidth);
-  restoreLogScroll;
+  positionLogView;
   restoreHover;
 end;
 
@@ -1581,14 +1585,31 @@ end;
 
 procedure TMainForm.logTimerTimer(Sender: TObject);
 begin
-  if FMouseDown or FLiveBusy then Exit;
-  // a download reports progress far more often than it writes a line, and
-  // rebuilding the log for a moved progress bar is what made it flicker
-  var withLog := FLogDirty;
-  if (not withLog) and (not FStatusDirty) then Exit;
+  if FMouseDown then Exit;
+
+  if FStatusDirty then
+  begin
+    FStatusDirty := False;
+    applyStatus;
+  end;
+
+  if FLiveBusy or (not FLogDirty) then Exit;
   FLogDirty := False;
-  FStatusDirty := False;
-  renderLive(withLog);
+  FLiveBusy := True;
+  // the log is appended on this thread, so the worker gets its own copy; the
+  // html of a few hundred lines is built off the main thread and only the
+  // finished string comes back
+  var tail := TStringList.Create;
+  tail.Assign(FLog);
+  async begin
+    try
+      var linesHtml := logLinesHtml(tail);
+      sync applyLog(linesHtml);
+    finally
+      tail.Free;
+      FLiveBusy := False;
+    end;
+  end;
 end;
 
 // the tick boxes are rebuilt from the flags they mirror, so the page and the
@@ -1682,56 +1703,80 @@ begin
   settleDocument(layoutWidth);
 end;
 
-// while an install runs only the log, the status and the progress move, and
-// they are written into the page that is already up: a fresh document would
-// drop what the pointer is over and what the log pane is scrolled to. building
-// the log html is the costly half, so it runs on a worker
-procedure TMainForm.renderLive(withLog: Boolean);
-begin
-  if view.Document = nil then begin render; Exit; end;
-
-  var status := sanitize(st.status);
-  var percent := barWidth(st);
-  if not withLog then begin applyLive('', status, percent, False); Exit; end;
-
-  FLiveBusy := True;
-  // the log is appended on this thread, so the worker gets its own copy
-  var tail := TStringList.Create;
-  tail.Assign(FLog);
-
-  async begin
-    try
-      var linesHtml := logLinesHtml(tail);
-      sync applyLive(linesHtml, status, percent, True);
-    finally
-      tail.Free;
-      FLiveBusy := False;
-    end;
-  end;
-end;
-
-procedure TMainForm.applyLive(const linesHtml, statusText: string; percent: integer; withLog: Boolean);
+// while an install runs only the status and the bar move on the page, and they
+// are written into the document that is up: a fresh one would drop what the
+// pointer is over. cheap now that the log lines live in their own view
+procedure TMainForm.applyStatus;
 begin
   var doc := view.Document;
-  if FClosing or (doc = nil) then Exit;
+  if FClosing or (doc = nil) then begin queueRender; Exit; end;
 
   doc.BeginUpdate;
-  if withLog then
-  begin
-    var log := doc.GetElementById('log');
-    if log <> nil then doc.SetInnerHtml(log, linesHtml);
-  end;
   var el := doc.GetElementById('status');
-  if el <> nil then doc.SetElementText(el, statusText);
+  if el <> nil then doc.SetElementText(el, sanitize(st.status));
   el := doc.GetElementById('fill');
   if el <> nil then
   begin
-    el.SetAttr('style', 'width: '+IntToStr(percent)+'%');
+    el.SetAttr('style', 'width: '+IntToStr(barWidth(st))+'%');
     doc.Changed;
   end;
   doc.EndUpdate;
 
   settleDocument(doc.Width);
+end;
+
+// a fresh log document comes up scrolled to its top, so it is laid out here
+// and put back before it can be drawn
+procedure TMainForm.applyLog(const linesHtml: string);
+begin
+  if FClosing then Exit;
+
+  var prev := logView.ScrollY;
+  var prevWidth := 0.0;
+  if logView.Document <> nil then prevWidth := logView.Document.Width;
+
+  FSelfScroll := True;
+  logView.LoadFromString(buildLogDoc(st.theme, linesHtml));
+  if (logView.Document <> nil) and (prevWidth > 0) then
+  begin
+    logView.Document.Render(prevWidth);
+    var want := prev;
+    if FFollowLog then want := logViewBottom;
+    if want > logViewBottom then want := logViewBottom;
+    logView.ScrollY := want;
+  end;
+  FSelfScroll := False;
+end;
+
+procedure TMainForm.renderLog;
+begin
+  applyLog(logLinesHtml(FLog));
+end;
+
+// the first paint of a fresh log document knows its real height: while the log
+// is followed its end is kept in view here, which also covers the very first
+// document and every resize
+procedure TMainForm.logViewAfterPaint(Sender: TObject);
+begin
+  var bottom := logViewBottom;
+  if FFollowLog and (Abs(logView.ScrollY-bottom) >= 0.5) then
+  begin
+    FSelfScroll := True;
+    logView.ScrollY := bottom;
+    FSelfScroll := False;
+    logView.Invalidate;
+  end;
+  FLogBottom := bottom;
+end;
+
+// a scroll of the user's own decides whether the log keeps being followed. the
+// end it is measured against is the one from the last paint: the view also
+// reports a scroll when the document merely grew taller, and against the end it
+// has grown to that reads as the user having left it behind
+procedure TMainForm.logViewScrollChanged(Sender: TObject);
+begin
+  if FSelfScroll then Exit;
+  FFollowLog := logView.ScrollY >= FLogBottom-8;
 end;
 
 end.
