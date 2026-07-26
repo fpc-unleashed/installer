@@ -368,7 +368,7 @@ begin
   if fpc then
   begin
     master.act := 'togglefpc';
-    master.caption := 'Install FPC Unleashed';
+    master.caption := 'Install Unleashed Compiler';
     on := st.fpcOn;
     branch := st.fpcBranch;
     list := st.fpcBranches;
@@ -383,7 +383,7 @@ begin
   end
   else begin
     master.act := 'togglelaz';
-    master.caption := 'Install Lazarus IDE';
+    master.caption := 'Install Unleashed IDE';
     on := st.lazOn;
     branch := st.lazBranch;
     list := st.lazBranches;
@@ -522,7 +522,7 @@ end;
 
 function buildPage(const st: TUiState): string;
 begin
-  var left := buildTarget(st)+buildRepoCard(st, true)+buildRepoCard(st, false);
+  var left := buildTarget(st)+buildRepoCard(st, false)+buildRepoCard(st, true);
   var right := buildLog(st);
 
   // the fit pass drops the viewport-tall layout so the page reports the height
