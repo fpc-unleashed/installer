@@ -182,6 +182,7 @@ type
     procedure RegisterCPUViewToolbarButton;
     procedure UnregisterCPUViewToolbarButton;
     function RegisterMetaDarkStylePackages: Boolean;
+    procedure WriteMinimapConfig;
     procedure UnregisterMetaDarkStylePackages;
     function WriteConfigFile(const FilePath, Content: string): Boolean;
     function ResolveFpcRef: string;
@@ -2034,6 +2035,34 @@ begin
   UnregisterIdePackage('MetaDarkStyle');
 end;
 
+// The minimap paints the slice of the file the editor shows in a system
+// colour, and reads that colour once at startup. clBackground (the desktop
+// colour) only sits well under MetaDarkStyle, so a light IDE gets clMenu
+// instead. Written before the IDE first runs; TXMLConfig lays out the file
+// exactly as the minimap's own TConfigStorage would.
+procedure TInstallThread.WriteMinimapConfig;
+const
+  // TColor system colours: SYS_COLOR_BASE ($80000000) or the COLOR_* index
+  CL_BACKGROUND = Integer($80000001);
+  CL_MENU       = Integer($80000004);
+begin
+  var Dir := IncludeTrailingPathDelimiter(LazarusPcp);
+  if not ForceDirectories(Dir) then Exit;
+
+  var Color := CL_MENU;
+  var Name := 'clMenu';
+  if FCfg.InstallMetaDarkStyle then begin
+    Color := CL_BACKGROUND;
+    Name := 'clBackground';
+  end;
+
+  var Cfg := autofree TXMLConfig.Create(nil);
+  Cfg.Filename := Dir + 'minimap.xml';
+  Cfg.SetValue('ViewWindowColor', Color);
+  Cfg.Flush;
+  Log('  minimap view window colour set to ' + Name);
+end;
+
 // Add a "CPU-View" entry to the IDE editor toolbar in
 // <pcp>/environmentoptions.xml. The IDE stores the toolbar layout
 // per-desktop inside <Desktops>/<Desktop{N}>/<EditorToolBarOptions>,
@@ -2193,6 +2222,7 @@ begin
     Log('Registering fpc-unleashed addon packages');
     for var i := Low(LAZ_UNLEASHED_PACKAGES) to High(LAZ_UNLEASHED_PACKAGES) do
       if not AddPackage(LAZ_UNLEASHED_PACKAGES[i]) then Exit;
+    WriteMinimapConfig;
   end
   else
     Log('Skipping minimap addon (not selected)');
@@ -2436,6 +2466,11 @@ begin
     Log('Removing minimap addon');
     UnregisterIdePackage('lazminimap');
   end;
+
+  // the colour depends on the MetaDarkStyle box too, so either box moving
+  // rewrites it
+  if FCfg.InstallMinimap and ((not Prev.InstallMinimap) or (FCfg.InstallMetaDarkStyle <> Prev.InstallMetaDarkStyle)) then
+    WriteMinimapConfig;
 
   if FCfg.InstallCPUView and (not Prev.InstallCPUView) then begin
     Log('Adding CPU-View addon');
