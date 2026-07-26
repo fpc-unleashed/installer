@@ -21,7 +21,7 @@ Pick a target directory, optionally pin commits, tick the cross compilers you wa
 
 Re-runs are idempotent: unchanged components self-skip, ticked-but-missing targets get filled in, unticked-but-present targets get removed, addon toggles trigger a surgical IDE rebuild. State lives in `<install>/installer.ini`.
 
-Install dir defaults: `C:\fpcunleashed\` on Windows, `$HOME/fpcunleashed/` on Linux.
+Install dir defaults: `C:\unleashed\` on Windows, `$HOME/unleashed/` on Linux.
 
 ## Cross-target support matrix
 
