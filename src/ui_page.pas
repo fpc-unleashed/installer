@@ -144,8 +144,9 @@ const
     input { padding: 3px 7px; width: 100%; border: 1px solid @border; border-radius: 3px; background: @input; color: @text; font-family: Consolas, monospace; }
     input:hover { background: @rowhover; border-color: @dim; }
     input:focus { background: @input; border-color: @accent; }
-    input.off { color: @dim; background: @head; }
+    input.off { color: @dim; background: @head; cursor: default; user-select: none; }
     input.off:hover { background: @head; border-color: @border; }
+    input.off:focus { background: @head; border-color: @border; }
     .chk { display: flex; align-items: flex-start; padding: 2px 3px; margin-bottom: 2px; border-radius: 2px; }
     .chk:hover { background: @rowhover; }
     .chk.off:hover { background: transparent; }
@@ -167,6 +168,7 @@ const
     .dropbtn { padding: 3px 9px; border: 1px solid @border; border-radius: 3px; background: @panel; white-space: nowrap; }
     .dropbtn:hover { background: @hover; border-color: @dim; }
     .dropbtn.off { color: @dim; background: @head; }
+    .dropbtn.off:hover { background: @head; border-color: @border; }
     .seg { display: flex; border: 1px solid @dim; border-radius: 12px; background: @head; }
     .seg .opt { min-width: 56px; padding: 3px 12px; text-align: center; color: @muted; }
     .seg .opt.l { border-radius: 11px 0 0 11px; }
@@ -391,7 +393,8 @@ begin
   if st.modeBad then cls := cls+' bad';
   var browse := button('browse', 'Browse...', st.inputsOn);
   var box := $'<input type="text" id="targetDir" value="{esc(st.targetDir)}">';
-  if not st.inputsOn then box := $'<input type="text" class="off" readonly value="{esc(st.targetDir)}">';
+  // disabled, not readonly: readonly still takes the caret and the selection
+  if not st.inputsOn then box := $'<input type="text" class="off" disabled value="{esc(st.targetDir)}">';
 
   result := '<div class="card"><h2>where to install</h2><div class="pad">'+
     $'<div class="row"><div class="grow">{box}</div>{browse}</div>'+
@@ -452,7 +455,7 @@ begin
   latestBox.enabled := live;
 
   var hashBox := $'<input type="text" id="{hashId}" value="{esc(hash)}">';
-  if latest or (not live) then hashBox := $'<input type="text" class="off" readonly value="{esc(hash)}">';
+  if latest or (not live) then hashBox := $'<input type="text" class="off" disabled value="{esc(hash)}">';
 
   var branchName := branch;
   if branchName = '' then branchName := '(no branch)';
