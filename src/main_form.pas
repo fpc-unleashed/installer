@@ -51,6 +51,11 @@ type
     FLogTop: Double;
     FLogRebuilt: Boolean;
     FHoverDirty: Boolean;
+    // defaults a fresh target dir starts from, built in and then overwritten
+    // by installer_settings.ini
+    FPrefs: TAppSettings;
+    // a commit the binary name pins is not a preference and cannot be reset
+    FPinnedHashes: Boolean;
     // where the pointer is, in client pixels; -1 when it is outside the window
     FMouseX, FMouseY: Integer;
     FMouseDown: Boolean;
@@ -331,6 +336,19 @@ begin
   st.targetDir := 'C:\fpcunleashed';
   {$endif}
 
+  // what a fresh install looks like before installer_settings.ini says otherwise
+  FillChar(FPrefs, SizeOf(FPrefs), 0);
+  FPrefs.InstallFpc := True;
+  FPrefs.InstallLazarus := True;
+  FPrefs.FpcLatest := True;
+  FPrefs.LazLatest := True;
+  FPrefs.InstallMinimap := True;
+  FPrefs.InstallCPUView := True;
+  FPrefs.InstallHelpFiles := True;
+  FPrefs.MakeDesktopShortcut := True;
+  FPrefs.MakeFolderShortcut := True;
+  FPrefs.LaunchAfter := True;
+
   st.fpcOn := True;
   st.lazOn := True;
   st.fpcLatest := True;
@@ -370,6 +388,7 @@ begin
   result := False;
   var s := readSettings;
   if not s.Present then exit;
+  FPrefs := s;
 
   if s.FpcBranch <> '' then st.fpcBranch := s.FpcBranch;
   if s.LazBranch <> '' then st.lazBranch := s.LazBranch;
@@ -378,24 +397,7 @@ begin
   if s.Theme = 'dark' then st.theme := utDark
   else if s.Theme = 'light' then st.theme := utLight;
 
-  if not ReadManifest(Trim(st.targetDir)).Present then begin
-    // host-native cross targets stay locked off
-    if not FNativeWin64 then FCrossWin64 := s.CrossWin64;
-    if not FNativeLinux64 then FCrossLinux64 := s.CrossLinux64;
-    FCrossWin32 := s.CrossWin32;
-    FCrossLinux32 := s.CrossLinux32;
-    FCrossWasm := s.CrossWasm;
-    FMinimap := s.InstallMinimap;
-    FCpuView := s.InstallCPUView;
-    FMetaDark := s.InstallMetaDarkStyle;
-    {$ifdef WINDOWS}
-    FToggleAffinity := s.InstallToggleAffinity;
-    {$endif}
-    FHelpFiles := s.InstallHelpFiles;
-    FDesktopShortcut := s.MakeDesktopShortcut;
-    FFolderShortcut := s.MakeFolderShortcut;
-    FLaunchAfter := s.LaunchAfter;
-  end;
+  if not ReadManifest(Trim(st.targetDir)).Present then resetTargetToDefaults;
   refreshTarget;
 
   if (s.WindowWidth <= 0) or (s.WindowHeight <= 0) then exit;
@@ -424,6 +426,12 @@ begin
   s.TargetDir := Trim(st.targetDir);
   s.FpcBranch := st.fpcBranch;
   s.LazBranch := st.lazBranch;
+  s.FpcHash := Trim(st.fpcHash);
+  s.LazHash := Trim(st.lazHash);
+  s.FpcLatest := st.fpcLatest;
+  s.LazLatest := st.lazLatest;
+  s.InstallFpc := st.fpcOn;
+  s.InstallLazarus := st.lazOn;
   s.CrossWin64   := FCrossWin64;
   s.CrossWin32   := FCrossWin32;
   s.CrossLinux64 := FCrossLinux64;
@@ -854,34 +862,38 @@ begin
   end;
 end;
 
+// a target dir with nothing in it comes up with what the last run was left
+// set to, so wiping a broken install and starting over keeps the choices
 procedure TMainForm.resetTargetToDefaults;
 begin
-  // cross targets -- all off; the host-native one is locked off anyway
-  FCrossWin64 := False;
-  FCrossLinux64 := False;
-  FCrossWin32 := False;
-  FCrossLinux32 := False;
-  FCrossWasm := False;
+  // the host-native cross target is locked off anyway
+  FCrossWin64 := FPrefs.CrossWin64 and (not FNativeWin64);
+  FCrossLinux64 := FPrefs.CrossLinux64 and (not FNativeLinux64);
+  FCrossWin32 := FPrefs.CrossWin32;
+  FCrossLinux32 := FPrefs.CrossLinux32;
+  FCrossWasm := FPrefs.CrossWasm;
 
-  // addons -- lightweight IDE extras on, theme + windows-only plugin off
-  FMinimap := True;
-  FCpuView := True;
-  FMetaDark := False;
-  FHelpFiles := True;
-  FToggleAffinity := False;
+  FMinimap := FPrefs.InstallMinimap;
+  FCpuView := FPrefs.InstallCPUView;
+  FMetaDark := FPrefs.InstallMetaDarkStyle;
+  FHelpFiles := FPrefs.InstallHelpFiles;
+  {$ifdef WINDOWS}
+  FToggleAffinity := FPrefs.InstallToggleAffinity;
+  {$endif}
 
-  // master + latest + launch-after -- "fresh install" intent
-  st.fpcOn := True;
-  st.lazOn := True;
-  st.fpcLatest := True;
-  st.lazLatest := True;
-  FLaunchAfter := True;
-  FDesktopShortcut := True;
-  FFolderShortcut := True;
+  st.fpcOn := FPrefs.InstallFpc;
+  st.lazOn := FPrefs.InstallLazarus;
+  FLaunchAfter := FPrefs.LaunchAfter;
+  FDesktopShortcut := FPrefs.MakeDesktopShortcut;
+  FFolderShortcut := FPrefs.MakeFolderShortcut;
 
-  // hash boxes are display-only while Latest=on; clear stale hex
-  st.fpcHash := '';
-  st.lazHash := '';
+  // a commit pinned by the binary name outranks anything stored
+  if not FPinnedHashes then begin
+    st.fpcLatest := FPrefs.FpcLatest;
+    st.lazLatest := FPrefs.LazLatest;
+    st.fpcHash := FPrefs.FpcHash;
+    st.lazHash := FPrefs.LazHash;
+  end;
 
   // forget the per-dir sync so moving into a manifest dir re-runs the restore
   FCrossSyncedFor := '';
@@ -921,6 +933,7 @@ begin
   if not parsed.Present then parsed := ParseBinaryName(ExtractFileName(ParamStr(0)));
 
   if parsed.Present then begin
+    FPinnedHashes := True;
     // empty FpcCommit/LazCommit = '0' length digit = "latest of selected branch" sentinel
     log('binary name carries pinned commit hashes: fpc='+(if parsed.FpcCommit = '' then '(latest)' else parsed.FpcCommit)+' ide='+(if parsed.LazCommit = '' then '(latest)' else parsed.LazCommit));
 
@@ -964,6 +977,7 @@ begin
   var FpcHash := LowerCase(R.&Match[1]);
   var LazHash := LowerCase(R.&Match[2]);
   log('binary name carries pinned commit hashes (legacy): fpc='+FpcHash+' ide='+LazHash);
+  FPinnedHashes := True;
   st.fpcHash := FpcHash;
   st.fpcLatest := False;
   st.lazHash := LazHash;

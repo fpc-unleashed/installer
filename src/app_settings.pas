@@ -18,9 +18,12 @@ type
     WindowLeft, WindowTop, WindowWidth, WindowHeight: Integer;
     WindowMaximized: Boolean;
     TargetDir: string;
-    // branch names only; hash and Latest stay a per-install decision
     FpcBranch, LazBranch: string;
-    // checkbox state carried into a target dir that has no manifest
+    FpcHash, LazHash: string;
+    FpcLatest, LazLatest: Boolean;
+    // what the window was left set to, used for a target dir that has no
+    // manifest of its own
+    InstallFpc, InstallLazarus: Boolean;
     CrossWin64, CrossWin32, CrossLinux64, CrossLinux32, CrossWasm: Boolean;
     InstallMinimap, InstallCPUView, InstallToggleAffinity, InstallMetaDarkStyle, InstallHelpFiles: Boolean;
     MakeDesktopShortcut, MakeFolderShortcut: Boolean;
@@ -77,6 +80,12 @@ begin
   result.TargetDir       := lines.Values['target-dir'];
   result.FpcBranch       := lines.Values['fpc-branch'];
   result.LazBranch       := lines.Values['lazarus-branch'];
+  result.FpcHash         := lines.Values['fpc-hash'];
+  result.LazHash         := lines.Values['lazarus-hash'];
+  result.FpcLatest       := toBool(lines.Values['fpc-latest'], True);
+  result.LazLatest       := toBool(lines.Values['lazarus-latest'], True);
+  result.InstallFpc      := toBool(lines.Values['install-fpc'], True);
+  result.InstallLazarus  := toBool(lines.Values['install-lazarus'], True);
   result.CrossWin64      := toBool(lines.Values['cross-x86_64-win64'], False);
   result.CrossWin32      := toBool(lines.Values['cross-i386-win32'], False);
   result.CrossLinux64    := toBool(lines.Values['cross-x86_64-linux'], False);
@@ -108,6 +117,12 @@ begin
   lines.Add('target-dir='+s.TargetDir);
   lines.Add('fpc-branch='+s.FpcBranch);
   lines.Add('lazarus-branch='+s.LazBranch);
+  lines.Add('fpc-hash='+s.FpcHash);
+  lines.Add('lazarus-hash='+s.LazHash);
+  lines.Add('fpc-latest='+boolFlag(s.FpcLatest));
+  lines.Add('lazarus-latest='+boolFlag(s.LazLatest));
+  lines.Add('install-fpc='+boolFlag(s.InstallFpc));
+  lines.Add('install-lazarus='+boolFlag(s.InstallLazarus));
   lines.Add('cross-x86_64-win64='+boolFlag(s.CrossWin64));
   lines.Add('cross-i386-win32='+boolFlag(s.CrossWin32));
   lines.Add('cross-x86_64-linux='+boolFlag(s.CrossLinux64));
