@@ -23,7 +23,9 @@ object MainForm: TMainForm
     Width = 1100
     Align = alClient
     BorderStyle = bsNone
+    OnAfterPaint = viewAfterPaint
     OnElementClick = viewElementClick
+    OnScrollChanged = viewScrollChanged
     TabOrder = 0
   end
   object SelectDirDialog: TSelectDirectoryDialog

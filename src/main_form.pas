@@ -34,6 +34,8 @@ type
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     function viewElementClick(Sender: TObject; El: TObject): Boolean;
+    procedure viewAfterPaint(Sender: TObject);
+    procedure viewScrollChanged(Sender: TObject);
     procedure logTimerTimer(Sender: TObject);
     procedure liveTimerTimer(Sender: TObject);
   private
@@ -41,6 +43,10 @@ type
     FLog: TStringList;
     FLogDirty: Boolean;
     FRenderQueued: Boolean;
+    // the log is followed until the user scrolls away from its end
+    FFollowLog: Boolean;
+    FScrollToBottom: Boolean;
+    FSelfScroll: Boolean;
     FFetchPending: Integer;
     FShowFired: Boolean;
     FInstalling: Boolean;
@@ -325,6 +331,7 @@ begin
   FFolderShortcut := True;
   FLaunchAfter := True;
   st.saveLog := True;
+  FFollowLog := True;
 
   // with nothing saved yet, the desktop decides
   if systemPrefersDark then st.theme := utDark else st.theme := utLight;
@@ -1320,7 +1327,24 @@ procedure TMainForm.log(const msg: string);
 begin
   FLog.Add(FormatDateTime('hh:nn:ss', Now)+'# '+msg);
   FLogDirty := True;
+  if FFollowLog then FScrollToBottom := True;
   if not FInstalling then queueRender;
+end;
+
+procedure TMainForm.viewAfterPaint(Sender: TObject);
+begin
+  if not FScrollToBottom then Exit;
+  FScrollToBottom := False;
+  FSelfScroll := True;
+  view.ScrollY := view.ContentHeight;
+  FSelfScroll := False;
+end;
+
+// a scroll of the user's own decides whether the log keeps being followed
+procedure TMainForm.viewScrollChanged(Sender: TObject);
+begin
+  if FSelfScroll then Exit;
+  FFollowLog := view.ScrollY >= view.ContentHeight-view.Height-8;
 end;
 
 procedure TMainForm.logTimerTimer(Sender: TObject);
@@ -1387,7 +1411,6 @@ begin
   st.installing := FInstalling;
   st.canInstall := (FFetchPending = 0) and (not FInstalling);
 
-  var atBottom := view.ScrollY >= view.ContentHeight-view.Height-4;
   var scroll := view.ScrollY;
 
   // the rebuild throws the old document away, so where the caret was sitting
@@ -1416,9 +1439,9 @@ begin
       TBoxAccess(box).FCaretPos := caret;
     end;
   end;
-  // the log grows at the bottom, so follow it unless the user scrolled away
-  if FInstalling and atBottom then view.ScrollY := view.ContentHeight
-  else view.ScrollY := scroll;
+  FSelfScroll := True;
+  view.ScrollY := scroll;
+  FSelfScroll := False;
 end;
 
 end.
