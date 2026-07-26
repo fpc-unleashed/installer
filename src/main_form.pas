@@ -36,7 +36,6 @@ type
     GroupBoxTarget: TGroupBox;
     GroupBoxUnleashed: TGroupBox;
     CheckBoxInstallUnleashed: TCheckBox;
-    imagelogo: timage;
     labellazarusaddons: tlabel;
     LabelLinkCPUView: TLabel;
     LabelLinkMetaDarkStyle: TLabel;
