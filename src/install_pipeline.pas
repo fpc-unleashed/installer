@@ -172,7 +172,6 @@ type
     function ResolveLazarusRef: string;
     function LazarusDir: string;
     function LazarusPcp: string;
-    function ShortcutLabel: string;
     function RunLazbuild(const Args: array of string;
       const StepLabel: string): Boolean;
     function AddPackage(const LpkRel: string; LinkOnly: Boolean = False): Boolean;
@@ -1743,18 +1742,6 @@ begin
   Result := IncludeTrailingPathDelimiter(FCfg.TargetDir) + 'config_lazarus';
 end;
 
-// strip 'unleashed-' prefix if present so default install dirs like
-// C:\unleashed-2026-05-09 yield '2026-05-09' rather than 'unleashed-2026-05-09'
-function TInstallThread.ShortcutLabel: string;
-const
-  Prefix = 'unleashed-';
-begin
-  var Base := ExtractFileName(ExcludeTrailingPathDelimiter(FCfg.TargetDir));
-  if (Length(Base) > Length(Prefix)) and (LowerCase(Copy(Base, 1, Length(Prefix))) = Prefix) then
-    Delete(Base, 1, Length(Prefix));
-  Result := 'Unleashed (' + Base + ')';
-end;
-
 function TInstallThread.StepDownloadLazarusSource: Boolean;
 begin
   Result := False;
@@ -2589,7 +2576,7 @@ begin
   // --pcp loads our isolated config_lazarus instead of the default per-user
   // dir (%LOCALAPPDATA%\lazarus on Windows, ~/.lazarus on Linux)
   var Args := '--pcp="' + LazarusPcp + '"';
-  var Name := ShortcutLabel;
+  var Name := 'Launch Unleashed IDE';
   var Dir  := ExcludeTrailingPathDelimiter(FCfg.TargetDir);
   var madeDesktop := False;
   var madeFolder  := False;

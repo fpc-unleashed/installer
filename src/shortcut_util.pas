@@ -7,6 +7,7 @@ unit shortcut_util;
 interface
 
 // desktop shortcut. Windows: .lnk via IShellLinkW; Linux: .desktop in ~/Desktop/ + ~/.local/share/applications/
+// name taken => ' (N)' is appended, N counting up from 2, so an existing shortcut is never overwritten
 function CreateDesktopShortcut(const TargetPath, Args, ShortcutName: string): Boolean;
 // shortcut placed directly inside Dir (the install folder). Windows: Dir\Name.lnk; Linux: Dir/<sanitized>.desktop
 function CreateFolderShortcut(const Dir, TargetPath, Args, ShortcutName: string): Boolean;
@@ -57,7 +58,14 @@ begin
   Result := False;
   var DesktopDir := GetDesktopPath;
   if DesktopDir = '' then Exit;
-  Result := WriteLnk(IncludeTrailingPathDelimiter(DesktopDir)+ShortcutName+'.lnk', TargetPath, Args);
+  var Base := IncludeTrailingPathDelimiter(DesktopDir);
+  var LnkPath := Base+ShortcutName+'.lnk';
+  var N := 2;
+  while FileExists(LnkPath) do begin
+    LnkPath := Base+ShortcutName+' ('+IntToStr(N)+').lnk';
+    Inc(N);
+  end;
+  Result := WriteLnk(LnkPath, TargetPath, Args);
 end;
 
 function CreateFolderShortcut(const Dir, TargetPath, Args, ShortcutName: string): Boolean;
@@ -123,10 +131,19 @@ begin
   Result := False;
   var Home := GetEnvironmentVariable('HOME');
   if Home = '' then Exit;
-  var Body := BuildDesktopEntry(TargetPath, Args, ShortcutName);
-  var FileBase := SanitizeName(ShortcutName);
-  var DesktopPath := IncludeTrailingPathDelimiter(Home)+'Desktop'+DirectorySeparator+FileBase+'.desktop';
-  var MenuPath    := IncludeTrailingPathDelimiter(Home)+'.local/share/applications/'+FileBase+'.desktop';
+  var DesktopDir := IncludeTrailingPathDelimiter(Home)+'Desktop'+DirectorySeparator;
+  var MenuDir    := IncludeTrailingPathDelimiter(Home)+'.local/share/applications/';
+  var DisplayName := ShortcutName;
+  var FileBase := SanitizeName(DisplayName);
+  var N := 2;
+  while FileExists(DesktopDir+FileBase+'.desktop') or FileExists(MenuDir+FileBase+'.desktop') do begin
+    DisplayName := ShortcutName+' ('+IntToStr(N)+')';
+    FileBase := SanitizeName(DisplayName);
+    Inc(N);
+  end;
+  var Body := BuildDesktopEntry(TargetPath, Args, DisplayName);
+  var DesktopPath := DesktopDir+FileBase+'.desktop';
+  var MenuPath    := MenuDir+FileBase+'.desktop';
   // best-effort: write both. Succeed if either lands
   var WroteDesktop := WriteDesktopFile(DesktopPath, Body);
   var WroteMenu    := WriteDesktopFile(MenuPath, Body);
