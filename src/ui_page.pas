@@ -92,17 +92,17 @@ implementation
 const
   // every colour is a token the theme fills in. longer tokens come first, so
   // that "@accent" does not eat the front of "@accentsoft"
-  TOKENS: array[22] of string = (
+  TOKENS: array[24] of string = (
     '@accentsoft', '@accent2', '@accent', '@onaccent', '@bg', '@panel', '@border', '@line', '@text', '@muted',
-    '@dim', '@hover', '@head2', '@head', '@input', '@ok', '@okbg', '@warn', '@warnbg', '@bad', '@badbg', '@navy');
+    '@dim', '@hover2', '@hover', '@rowhover', '@head2', '@head', '@input', '@ok', '@okbg', '@warn', '@warnbg', '@bad', '@badbg', '@navy');
 
-  LIGHT: array[22] of string = (
-    '#eef0ff', '#4338ca', '#4f46e5', '#ffffff', '#eef1f5', '#ffffff', '#dfe3e8', '#f0f2f5', '#1f2430', '#5b6472',
-    '#9aa1ab', '#e4e9f0', '#e9ecf1', '#f6f7f9', '#ffffff', '#047857', '#ecfdf5', '#b45309', '#fff7ed', '#b91c1c', '#fef2f2', '#1d4ed8');
+  LIGHT: array[24] of string = (
+    '#eef0ff', '#3730a3', '#4f46e5', '#ffffff', '#eef1f5', '#ffffff', '#dfe3e8', '#f0f2f5', '#1f2430', '#5b6472',
+    '#9aa1ab', '#c3ccdb', '#dbe2ec', '#eaeef4', '#e9ecf1', '#f6f7f9', '#ffffff', '#047857', '#ecfdf5', '#b45309', '#fff7ed', '#b91c1c', '#fef2f2', '#1d4ed8');
 
-  DARK: array[22] of string = (
-    '#272c3d', '#6f78e8', '#818cf8', '#14161a', '#14161a', '#1c1f26', '#2c313b', '#23272f', '#e5e7eb', '#a5adb9',
-    '#6f7885', '#323a47', '#2b323d', '#21252d', '#14161a', '#34d399', '#12291f', '#fbbf24', '#2a2113', '#f87171', '#2c1618', '#93b4ff');
+  DARK: array[24] of string = (
+    '#272c3d', '#a5b4fc', '#818cf8', '#14161a', '#14161a', '#1c1f26', '#2c313b', '#23272f', '#e5e7eb', '#a5adb9',
+    '#6f7885', '#4b5566', '#3a4454', '#2a303b', '#2b323d', '#21252d', '#14161a', '#34d399', '#12291f', '#fbbf24', '#2a2113', '#f87171', '#2c1618', '#93b4ff');
 
   CSS =
     '''
@@ -115,13 +115,14 @@ const
     .ver { color: @dim; flex-grow: 1; }
     .menu { display: flex; background: @panel; border-bottom: 1px solid @border; padding: 4px 8px; }
     .btn { padding: 3px 9px; margin-right: 4px; border: 1px solid @border; border-radius: 3px; background: @panel; color: @text; white-space: nowrap; }
-    .btn:hover { background: @hover; }
+    .btn:hover { background: @hover; border-color: @dim; }
+    .btn:active { background: @hover2; }
     .btn.pri { background: @accent; border-color: @accent; color: @onaccent; }
-    .btn.pri:hover { background: @accent2; }
+    .btn.pri:hover { background: @accent2; border-color: @accent2; }
     .btn.off { color: @dim; background: @head; border-color: @border; }
-    .btn.off:hover { background: @head; }
+    .btn.off:hover { background: @head; border-color: @border; }
     .btn.flat { border-color: @panel; background: @panel; }
-    .btn.flat:hover { background: @hover; border-color: @border; }
+    .btn.flat:hover { background: @hover; border-color: @dim; }
     .cols { display: flex; padding: 8px; }
     .col { flex-grow: 1; flex-shrink: 1; flex-basis: 0; min-width: 0; }
     .col.left { flex-grow: 0; flex-shrink: 0; flex-basis: 520px; width: 520px; margin-right: 8px; }
@@ -132,14 +133,19 @@ const
     .grow { flex-grow: 1; flex-shrink: 1; flex-basis: 0; min-width: 0; }
     .lbl { width: 110px; color: @muted; padding-top: 3px; }
     input { padding: 3px 7px; width: 100%; border: 1px solid @border; border-radius: 3px; background: @input; color: @text; font-family: Consolas, monospace; }
+    input:hover { background: @rowhover; border-color: @dim; }
+    input:focus { background: @input; border-color: @accent; }
     input.off { color: @dim; background: @head; }
-    .chk { display: flex; align-items: flex-start; padding: 2px 0; }
+    input.off:hover { background: @head; border-color: @border; }
+    .chk { display: flex; align-items: flex-start; padding: 2px 3px; margin-bottom: 2px; border-radius: 2px; }
+    .chk:hover { background: @rowhover; }
+    .chk.off:hover { background: transparent; }
     .chk .box { width: 13px; height: 13px; margin: 2px 7px 0 0; border: 1px solid @dim; border-radius: 2px; background: @input; color: @onaccent; text-align: center; font-size: 10px; }
     .chk.on .box { background: @accent; border-color: @accent; }
     .chk.off { color: @dim; }
     .chk.off .box { border-color: @border; background: @head; }
     .chk .hint { color: @dim; margin-left: 6px; }
-    .tight { flex-shrink: 0; white-space: nowrap; }
+    .tight { flex-grow: 1; flex-shrink: 1; min-width: 0; margin-right: 10px; white-space: nowrap; }
     .lnk { color: @navy; margin-left: 6px; }
     .lnk:hover { color: @accent; }
     .mode { padding: 4px 9px; color: @muted; }
@@ -147,8 +153,14 @@ const
     .warn { margin: 5px 0 2px 0; padding: 6px 8px; border-radius: 3px; background: @badbg; color: @bad; font-weight: 600; }
     .drop { position: relative; margin-right: 4px; }
     .dropbtn { padding: 3px 9px; border: 1px solid @border; border-radius: 3px; background: @panel; white-space: nowrap; }
-    .dropbtn:hover { background: @hover; }
+    .dropbtn:hover { background: @hover; border-color: @dim; }
     .dropbtn.off { color: @dim; background: @head; }
+    .seg { display: flex; align-items: center; padding: 1px; border: 1px solid @border; border-radius: 3px; background: @head; }
+    .seg .opt { padding: 2px 10px; border-radius: 2px; color: @muted; }
+    .seg .opt:hover { background: @hover; color: @text; }
+    .seg .opt.on { background: @accent; color: @onaccent; font-weight: 600; }
+    .seg .opt.on:hover { background: @accent; color: @onaccent; }
+    .seg .sep { color: @dim; }
     .car { color: @dim; margin-left: 6px; }
     .drop .items { position: absolute; z-index: 30; width: 240px; margin-top: 2px; padding: 3px; background: @panel; border: 1px solid @border; border-radius: 3px; }
     .drop .items div { padding: 3px 7px; border-radius: 3px; }
@@ -166,7 +178,7 @@ const
     .bar .line { display: flex; align-items: center; }
     .track { flex-grow: 1; flex-shrink: 1; flex-basis: 0; height: 8px; margin-right: 10px; border-radius: 4px; background: @head; border: 1px solid @border; }
     .fill { height: 6px; border-radius: 3px; background: @accent; }
-    .status { color: @muted; margin-right: 10px; }
+    .status { flex-shrink: 0; width: 360px; margin-right: 10px; color: @muted; text-align: right; white-space: nowrap; overflow: hidden; }
     .overlay { position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 20; background: rgba(0, 0, 0, 0.35); }
     .modal { width: 560px; margin: 70px auto 0 auto; background: @panel; border: 1px solid @border; border-radius: 4px; }
     .modal h2 { font-size: 12px; text-transform: none; letter-spacing: 0; color: @text; font-weight: 600; margin: 0; padding: 8px 11px; border-bottom: 1px solid @line; }
@@ -297,15 +309,20 @@ begin
   help.Add('Documentation');
   help.Add('About');
 
-  var lamp := 'dark';
-  if st.theme = utDark then lamp := 'light';
+  var lightCls := '';
+  var darkCls := '';
+  if st.theme = utDark then darkCls := ' on' else lightCls := ' on';
+
+  var seg := $'<div class="seg"><div class="opt{lightCls}" data-act="themelight">Light</div>'+
+    '<div class="sep">|</div>'+
+    $'<div class="opt{darkCls}" data-act="themedark">Dark</div></div>';
 
   result := '<div class="menu">'+
     dropdown(st, 'file', 'menufile', 'File', files, '', true)+
     dropdown(st, 'repo', 'menurepo', 'Repositories', repos, '', true)+
     dropdown(st, 'help', 'menuhelp', 'Help', help, '', true)+
     '<div class="grow"></div>'+
-    button('theme', lamp, true, false, true)+
+    seg+
     '</div>';
 end;
 
@@ -430,7 +447,7 @@ begin
   if first < 0 then first := 0;
 
   result := '<div class="card"><h2>log</h2><div class="pad" style="padding-bottom: 0">'+
-    '<div class="row"><div class="tight">'+checkbox(saveBox)+'</div><div class="grow"></div>'+
+    '<div class="row"><div class="tight">'+checkbox(saveBox)+'</div>'+
     button('copylog', 'Copy', count > 0)+button('clearlog', 'Clear', count > 0)+
     '</div></div><div class="log">';
 

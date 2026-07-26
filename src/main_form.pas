@@ -48,6 +48,7 @@ type
     FFollowLog: Boolean;
     FScrollToBottom: Boolean;
     FSelfScroll: Boolean;
+    FHoverDirty: Boolean;
     // where the pointer is, in client pixels; -1 when it is outside the window
     FMouseX, FMouseY: Integer;
     // no settings file yet: the window takes its height from what it holds
@@ -497,10 +498,8 @@ begin
     'close': Close;
     'quit!': begin FClosing := True; Close; end;
 
-    'theme': begin
-      if st.theme = utDark then st.theme := utLight else st.theme := utDark;
-      queueRender;
-    end;
+    'themelight': if st.theme <> utLight then begin st.theme := utLight; queueRender; end;
+    'themedark':  if st.theme <> utDark then begin st.theme := utDark; queueRender; end;
 
     'browse': begin
       if SelectDirDialog.Execute then
@@ -1354,13 +1353,23 @@ begin
     Top := Screen.WorkAreaTop+(Screen.WorkAreaHeight-Height) div 2;
   end;
 
-  if not FScrollToBottom then Exit;
-  FScrollToBottom := False;
-  var bottom := view.ContentHeight-view.Height;
-  if bottom < 0 then bottom := 0;
-  FSelfScroll := True;
-  view.ScrollY := bottom;
-  FSelfScroll := False;
+  if FScrollToBottom then
+  begin
+    FScrollToBottom := False;
+    var bottom := view.ContentHeight-view.Height;
+    if bottom < 0 then bottom := 0;
+    FSelfScroll := True;
+    view.ScrollY := bottom;
+    FSelfScroll := False;
+  end;
+
+  // a document is laid out while it is painted, so hit-testing it any earlier
+  // than here finds nothing under the pointer
+  if FHoverDirty then
+  begin
+    FHoverDirty := False;
+    restoreHover;
+  end;
 end;
 
 procedure TMainForm.viewMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
@@ -1486,7 +1495,7 @@ begin
   FSelfScroll := True;
   view.ScrollY := scroll;
   FSelfScroll := False;
-  restoreHover;
+  FHoverDirty := True;
 end;
 
 end.
