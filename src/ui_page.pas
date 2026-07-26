@@ -182,9 +182,49 @@ begin
     else result := StringReplace(result, TOKENS[i], LIGHT[i], [rfReplaceAll]);
 end;
 
+// how many bytes the utf-8 sequence starting here takes, or 0 when the bytes do
+// not form one
+function utf8Run(const s: string; at: integer): integer;
+begin
+  var lead := ord(s[at]);
+  var need := 0;
+  if lead < $80 then exit(1)
+  else if (lead >= $C2) and (lead <= $DF) then need := 1
+  else if (lead >= $E0) and (lead <= $EF) then need := 2
+  else if (lead >= $F0) and (lead <= $F4) then need := 3
+  else exit(0);
+
+  if at+need > Length(s) then exit(0);
+  for var i := 1 to need do
+    if (ord(s[at+i]) and $C0) <> $80 then exit(0);
+  result := need+1;
+end;
+
+// the engine reads the page as utf-8, so a raw byte that is not part of a valid
+// sequence swallows the markup that follows it. make and curl put whatever the
+// tool wrote into the log, so every string is filtered on the way in
+function sanitize(const s: string): string;
+begin
+  result := '';
+  var i := 1;
+  while i <= Length(s) do
+  begin
+    var c: char := s[i];
+    var run := utf8Run(s, i);
+    if (run = 0) or ((c < ' ') and (c <> #9) and (c <> #10) and (c <> #13)) then
+    begin
+      result := result+'\x'+IntToHex(ord(c), 2);
+      inc(i);
+      continue;
+    end;
+    result := result+Copy(s, i, run);
+    inc(i, run);
+  end;
+end;
+
 function esc(const s: string): string;
 begin
-  result := StringReplace(s, '&', '&amp;', [rfReplaceAll]);
+  result := StringReplace(sanitize(s), '&', '&amp;', [rfReplaceAll]);
   result := StringReplace(result, '<', '&lt;', [rfReplaceAll]);
   result := StringReplace(result, '>', '&gt;', [rfReplaceAll]);
   result := StringReplace(result, '"', '&quot;', [rfReplaceAll]);
