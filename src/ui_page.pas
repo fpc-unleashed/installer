@@ -123,7 +123,7 @@ const
     .logo { font-size: 13px; font-weight: 600; color: @accent; margin-right: 10px; }
     .ver { color: @dim; flex-grow: 1; }
     .menu { flex-shrink: 0; display: flex; align-items: center; background: @panel; border-bottom: 1px solid @border; padding: 4px 8px; }
-    .btn { padding: 3px 9px; margin-right: 4px; border: 1px solid @border; border-radius: 3px; background: @panel; color: @text; white-space: nowrap; }
+    .btn { height: 24px; line-height: 22px; padding: 0 9px; margin-right: 4px; border: 1px solid @border; border-radius: 3px; background: @panel; color: @text; white-space: nowrap; }
     .btn:hover { background: @hover; border-color: @dim; }
     .btn:active { background: @hover2; }
     .btn.pri { background: @accent; border-color: @accent; color: @onaccent; }
@@ -141,17 +141,17 @@ const
     .pad { padding: 7px 9px; }
     .row { display: flex; align-items: flex-start; margin-bottom: 5px; }
     .grow { flex-grow: 1; flex-shrink: 1; flex-basis: 0; min-width: 0; }
-    .lbl { width: 58px; color: @muted; padding-top: 3px; }
-    input { padding: 3px 7px; width: 100%; border: 1px solid @border; border-radius: 3px; background: @input; color: @text; font-family: Consolas, monospace; }
+    .lbl { width: 58px; height: 24px; line-height: 24px; color: @muted; }
+    input { height: 24px; line-height: 22px; padding: 0 7px; width: 100%; border: 1px solid @border; border-radius: 3px; background: @input; color: @text; font-family: Consolas, monospace; }
     input:hover { background: @rowhover; border-color: @dim; }
     input:focus { background: @input; border-color: @accent; }
     input.off { color: @dim; background: @head; cursor: default; user-select: none; }
     input.off:hover { background: @head; border-color: @border; }
     input.off:focus { background: @head; border-color: @border; }
-    .chk { display: flex; align-items: flex-start; padding: 2px 3px; margin-bottom: 2px; border-radius: 2px; }
+    .chk { display: flex; align-items: center; height: 24px; padding: 0 3px; margin-bottom: 2px; border-radius: 2px; }
     .chk:hover { background: @rowhover; }
     .chk.off:hover { background: transparent; }
-    .chk .box { width: 13px; height: 13px; margin: 2px 7px 0 0; border: 1px solid @dim; border-radius: 2px; background: @input; color: @onaccent; text-align: center; font-size: 10px; line-height: 11px; }
+    .chk .box { width: 13px; height: 13px; margin: 0 7px 0 0; border: 1px solid @dim; border-radius: 2px; background: @input; color: @onaccent; text-align: center; font-size: 10px; line-height: 11px; }
     .chk.on .box { background: @accent; border-color: @accent; }
     .chk.off { color: @dim; }
     .chk.off .box { border-color: @border; background: @head; }
@@ -167,18 +167,18 @@ const
     .mode.bad { color: @bad; }
     .warn { margin: 5px 0 2px 0; padding: 6px 8px; border-radius: 3px; background: @badbg; color: @bad; font-weight: 600; }
     .drop { position: relative; margin-right: 4px; }
-    .dropbtn { padding: 3px 9px; border: 1px solid @border; border-radius: 3px; background: @panel; white-space: nowrap; }
+    .dropbtn { height: 24px; line-height: 22px; padding: 0 9px; border: 1px solid @border; border-radius: 3px; background: @panel; white-space: nowrap; }
     .dropbtn:hover { background: @hover; border-color: @dim; }
     .dropbtn.off { color: @dim; background: @head; }
     .dropbtn.off:hover { background: @head; border-color: @border; }
-    .seg { display: flex; border: 1px solid @dim; border-radius: 12px; background: @head; }
-    .seg .opt { min-width: 56px; padding: 3px 12px; text-align: center; color: @muted; }
+    .seg { display: flex; height: 24px; border: 1px solid @dim; border-radius: 12px; background: @head; }
+    .seg .opt { min-width: 56px; height: 22px; line-height: 22px; padding: 0 12px; text-align: center; color: @muted; }
     .seg .opt.l { border-radius: 11px 0 0 11px; }
     .seg .opt.r { border-radius: 0 11px 11px 0; }
     .seg .opt:hover { background: @hover; color: @text; }
     .seg .opt.on { background: @accent; color: @onaccent; font-weight: 600; }
     .seg .opt.on:hover { background: @accent; color: @onaccent; }
-    .car { color: @dim; margin-left: 6px; }
+    .car { color: @dim; padding-left: 6px; }
     .drop .items { position: absolute; z-index: 30; width: 240px; margin-top: 2px; padding: 3px; background: @panel; border: 1px solid @border; border-radius: 3px; }
     .drop .items div { padding: 3px 7px; border-radius: 3px; }
     .drop .items div:hover { background: @hover; }
