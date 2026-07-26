@@ -32,6 +32,13 @@ object MainForm: TMainForm
     Left = 700
     Top = 40
   end
+  object liveTimer: TTimer
+    Enabled = False
+    Interval = 120
+    OnTimer = liveTimerTimer
+    Left = 820
+    Top = 40
+  end
   object logTimer: TTimer
     Enabled = False
     Interval = 150

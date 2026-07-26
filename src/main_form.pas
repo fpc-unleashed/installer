@@ -27,6 +27,7 @@ type
     SelectDirDialog: TSelectDirectoryDialog;
     view: TPixieHtmlView;
     logTimer: TTimer;
+    liveTimer: TTimer;
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -34,6 +35,7 @@ type
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     function viewElementClick(Sender: TObject; El: TObject): Boolean;
     procedure logTimerTimer(Sender: TObject);
+    procedure liveTimerTimer(Sender: TObject);
   private
     st: TUiState;
     FLog: TStringList;
@@ -181,6 +183,11 @@ const
     OR IMPLIED. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM,
     DAMAGES, OR OTHER LIABILITY ARISING FROM THE USE OF THIS SOFTWARE.
     ''';
+
+type
+  // the caret position is protected; a descendant of the box type reaches it,
+  // which is what a rebuilt page needs to put the caret back where it was
+  TBoxAccess = class(TPixieElTextBase);
 
 // filesystem is authoritative for what's installed; manifest only records intent (crash leaves no manifest)
 function IsDirEffectivelyEmpty(const Dir: string): Boolean;
@@ -597,6 +604,21 @@ begin
 
   // select-all belongs to a box that holds text, not to the whole window
   if (Key = VK_A) and (ssCtrl in Shift) and (not focusIsTextBox) then Key := 0;
+
+  // what was typed reaches the box after this handler returns, so the page is
+  // rebuilt a moment later: that keeps the folder line in step with the path
+  if focusIsTextBox then
+  begin
+    liveTimer.Enabled := False;
+    liveTimer.Enabled := True;
+  end;
+end;
+
+procedure TMainForm.liveTimerTimer(Sender: TObject);
+begin
+  liveTimer.Enabled := False;
+  captureInputs;
+  render;
 end;
 
 function TMainForm.focusIsTextBox: Boolean;
@@ -1361,7 +1383,33 @@ begin
 
   var atBottom := view.ScrollY >= view.ContentHeight-view.Height-4;
   var scroll := view.ScrollY;
+
+  // the rebuild throws the old document away, so where the caret was sitting
+  // has to be carried over by hand
+  var focusId := '';
+  var caret := 0;
+  if view.Document <> nil then
+  begin
+    var was := view.Document.FocusedElement;
+    if was is TPixieElTextBase then
+    begin
+      focusId := TPixieHtmlTag(was).GetAttr('id');
+      caret := TBoxAccess(was).FCaretPos;
+    end;
+  end;
+
   view.LoadFromString(buildPage(st));
+
+  if (focusId <> '') and (view.Document <> nil) then
+  begin
+    var box := view.Document.GetElementById(focusId);
+    if box is TPixieElTextBase then
+    begin
+      view.Document.SetFocus(box);
+      if caret > Length(TPixieElTextBase(box).Value) then caret := Length(TPixieElTextBase(box).Value);
+      TBoxAccess(box).FCaretPos := caret;
+    end;
+  end;
   // the log grows at the bottom, so follow it unless the user scrolled away
   if FInstalling and atBottom then view.ScrollY := view.ContentHeight
   else view.ScrollY := scroll;
