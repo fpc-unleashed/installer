@@ -139,6 +139,8 @@ type
     procedure positionLogView;
     function logViewBottom: Double;
     procedure followLogEnd;
+    function leftColScroll: Double;
+    procedure setLeftColScroll(top: Double);
     procedure settleDocument(layoutWidth: Double);
     procedure buildChecks;
     procedure queueRender;
@@ -1452,6 +1454,30 @@ begin
   if result < 0 then result := 0;
 end;
 
+// the left column scrolls on its own, and a rebuilt page brings it back up to
+// its top - so where it stood is carried across the rebuild by hand
+function TMainForm.leftColScroll: Double;
+begin
+  result := 0;
+  if view.Document = nil then Exit;
+  var el := view.Document.GetElementById('leftcol');
+  if el = nil then Exit;
+  var ri := TPixieRenderItem(el.GetRenderItem);
+  if ri = nil then Exit;
+  result := ri.GetScrollTop;
+end;
+
+procedure TMainForm.setLeftColScroll(top: Double);
+begin
+  if (top <= 0) or (view.Document = nil) then Exit;
+  var el := view.Document.GetElementById('leftcol');
+  if el = nil then Exit;
+  var ri := TPixieRenderItem(el.GetRenderItem);
+  if ri = nil then Exit;
+  // the fresh view sits at 0, so the offset is the whole distance to travel
+  ri.VScroll(top);
+end;
+
 // puts the log at its end without that counting as a scroll of the user's own
 procedure TMainForm.followLogEnd;
 begin
@@ -1707,6 +1733,8 @@ begin
   var layoutWidth := 0.0;
   if view.Document <> nil then layoutWidth := view.Document.Width;
 
+  var leftScroll := leftColScroll;
+
   view.LoadFromString(buildPage(st));
 
   if (focusId <> '') and (view.Document <> nil) then
@@ -1725,6 +1753,7 @@ begin
     end;
   end;
   settleDocument(layoutWidth);
+  setLeftColScroll(leftScroll);
 end;
 
 // while an install runs only the status and the bar move on the page, and they
