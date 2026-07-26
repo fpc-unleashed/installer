@@ -155,11 +155,11 @@ const
     .chk.off { color: @dim; }
     .chk.off .box { border-color: @border; background: @head; }
     .chk.off.on .box { border-color: @dim; background: @dim; color: @panel; }
-    .chk .cap { flex-shrink: 0; min-width: 158px; padding-right: 8px; white-space: nowrap; }
+    .chk .cap { flex-shrink: 0; min-width: 184px; padding-right: 8px; white-space: nowrap; }
     .chk .hint { color: @dim; }
-    .chk .hint + .lnk { margin-left: 6px; }
+    .chk .gap { flex-grow: 1; flex-shrink: 1; flex-basis: 0; min-width: 10px; }
     .tight { flex-grow: 1; flex-shrink: 1; min-width: 0; margin-right: 10px; white-space: nowrap; }
-    .lnk { color: @navy; }
+    .lnk { flex-shrink: 0; color: @navy; }
     .lnk:hover { color: @accent; }
     .mode { padding: 4px 9px; color: @muted; }
     .mode.bad { color: @bad; }
@@ -300,14 +300,13 @@ begin
   if c.on then begin cls := cls+' on'; mark := '&#10003;'; end;
   if not c.enabled then cls := cls+' off';
 
-  var tail := '';
-  if c.hint <> '' then tail := $'<span class="hint">{esc(c.hint)}</span>';
-  if c.link <> '' then tail := tail+$'<span class="lnk" data-act="url" data-name="{esc(c.link)}">{esc(c.link)}</span>';
-
-  // the caption sits in a column of its own so the hints and the links of a
-  // list start at the same place
+  // the caption sits in a column of its own so the hints of a list start at
+  // the same place, and the link is pushed to the far end of the row
   var body := $'<div class="box">{mark}</div><div class="cap">{esc(c.caption)}</div>';
-  if tail <> '' then body := body+$'<div>{tail}</div>';
+  if c.hint <> '' then body := body+$'<div class="hint">{esc(c.hint)}</div>';
+  if c.link <> '' then
+    body := body+'<div class="gap"></div>'+
+      $'<div class="lnk" data-act="url" data-name="{esc(c.link)}">(GitHub)</div>';
   if not c.enabled then exit($'<div class="{cls}">{body}</div>');
   result := $'<div class="{cls}" data-act="{c.act}">{body}</div>';
 end;
