@@ -46,7 +46,9 @@ type
   private
     st: TUiState;
     FLog: TStringList;
+    // what an install has changed since the last live update
     FLogDirty: Boolean;
+    FStatusDirty: Boolean;
     FRenderQueued: Boolean;
     // the log pane scrolls on its own and is followed until the user scrolls
     // away from its end; the window itself never scrolls
@@ -132,13 +134,15 @@ type
     procedure restoreHover;
     function menuUnderPoint(x, y: Integer): string;
     function logItem: TPixieRenderItem;
-    procedure applyLogScroll;
+    procedure restoreLogScroll;
+    procedure noticeLogScroll;
+    procedure settleDocument(layoutWidth: Double);
     procedure buildChecks;
     procedure queueRender;
     procedure asyncRender(data: PtrInt);
     procedure render;
-    procedure renderLive;
-    procedure applyLive(const linesHtml, statusText: string; percent: integer);
+    procedure renderLive(withLog: Boolean);
+    procedure applyLive(const linesHtml, statusText: string; percent: integer; withLog: Boolean);
   end;
 
 var
@@ -1362,7 +1366,7 @@ begin
   st.status := msg;
   // a download reports every 256 KB, so during an install the page is left to
   // the timer: laying it out per report starves the window of everything else
-  if FInstalling then FLogDirty := True else queueRender;
+  if FInstalling then FStatusDirty := True else queueRender;
 end;
 
 procedure TMainForm.log(const msg: string);
@@ -1392,11 +1396,10 @@ begin
     queueRender;
   end;
 
-  // the log pane only has a scroll offset once it has been laid out, which
-  // happens while painting
-  applyLogScroll;
+  // a page settleDocument could not lay out itself is caught up with here
+  if FLogRebuilt then begin FLogRebuilt := False; restoreLogScroll; end
+  else noticeLogScroll;
 
-  // for the same reason nothing can be hit-tested any earlier than here
   if FHoverDirty then
   begin
     FHoverDirty := False;
@@ -1413,26 +1416,44 @@ begin
   result := TPixieRenderItem(el.GetRenderItem);
 end;
 
-// new lines reset the pane to its top, so after a rebuild it is put back where
-// it was, or at its end while the log is followed. every other paint is where a
-// wheel of the user's own is noticed, there being no event for it
-procedure TMainForm.applyLogScroll;
+// a rebuild throws the scroll offset away with the render tree, so the pane is
+// put back where it was, or at its end while the log is followed
+procedure TMainForm.restoreLogScroll;
 begin
   var ri := logItem;
   if ri = nil then Exit;
+  var want := FLogTop;
+  if FFollowLog then want := 1000000;
+  ri.VScroll(want-ri.GetScrollTop);
+  FLogTop := ri.GetScrollTop;
+end;
 
-  if not FLogRebuilt then
+// there is no event for the wheel over a pane, so where the user left it is
+// read off every paint that did not rebuild the page
+procedure TMainForm.noticeLogScroll;
+begin
+  var ri := logItem;
+  if ri = nil then Exit;
+  FLogTop := ri.GetScrollTop;
+  FFollowLog := not ri.IsVScrollable(24);
+end;
+
+// pixie lays a document out while it is painted, so a rebuilt one would first
+// be drawn with the log pane at its top and nothing under the pointer, and only
+// then be put right - one frame of flicker per update. laying it out here costs
+// that layout twice but never shows the wrong frame
+procedure TMainForm.settleDocument(layoutWidth: Double);
+begin
+  if (view.Document = nil) or (layoutWidth <= 0) then
   begin
-    FLogTop := ri.GetScrollTop;
-    FFollowLog := not ri.IsVScrollable(24);
+    FLogRebuilt := True;
+    FHoverDirty := True;
     Exit;
   end;
 
-  FLogRebuilt := False;
-  var want := FLogTop;
-  if FFollowLog then want := 1000000;
-  if ri.VScroll(want-ri.GetScrollTop) <> 0 then view.Invalidate;
-  FLogTop := ri.GetScrollTop;
+  view.Document.Render(layoutWidth);
+  restoreLogScroll;
+  restoreHover;
 end;
 
 procedure TMainForm.viewMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
@@ -1504,9 +1525,14 @@ end;
 
 procedure TMainForm.logTimerTimer(Sender: TObject);
 begin
-  if FMouseDown or FLiveBusy or (not FLogDirty) then Exit;
+  if FMouseDown or FLiveBusy then Exit;
+  // a download reports progress far more often than it writes a line, and
+  // rebuilding the log for a moved progress bar is what made it flicker
+  var withLog := FLogDirty;
+  if (not withLog) and (not FStatusDirty) then Exit;
   FLogDirty := False;
-  renderLive;
+  FStatusDirty := False;
+  renderLive(withLog);
 end;
 
 // the tick boxes are rebuilt from the flags they mirror, so the page and the
@@ -1581,6 +1607,10 @@ begin
     end;
   end;
 
+  // the view lays out at the width it had, so the old document carries it over
+  var layoutWidth := 0.0;
+  if view.Document <> nil then layoutWidth := view.Document.Width;
+
   view.LoadFromString(buildPage(st));
 
   if (focusId <> '') and (view.Document <> nil) then
@@ -1593,30 +1623,30 @@ begin
       TBoxAccess(box).FCaretPos := caret;
     end;
   end;
-  FLogRebuilt := True;
-  FHoverDirty := True;
+  settleDocument(layoutWidth);
 end;
 
 // while an install runs only the log, the status and the progress move, and
 // they are written into the page that is already up: a fresh document would
-// drop what the pointer is over and what the log pane is scrolled to. the
-// string building runs on a worker, only the apply comes back to this thread
-procedure TMainForm.renderLive;
+// drop what the pointer is over and what the log pane is scrolled to. building
+// the log html is the costly half, so it runs on a worker
+procedure TMainForm.renderLive(withLog: Boolean);
 begin
   if view.Document = nil then begin render; Exit; end;
-  FLiveBusy := True;
 
+  var status := sanitize(st.status);
+  var percent := barWidth(st);
+  if not withLog then begin applyLive('', status, percent, False); Exit; end;
+
+  FLiveBusy := True;
   // the log is appended on this thread, so the worker gets its own copy
   var tail := TStringList.Create;
   tail.Assign(FLog);
-  var status := st.status;
-  var percent := barWidth(st);
 
   async begin
     try
       var linesHtml := logLinesHtml(tail);
-      var statusText := sanitize(status);
-      sync applyLive(linesHtml, statusText, percent);
+      sync applyLive(linesHtml, status, percent, True);
     finally
       tail.Free;
       FLiveBusy := False;
@@ -1624,15 +1654,18 @@ begin
   end;
 end;
 
-procedure TMainForm.applyLive(const linesHtml, statusText: string; percent: integer);
+procedure TMainForm.applyLive(const linesHtml, statusText: string; percent: integer; withLog: Boolean);
 begin
   var doc := view.Document;
   if FClosing or (doc = nil) then Exit;
 
   doc.BeginUpdate;
-  var el := doc.GetElementById('log');
-  if el <> nil then doc.SetInnerHtml(el, linesHtml);
-  el := doc.GetElementById('status');
+  if withLog then
+  begin
+    var log := doc.GetElementById('log');
+    if log <> nil then doc.SetInnerHtml(log, linesHtml);
+  end;
+  var el := doc.GetElementById('status');
   if el <> nil then doc.SetElementText(el, statusText);
   el := doc.GetElementById('fill');
   if el <> nil then
@@ -1642,8 +1675,7 @@ begin
   end;
   doc.EndUpdate;
 
-  FLogRebuilt := True;
-  FHoverDirty := True;
+  settleDocument(doc.Width);
 end;
 
 end.
