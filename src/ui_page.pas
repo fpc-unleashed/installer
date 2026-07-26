@@ -129,7 +129,7 @@ const
     .card h2 { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: @dim; font-weight: 600; margin: 0; padding: 6px 9px; border-bottom: 1px solid @line; }
     .pad { padding: 7px 9px; }
     .row { display: flex; align-items: flex-start; margin-bottom: 5px; }
-    .row .grow { flex-grow: 1; flex-shrink: 1; flex-basis: 0; min-width: 0; }
+    .grow { flex-grow: 1; flex-shrink: 1; flex-basis: 0; min-width: 0; }
     .lbl { width: 110px; color: @muted; padding-top: 3px; }
     input { padding: 3px 7px; width: 100%; border: 1px solid @border; border-radius: 3px; background: @input; color: @text; font-family: Consolas, monospace; }
     input.off { color: @dim; background: @head; }

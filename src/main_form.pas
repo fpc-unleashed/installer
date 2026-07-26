@@ -319,6 +319,7 @@ begin
   FLaunchAfter := True;
   st.saveLog := True;
 
+  // with nothing saved yet, the desktop decides
   if systemPrefersDark then st.theme := utDark else st.theme := utLight;
 
   setStatus('Ready');
@@ -348,6 +349,8 @@ begin
   if s.LazBranch <> '' then st.lazBranch := s.LazBranch;
   if s.TargetDir <> '' then st.targetDir := s.TargetDir;
   st.saveLog := s.SaveLog;
+  if s.Theme = 'dark' then st.theme := utDark
+  else if s.Theme = 'light' then st.theme := utLight;
 
   if not ReadManifest(Trim(st.targetDir)).Present then begin
     // host-native cross targets stay locked off
@@ -409,6 +412,7 @@ begin
   s.MakeFolderShortcut    := FFolderShortcut;
   s.LaunchAfter := FLaunchAfter;
   s.SaveLog     := st.saveLog;
+  s.Theme       := if st.theme = utDark then 'dark' else 'light';
   writeSettings(s);
 end;
 

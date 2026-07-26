@@ -25,6 +25,8 @@ type
     InstallMinimap, InstallCPUView, InstallToggleAffinity, InstallMetaDarkStyle, InstallHelpFiles: Boolean;
     MakeDesktopShortcut, MakeFolderShortcut: Boolean;
     LaunchAfter, SaveLog: Boolean;
+    // 'dark' or 'light'; empty means the desktop decides
+    Theme: string;
   end;
 
 const
@@ -89,6 +91,7 @@ begin
   result.MakeFolderShortcut    := toBool(lines.Values['shortcut-install-folder'], True);
   result.LaunchAfter           := toBool(lines.Values['launch-after-install'], True);
   result.SaveLog               := toBool(lines.Values['save-log'], False);
+  result.Theme                 := lines.Values['theme'];
   result.Present := True;
 end;
 
@@ -119,6 +122,7 @@ begin
   lines.Add('shortcut-install-folder='+boolFlag(s.MakeFolderShortcut));
   lines.Add('launch-after-install='+boolFlag(s.LaunchAfter));
   lines.Add('save-log='+boolFlag(s.SaveLog));
+  lines.Add('theme='+s.Theme);
   try
     lines.SaveToFile(settingsPath);
     result := True;
