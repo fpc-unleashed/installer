@@ -10,7 +10,12 @@ on:
   schedule:
     # Run after the Lazarus Unleashed nightly so both FPC and Lazarus
     # bundles are fresh (FPC: 00:00 UTC, Lazarus: 01:00 UTC).
+    # Only the default branch honours this; pixie is dispatched from there.
     - cron: '0 2 * * *'
+
+env:
+  # pixie ships its own release so it never touches the one main publishes
+  NIGHTLY_TAG: nightly-pixie
 
 jobs:
   check-for-changes:
@@ -23,8 +28,8 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Fetch 'nightly' tag only
-        run: git fetch origin refs/tags/nightly:refs/tags/nightly || true
+      - name: Fetch nightly tag only
+        run: git fetch origin "refs/tags/$NIGHTLY_TAG:refs/tags/$NIGHTLY_TAG" || true
 
       - name: Check for changes since nightly
         id: check
@@ -34,8 +39,8 @@ jobs:
             echo "should_build=true" >> $GITHUB_OUTPUT
             exit 0
           fi
-          if git rev-parse nightly >/dev/null 2>&1; then
-            nightly_commit=$(git rev-list -n 1 nightly)
+          if git rev-parse "$NIGHTLY_TAG" >/dev/null 2>&1; then
+            nightly_commit=$(git rev-list -n 1 "$NIGHTLY_TAG")
             head_commit=$(git rev-parse HEAD)
             echo "Nightly tag commit: $nightly_commit"
             echo "HEAD commit: $head_commit"
@@ -47,7 +52,7 @@ jobs:
               echo "should_build=true" >> $GITHUB_OUTPUT
             fi
           else
-            echo "No 'nightly' tag found - will build"
+            echo "No '$NIGHTLY_TAG' tag found - will build"
             echo "should_build=true" >> $GITHUB_OUTPUT
           fi
 
@@ -98,7 +103,7 @@ jobs:
           rev=$(grep -oP '<RevisionNr Value="\K[0-9]+'     src/installer.lpi || echo 0)
           ver="${maj}.${min}.${rev}.${GITHUB_RUN_NUMBER}"
           {
-            echo "Unleashed Installer nightly build"
+            echo "Unleashed Installer PixieUI nightly build"
             echo
             echo "Generated from commit: $GITHUB_SHA"
             echo "Build time: $ts"
@@ -109,11 +114,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete nightly --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
-          gh release create nightly \
+          gh release delete "$NIGHTLY_TAG" --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+          gh release create "$NIGHTLY_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Unleashed Installer nightly" \
+            --title "Unleashed Installer PixieUI nightly" \
             --notes-file release-body.txt \
             --prerelease \
             installer_win64_x86_64.exe \
