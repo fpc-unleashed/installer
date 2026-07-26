@@ -506,9 +506,13 @@ begin
     'menufile': if el.GetAttr('data-name') = 'Exit' then Close;
 
     'menurepo': begin
-      var name := el.GetAttr('data-name');
-      if name = 'fpc-unleashed' then OpenURL('https://github.com/fpc-unleashed')
-      else OpenURL('https://github.com/fpc-unleashed/'+name);
+      var repo := match el.GetAttr('data-name') of
+        'Unleashed Compiler':           'freepascal';
+        'Unleashed IDE':                'lazarus';
+        'Unleashed Pascal Installer':   'installer';
+        _:                              '';
+      end;
+      OpenURL('https://github.com/fpc-unleashed/'+repo);
       queueRender;
     end;
 

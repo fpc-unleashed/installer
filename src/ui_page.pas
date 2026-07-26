@@ -289,10 +289,10 @@ begin
   var files := autofree TStringList.Create;
   files.Add('Exit');
   var repos := autofree TStringList.Create;
-  repos.Add('fpc-unleashed');
-  repos.Add('freepascal');
-  repos.Add('lazarus');
-  repos.Add('installer');
+  repos.Add('Unleashed Organization');
+  repos.Add('Unleashed Compiler');
+  repos.Add('Unleashed IDE');
+  repos.Add('Unleashed Pascal Installer');
   var help := autofree TStringList.Create;
   help.Add('Documentation');
   help.Add('About');
