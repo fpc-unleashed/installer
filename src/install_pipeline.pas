@@ -331,9 +331,9 @@ const
   COMPONENTS_FWHEX_SHA =
     'B6CDF3A768811F557AA17C45A6F321FEBF0419B3280FA6EEE3BBBE2BB515D3F8';
   COMPONENTS_CPUVIEW_URL =
-    'https://github.com/fpc-unleashed/freepascal/releases/download/components-v1/CPUView_1.0.zip';
+    'https://github.com/fpc-unleashed/freepascal/releases/download/components-v1/CPUView_1.0_20260711_8fa24fa.zip';
   COMPONENTS_CPUVIEW_SHA =
-    '07455CDF621EA75F98431A7F9FB7A44CD4D9AE188288C1A0A27FD8A642BBB931';
+    '890C80E4C031D588B3E93BEAB9F850FCB4D840E154F8CFE123531D1395887F7B';
   // ToggleDisplayAffinity 1.0 design-time IDE plugin (Windows-only logic;
   // package compiles to no-op on other hosts). Single .lpk, no runtime
   // dependency split. Only fetched + registered when the user ticks the
