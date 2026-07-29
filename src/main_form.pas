@@ -174,8 +174,10 @@ end;
 
 {$ifdef LINUX}
 // Windows takes the icon from the PE .ico via the project .res; gtk2/qt LCL ignores that
-// and needs an in-memory image, so the PNG is baked into the binary here
-{$embedbytes INSTALLER_PNG 'installer.png'}
+// and needs an in-memory image, so the PNG is baked into the binary here.
+// 128px, not the 512px artwork: gdk refuses an icon list once an entry passes
+// 262144 longs and 512x512 is two longs over, which leaves the window iconless
+{$embedbytes INSTALLER_PNG 'installer_128.png'}
 {$endif}
 
 var
