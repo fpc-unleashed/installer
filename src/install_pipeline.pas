@@ -1925,6 +1925,12 @@ begin
     ExtArgs.Add('--lazarusdir=' + LazarusDir);
     ExtArgs.Add('--cpu=x86_64');
     ExtArgs.Add('--os=' + HostTargetOs);
+{$ifdef LINUX}
+    // pin the widget set: lazbuild otherwise takes whatever the sources
+    // default to, and a default flip upstream silently changes what the
+    // IDE links against mid-release
+    ExtArgs.Add('--ws=gtk3');
+{$endif}
     for var i := Low(Args) to High(Args) do
       ExtArgs.Add(Args[i]);
     SetLength(ArgsArr, ExtArgs.Count);
