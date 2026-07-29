@@ -14,7 +14,7 @@ uses
   Classes, SysUtils, Types, Math, Forms, Controls, Dialogs, Graphics, LCLType, LCLIntf, Clipbrd, ExtCtrls, RegExpr, fileinfo,
   Pixie.HtmlView, Pixie.HtmlTag, Pixie.ElTextInput, Pixie.Document, Pixie.Element, Pixie.RenderItem, Pixie.Types, Generics.Collections,
   {$ifdef WINDOWS} Windows, ShellApi, Registry, {$endif}
-  {$ifdef LINUX} process, {$endif}
+  {$ifdef LINUX} process, linux_deps, {$endif}
   {$ifdef LCLGTK2} ctypes, gtk2, gdk2, gdk2x, x, xlib, {$endif}
   branch_fetch, branch_cache, install_pipeline, install_manifest, hash_branch, app_settings, ui_page;
 
@@ -72,6 +72,10 @@ type
     FFetchPending: Integer;
     FShowFired: Boolean;
     FInstalling: Boolean;
+    // pkexec is running a package install; the Install click waits for it
+    FDepInstalling: Boolean;
+    // command the dialog offers to run as root, kept until the button is hit
+    FDepCommand: string;
     FClosing: Boolean;
     // snapshot of cfg.InstallLazarus from current install run; combined with
     // the live launch-after box at OnInstallComplete to decide launch
@@ -124,6 +128,12 @@ type
     procedure fillBranches(fpc: Boolean; branches: TStringList; const errorMsg: string);
     procedure fetchTick;
     procedure startInstall;
+{$ifdef LINUX}
+    function buildDepsReady: Boolean;
+    procedure startDepInstall;
+    procedure onDepLog(const msg: string);
+    procedure onDepComplete(Sender: TObject);
+{$endif}
     procedure setInputsEnabled(act: Boolean);
     procedure onInstallLog(const msg: string);
     procedure onInstallProgress(percent: Integer; const status: string);
@@ -552,6 +562,9 @@ begin
     end;
 
     'install':  startInstall;
+{$ifdef LINUX}
+    'installdeps': startDepInstall;
+{$endif}
     'clearlog': begin FLog.Clear; renderLog; queueRender; end;
     'copylog':  begin Clipboard.AsText := FLog.Text; queueRender; end;
 
@@ -1252,7 +1265,7 @@ procedure TMainForm.startInstall;
 var
   cfg: TInstallConfig;
 begin
-  if FInstalling then Exit;
+  if FInstalling or FDepInstalling then Exit;
   if FFolderError then begin
     note('Nothing to install into', st.mode);
     Exit;
@@ -1267,6 +1280,9 @@ begin
     note('Nothing to install into', 'No target directory selected.');
     Exit;
   end;
+{$ifdef LINUX}
+  if not buildDepsReady then Exit;
+{$endif}
 
   cfg.InstallFpc     := st.fpcOn;
   cfg.InstallLazarus := st.lazOn;
@@ -1316,6 +1332,65 @@ begin
 
   TInstallThread.Create(cfg, @onInstallLog, @onInstallProgress, @onInstallComplete);
 end;
+
+{$ifdef LINUX}
+// the IDE link step needs the -dev packages, not the .so.N the desktop runs
+// on; without them the build dies after half an hour of compiling
+function TMainForm.buildDepsReady: Boolean;
+begin
+  var deps := checkBuildDeps(st.lazOn);
+  result := deps.ok;
+  if result then exit;
+
+  FDepCommand := deps.command;
+  log('missing build dependencies: '+deps.missing);
+  if deps.command <> '' then log('run as root: '+deps.command);
+
+  if deps.canAutoInstall then confirm('Missing build dependencies', 'The build needs '+deps.missing+
+    '. Install the packages now? The system will ask for your password.', 'installdeps', 'Install the packages')
+  else if deps.command <> '' then note('Missing build dependencies', 'The build needs '+deps.missing+
+    '. Run this as root and start the install again: '+deps.command)
+  else note('Missing build dependencies', 'The build needs '+deps.missing+
+    '. Install the matching development packages of your distribution and start the install again.');
+end;
+
+procedure TMainForm.startDepInstall;
+begin
+  if FInstalling or FDepInstalling or (FDepCommand = '') then exit;
+  FDepInstalling := True;
+  setInputsEnabled(False);
+  setStatus('Installing packages');
+  log('--- pkexec '+FDepCommand+' ---');
+  TDepInstallThread.Create(FDepCommand, @onDepLog, @onDepComplete);
+end;
+
+procedure TMainForm.onDepLog(const msg: string);
+begin
+  if GShuttingDown then exit;
+  log(msg);
+end;
+
+// the packages were only ever a detour, so a good install carries straight on
+// into the install the user asked for
+procedure TMainForm.onDepComplete(Sender: TObject);
+begin
+  if GShuttingDown then exit;
+  FDepInstalling := False;
+  setInputsEnabled(True);
+  var code := TDepInstallThread(Sender).ExitCode;
+  if code = 0 then begin
+    log('packages installed');
+    setStatus('Ready');
+    startInstall;
+    exit;
+  end;
+  // 126 / 127: the password dialog was dismissed, or there was no agent to show it
+  log('package install failed (pkexec exit='+IntToStr(code)+')');
+  setStatus('Failed: package install');
+  note('Packages not installed', 'The package install ended with exit code '+IntToStr(code)+
+    '. The log holds the command; running it in a terminal shows what went wrong.');
+end;
+{$endif}
 
 procedure TMainForm.onInstallLog(const msg: string);
 begin
