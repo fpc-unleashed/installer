@@ -9,7 +9,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Dialogs, Graphics, LCLType, LCLIntf, Menus, Clipbrd, RegExpr, fileinfo,
   {$ifdef WINDOWS} Windows, ShellApi, {$endif}
-  {$ifdef LINUX} process, {$endif}
+  {$ifdef LINUX} process, linux_deps, {$endif}
   branch_fetch, branch_cache, install_pipeline, install_manifest, hash_branch, about_form, app_settings;
 
 const
@@ -145,6 +145,10 @@ type
     FUnleashedReady, FLazarusReady: Boolean;
     FShowFired: Boolean;
     FInstalling: Boolean;
+    // pkexec is running a package install; the Install click waits for it
+    FDepInstalling: Boolean;
+    // command the dialog offers to run as root, kept until the user accepts
+    FDepCommand: string;
     // snapshot of cfg.InstallLazarus from current install run; combined with
     // live CheckBoxLaunchAfter.Checked at OnInstallComplete to decide launch
     FInstalledLazarus: Boolean;
@@ -194,6 +198,12 @@ type
     procedure ApplyUnleashedEnabled;
     procedure ApplyLazarusEnabled;
     procedure SetInputsEnabled(act: Boolean);
+{$ifdef LINUX}
+    function buildDepsReady: Boolean;
+    procedure startDepInstall;
+    procedure onDepLog(const msg: string);
+    procedure onDepComplete(Sender: TObject);
+{$endif}
     procedure OnInstallLog(const msg: string);
     procedure OnInstallProgress(Percent: Integer; const status: string);
     procedure OnInstallComplete(Sender: TObject);
@@ -1292,6 +1302,66 @@ begin
   ApplyLazarusEnabled;
 end;
 
+{$ifdef LINUX}
+// the IDE link step needs the -dev packages, not the .so.N the desktop runs
+// on; without them the build dies after half an hour of compiling
+function TMainForm.buildDepsReady: Boolean;
+begin
+  var deps := checkBuildDeps(CheckBoxInstallLazarus.Checked);
+  result := deps.ok;
+  if result then exit;
+
+  FDepCommand := deps.command;
+  Log('missing build dependencies: '+deps.missing);
+  if deps.command <> '' then Log('run as root: '+deps.command);
+
+  if deps.canAutoInstall then begin
+    if MessageDlg('Missing build dependencies', 'The build needs '+deps.missing+
+      '. Install the packages now? The system will ask for your password.', mtConfirmation, [mbYes, mbNo], 0) = mrYes then startDepInstall;
+  end else if deps.command <> '' then MessageDlg('Missing build dependencies', 'The build needs '+deps.missing+
+    '. Run this as root and start the install again: '+deps.command, mtWarning, [mbOK], 0)
+  else MessageDlg('Missing build dependencies', 'The build needs '+deps.missing+
+    '. Install the matching development packages of your distribution and start the install again.', mtWarning, [mbOK], 0);
+end;
+
+procedure TMainForm.startDepInstall;
+begin
+  if FInstalling or FDepInstalling or (FDepCommand = '') then exit;
+  FDepInstalling := True;
+  SetInputsEnabled(False);
+  SetStatus('Installing packages');
+  Log('--- pkexec '+FDepCommand+' ---');
+  TDepInstallThread.Create(FDepCommand, @onDepLog, @onDepComplete);
+end;
+
+procedure TMainForm.onDepLog(const msg: string);
+begin
+  if GShuttingDown then exit;
+  Log(msg);
+end;
+
+// the packages were only ever a detour, so a good install carries straight on
+// into the install the user asked for
+procedure TMainForm.onDepComplete(Sender: TObject);
+begin
+  if GShuttingDown then exit;
+  FDepInstalling := False;
+  SetInputsEnabled(True);
+  var code := TDepInstallThread(Sender).ExitCode;
+  if code = 0 then begin
+    Log('packages installed');
+    SetStatus('Ready');
+    ButtonInstallClick(nil);
+    exit;
+  end;
+  // 126 / 127: the password dialog was dismissed, or there was no agent to show it
+  Log('package install failed (pkexec exit='+IntToStr(code)+')');
+  SetStatus('Failed: package install');
+  MessageDlg('Packages not installed', 'The package install ended with exit code '+IntToStr(code)+
+    '. The log holds the command; running it in a terminal shows what went wrong.', mtError, [mbOK], 0);
+end;
+{$endif}
+
 procedure TMainForm.OnInstallLog(const msg: string);
 begin
   if GShuttingDown then exit;
@@ -1365,7 +1435,7 @@ procedure TMainForm.ButtonInstallClick(Sender: TObject);
 var
   cfg: TInstallConfig;
 begin
-  if FInstalling then Exit;
+  if FInstalling or FDepInstalling then Exit;
   // belt-and-braces: button is disabled while these errors hold, but a stale OnClick race could still land here.
   // refuse before touching the disk (no dir creation) when the IDE would have no launch shortcut
   if FFolderError then Exit;
@@ -1376,6 +1446,9 @@ begin
     Log('install dir is empty');
     Exit;
   end;
+{$ifdef LINUX}
+  if not buildDepsReady then Exit;
+{$endif}
 
   cfg.InstallFpc     := CheckBoxInstallUnleashed.Checked;
   cfg.InstallLazarus := CheckBoxInstallLazarus.Checked;
