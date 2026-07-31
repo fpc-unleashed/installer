@@ -4,9 +4,9 @@ Official installer for the [Unleashed Pascal](https://github.com/unleashedpascal
 
 ## Release artifacts
 
-- `installer_win64_x86_64.exe` -- Windows host
-- `installer_linux_x86_64` -- Linux host (raw ELF64)
-- `installer_linux_x86_64.AppImage` -- Linux host (AppImage, self-contained)
+- `installer_win64_x86_64.exe` - Windows host
+- `installer_linux_x86_64` - Linux host (raw ELF64)
+- `installer_linux_x86_64.AppImage` - Linux host (AppImage, self-contained)
 
 All three are published to the `nightly` release; pick whichever suits your distro / preference.
 
@@ -14,7 +14,7 @@ All three are published to the `nightly` release; pick whichever suits your dist
 
 Pick a target directory, optionally pin commits, tick the cross compilers you want, click **Install**. The installer then:
 
-1. Downloads a bootstrap FPC and the Unleashed Pascal compiler + IDE source.
+1. Downloads a bootstrap FPC and the Unleashed Pascal compiler + Unleashed Pascal IDE source.
 2. Builds the native compiler for the host OS, then any cross targets you ticked.
 3. Builds the IDE and any optional addons you ticked.
 4. Drops a desktop shortcut to the IDE, wired to a per-install IDE config so the install stays isolated from anything else on the system.
@@ -25,13 +25,13 @@ Install dir defaults: `C:\unleashed\` on Windows, `$HOME/unleashed/` on Linux.
 
 ## Cross-target support matrix
 
-| Target          | From win64 host | From linux64 host                            |
-| --------------- | --------------- | -------------------------------------------- |
-| `x86_64-win64`  | native          | cross via FPC internal PE/COFF linker (-Xi)  |
-| `x86_64-linux`  | cross           | native                                       |
-| `i386-win32`    | cross           | cross                                        |
-| `i386-linux`    | cross           | cross; needs `i386-win32` as prereq          |
-| `wasm32-wasip1` | cross           | cross                                        |
+| Target          | From win64 host | From linux64 host                                      |
+| --------------- | --------------- | ------------------------------------------------------ |
+| `x86_64-win64`  | native          | cross via the compiler's internal PE/COFF linker (-Xi) |
+| `x86_64-linux`  | cross           | native                                                 |
+| `i386-win32`    | cross           | cross                                                  |
+| `i386-linux`    | cross           | cross; needs `i386-win32` as prereq                    |
+| `wasm32-wasip1` | cross           | cross                                                  |
 
 ## Linux host requirements
 
@@ -52,34 +52,34 @@ Tested baseline: glibc 2.28+ (Ubuntu 18.04+, Debian 10+, Fedora 29+).
 
 ## Filename hash pin
 
-A release binary can carry a compact `<len><payload>` blob in its filename so the installer pre-fills the compiler / IDE commit and branch fields on startup -- without baking long commit SHAs or branch names into the binary name.
+A release binary can carry a compact `<len><payload>` blob in its filename so the installer pre-fills the compiler / IDE commit and branch fields on startup - without baking long commit SHAs or branch names into the binary name.
 
 Layout (4 positional fields, all optional, concatenated with no separators):
 
-| Pos | Meaning                                                   |
-| --- | --------------------------------------------------------- |
-| 1   | fpc commit / predefined branch                            |
-| 2   | ide commit / predefined branch                            |
-| 3   | fpc branch hash override (optional, hash-only)            |
-| 4   | ide branch hash override (optional, hash-only)            |
+| Pos | Meaning                                             |
+| --- | --------------------------------------------------- |
+| 1   | compiler commit / predefined branch                 |
+| 2   | ide commit / predefined branch                      |
+| 3   | compiler branch hash override (optional, hash-only) |
+| 4   | ide branch hash override (optional, hash-only)      |
 
 Each field is `<L><L-hex-chars>`:
 
 For **pos 1 and 2**:
 
-- `0X` -- predefined namespace, X selects a built-in branch:
+- `0X` - predefined namespace, X selects a built-in branch:
   - `0` = main
   - `1` = devel
   
   Commit is "latest of that branch" semantically.
 
-- `<L><L-hex>` with L in 1..9 -- L hex chars follow = pinned commit-SHA prefix. Branch is implicitly `main`. Override the implicit main via pos 3 if you want a different branch.
+- `<L><L-hex>` with L in 1..9 - L hex chars follow = pinned commit-SHA prefix. Branch is implicitly `main`. Override the implicit main via pos 3 if you want a different branch.
 
 For **pos 3 and 4** (branch override, hash-only):
 
-- `<L><L-hex>` with L in 1..9 -- L hex chars = murmur3 prefix of the branch name. Picks whichever currently-active branch hashes to that prefix; collisions are resolved by encoding a longer prefix at build time.
+- `<L><L-hex>` with L in 1..9 - L hex chars = murmur3 prefix of the branch name. Picks whichever currently-active branch hashes to that prefix; collisions are resolved by encoding a longer prefix at build time.
 
-The override slot has no predefined namespace -- if you want a predefined branch, write it in pos 1 / 2 instead.
+The override slot has no predefined namespace - if you want a predefined branch, write it in pos 1 / 2 instead.
 
 Branch hashes are generated by the `branchhash` CLI tool sitting next to the installer source:
 
@@ -92,17 +92,17 @@ branchhash <branch-name> [<total-len>]
 
 ### Examples
 
-| Filename token       | Pin                                                                       |
-| -------------------- | ------------------------------------------------------------------------- |
-| `00`                 | fpc on main, latest commit. ide defaults to main + latest.                |
-| `0000`               | both fpc and ide on main + latest (explicit).                             |
-| `0101`               | both fpc and ide on devel + latest.                                       |
-| `1a1b`               | fpc commit pin `a`, ide commit pin `b`, both on main (implicit).          |
-| `00011a`             | fpc on main, ide on devel, fpc branch overridden to whatever hashes to `a`. |
-| `0001266`            | fpc on main, ide on devel, fpc branch override hash `66` (3-char field).  |
-| `1a2bc266266`        | fpc commit `a`, ide commit `bc`, then both branches overridden via hash `66`. |
+| Filename token | Pin                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------- |
+| `00`           | compiler on main, latest commit. ide defaults to main + latest.                       |
+| `0000`         | both compiler and ide on main + latest (explicit).                                    |
+| `0101`         | both compiler and ide on devel + latest.                                              |
+| `1a1b`         | compiler commit pin `a`, ide commit pin `b`, both on main (implicit).                 |
+| `00011a`       | compiler on main, ide on devel, compiler branch overridden to whatever hashes to `a`. |
+| `0001266`      | compiler on main, ide on devel, compiler branch override hash `66` (3-char field).    |
+| `1a2bc266266`  | compiler commit `a`, ide commit `bc`, then both branches overridden via hash `66`.    |
 
-The parser picks the LAST hex+digit run of >= 2 chars in the filename. There is no fallback to an earlier run -- if the chosen run fails to parse, the install just starts at defaults.
+The parser picks the LAST hex+digit run of >= 2 chars in the filename. There is no fallback to an earlier run - if the chosen run fails to parse, the install just starts at defaults.
 
 ### Cmdline override (for testing)
 
@@ -112,8 +112,8 @@ You can pass the blob as the first cmdline argument to the installer; it parses 
 installer_win64_x86_64.exe 0000366f366f
 ```
 
-The Commit edit fields and Branch combos fill in on startup. A benign / non-blob arg (path, flag) falls through to the filename path so launchers that already pass other args still work.
+The **Commit edit fields** and **Branch combos** fill in on startup.
 
 ## License
 
-Source published for audit. See [LICENSE](LICENSE) -- free to run, free to read, free to build yourself, no forks.
+Source published for audit. See [LICENSE](LICENSE) - free to run, free to read, free to build yourself, no forks.
