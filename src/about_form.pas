@@ -34,24 +34,24 @@ const
 
     Copyright (c) 2026 Unleashed Pascal
 
-    This software is the official installer for the fpc-unleashed
-    project (https://github.com/fpc-unleashed). The source is published
+    This software is the official installer for the Unleashed Pascal
+    project (https://github.com/unleashedpascal). The source is published
     so users can audit what the installer does.
 
     YOU MAY, FREE OF CHARGE:
-      1. Run the installer binary released by fpc-unleashed, or build
+      1. Run the installer binary released by Unleashed Pascal, or build
          it yourself from this source.
       2. Read this source code for understanding or auditing.
 
-    YOU MAY NOT, WITHOUT WRITTEN PERMISSION FROM fpc-unleashed:
+    YOU MAY NOT, WITHOUT WRITTEN PERMISSION FROM Unleashed Pascal:
       1. Copy, modify, merge, redistribute, or sublicense any part of
          the source or binary - in original or modified form.
       2. Create forks, branches, ports, or derivative works, even if
          URLs, names, configuration, or branding are changed. This
-         installer is the fpc-unleashed installer; it is not licensed
-         for use by any other project, including forks of fpc-unleashed
+         installer is the Unleashed Pascal installer; it is not licensed
+         for use by any other project, including forks of Unleashed Pascal
          itself.
-      3. Use the names "Unleashed", "FPC Unleashed", or any
+      3. Use the names "Unleashed", "Unleashed Pascal", or any
          confusingly similar name in derived works, packaging, or marketing materials.
 
     There is no permitted fork.

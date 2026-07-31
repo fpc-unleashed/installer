@@ -4,7 +4,7 @@ object AboutForm: TAboutForm
   Top = 200
   Width = 600
   BorderStyle = bsSizeable
-  Caption = 'About FPC Unleashed Installer'
+  Caption = 'About Unleashed Pascal Installer'
   ClientHeight = 520
   ClientWidth = 600
   Position = poOwnerFormCenter
@@ -31,7 +31,7 @@ object AboutForm: TAboutForm
       BorderSpacing.Left = 12
       BorderSpacing.Top = 12
       BorderSpacing.Right = 12
-      Caption = 'FPC Unleashed Installer'
+      Caption = 'Unleashed Pascal Installer'
       Font.Height = -14
       Font.Style = [fsBold]
       ParentFont = False
@@ -48,7 +48,7 @@ object AboutForm: TAboutForm
       BorderSpacing.Top = 8
       BorderSpacing.Right = 12
       BorderSpacing.Bottom = 12
-      Caption = 'Official installer for the fpc-unleashed project.'#10'Downloads source, builds FPC Unleashed and the Lazarus'#10'IDE into a self-contained directory of your choice.'
+      Caption = 'Official installer for the Unleashed Pascal project.'#10'Downloads source, builds the Unleashed Pascal compiler'#10'and IDE into a self-contained directory of your choice.'
       WordWrap = True
     end
   end

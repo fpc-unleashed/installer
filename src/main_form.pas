@@ -13,7 +13,7 @@ uses
   branch_fetch, branch_cache, install_pipeline, install_manifest, hash_branch, about_form, app_settings;
 
 const
-  GH_OWNER     = 'fpc-unleashed';
+  GH_OWNER     = 'unleashedpascal';
   REPO_FPC     = 'freepascal';
   REPO_LAZARUS = 'lazarus';
 
@@ -1226,27 +1226,27 @@ end;
 
 procedure TMainForm.MenuRepoMainClick(Sender: TObject);
 begin
-  OpenURL('https://github.com/fpc-unleashed');
+  OpenURL('https://github.com/unleashedpascal');
 end;
 
 procedure TMainForm.MenuRepoFreepascalClick(Sender: TObject);
 begin
-  OpenURL('https://github.com/fpc-unleashed/freepascal');
+  OpenURL('https://github.com/unleashedpascal/freepascal');
 end;
 
 procedure TMainForm.MenuRepoLazarusClick(Sender: TObject);
 begin
-  OpenURL('https://github.com/fpc-unleashed/lazarus');
+  OpenURL('https://github.com/unleashedpascal/lazarus');
 end;
 
 procedure TMainForm.MenuRepoInstallerClick(Sender: TObject);
 begin
-  OpenURL('https://github.com/fpc-unleashed/installer');
+  OpenURL('https://github.com/unleashedpascal/installer');
 end;
 
 procedure TMainForm.MenuHelpDocsClick(Sender: TObject);
 begin
-  OpenURL('https://github.com/fpc-unleashed/freepascal/blob/main/unleashed/docs/README.md');
+  OpenURL('https://github.com/unleashedpascal/freepascal/blob/main/unleashed/docs/README.md');
 end;
 
 procedure TMainForm.MenuHelpAboutClick(Sender: TObject);
@@ -1488,8 +1488,8 @@ begin
 
   Log('--- install requested ---');
   Log('target dir: '+cfg.TargetDir);
-  if cfg.InstallFpc then Log('install fpc-unleashed: yes ('+cfg.FpcBranch+')') else Log('install fpc-unleashed: no');
-  if cfg.InstallLazarus then Log('install lazarus IDE:  yes ('+cfg.LazBranch+')') else Log('install lazarus IDE:  no');
+  if cfg.InstallFpc then Log('install compiler: yes ('+cfg.FpcBranch+')') else Log('install compiler: no');
+  if cfg.InstallLazarus then Log('install IDE:      yes ('+cfg.LazBranch+')') else Log('install IDE:      no');
 
   FInstalling := True;
 {$ifdef WINDOWS}

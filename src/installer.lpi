@@ -24,7 +24,7 @@
       <UseVersionInfo Value="True"/>
       <MinorVersionNr Value="1"/>
       <RevisionNr Value="4"/>
-      <StringTable Comments="Builds Unleashed Edition FPC + Lazarus from GitHub sources" CompanyName="FPC Unleashed" FileDescription="FPC Unleashed Installer" InternalName="installer" LegalCopyright="© 2026 FPC Unleashed" OriginalFilename="installer.exe" ProductName="FPC Unleashed Installer"/>
+      <StringTable Comments="Builds the Unleashed Pascal compiler and IDE from GitHub sources" CompanyName="Unleashed Pascal" FileDescription="Unleashed Pascal Installer" InternalName="installer" LegalCopyright="(c) 2026 Unleashed Pascal" OriginalFilename="installer.exe" ProductName="Unleashed Pascal Installer"/>
     </VersionInfo>
     <BuildModes Count="4">
       <Item1 Name="win64_debug" Default="True"/>

@@ -92,7 +92,7 @@ begin
       IconPath := IconCandidates[i];
       Break;
     end;
-  Result := '[Desktop Entry]'#10+'Type=Application'#10+'Version=1.0'#10+'Name='+ShortcutName+#10+'Comment=Lazarus IDE (FPC Unleashed)'#10+'Exec='+ExecLine+#10+
+  Result := '[Desktop Entry]'#10+'Type=Application'#10+'Version=1.0'#10+'Name='+ShortcutName+#10+'Comment=Unleashed Pascal IDE'#10+'Exec='+ExecLine+#10+
             (if IconPath <> '' then 'Icon='+IconPath+#10 else '')+'Terminal=false'#10+'Categories=Development;IDE;'#10+'StartupNotify=false'#10;
 end;
 
@@ -123,7 +123,7 @@ begin
       ' ', #9: Result := Result+'-';
     end;
   end;
-  if Result = '' then Result := 'lazarus-unleashed';
+  if Result = '' then Result := 'unleashed-pascal-ide';
 end;
 
 function CreateDesktopShortcut(const TargetPath, Args, ShortcutName: string): Boolean;
