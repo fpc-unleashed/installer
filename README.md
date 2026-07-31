@@ -1,6 +1,6 @@
-# Unleashed Installer
+# Unleashed Pascal Installer
 
-Official installer for the [fpc-unleashed](https://github.com/fpc-unleashed) project. Downloads source, builds FPC Unleashed and Lazarus IDE into a self-contained directory of your choice. No registry side effects, no PATH modification, no overwriting of system FPC.
+Official installer for the [Unleashed Pascal](https://github.com/unleashedpascal) project. Downloads source, builds the Unleashed Pascal compiler and IDE into a self-contained directory of your choice. No registry side effects, no PATH modification, no overwriting of system FPC.
 
 ## Release artifacts
 
@@ -14,10 +14,10 @@ All three are published to the `nightly` release; pick whichever suits your dist
 
 Pick a target directory, optionally pin commits, tick the cross compilers you want, click **Install**. The installer then:
 
-1. Downloads a bootstrap FPC and the FPC Unleashed + Lazarus source.
-2. Builds the native FPC for the host OS, then any cross targets you ticked.
-3. Builds the Lazarus IDE and any optional addons you ticked.
-4. Drops a desktop shortcut to the IDE, wired to a per-install Lazarus config so the install stays isolated from anything else on the system.
+1. Downloads a bootstrap FPC and the Unleashed Pascal compiler + IDE source.
+2. Builds the native compiler for the host OS, then any cross targets you ticked.
+3. Builds the IDE and any optional addons you ticked.
+4. Drops a desktop shortcut to the IDE, wired to a per-install IDE config so the install stays isolated from anything else on the system.
 
 Re-runs are idempotent: unchanged components self-skip, ticked-but-missing targets get filled in, unticked-but-present targets get removed, addon toggles trigger a surgical IDE rebuild. State lives in `<install>/installer.ini`.
 
@@ -35,7 +35,7 @@ Install dir defaults: `C:\unleashed\` on Windows, `$HOME/unleashed/` on Linux.
 
 ## Linux host requirements
 
-The native compile and Lazarus GTK2 build need a working toolchain on the host:
+The native compile and the IDE GTK2 build need a working toolchain on the host:
 
 ```sh
 # Debian / Ubuntu / Mint
@@ -52,7 +52,7 @@ Tested baseline: glibc 2.28+ (Ubuntu 18.04+, Debian 10+, Fedora 29+).
 
 ## Filename hash pin
 
-A release binary can carry a compact `<len><payload>` blob in its filename so the installer pre-fills the FPC / Lazarus commit and branch fields on startup -- without baking long commit SHAs or branch names into the binary name.
+A release binary can carry a compact `<len><payload>` blob in its filename so the installer pre-fills the compiler / IDE commit and branch fields on startup -- without baking long commit SHAs or branch names into the binary name.
 
 Layout (4 positional fields, all optional, concatenated with no separators):
 
