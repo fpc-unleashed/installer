@@ -588,7 +588,6 @@ object MainForm: TMainForm
           AntialiasingMode = amOn
           Align = alClient
           Center = True
-          Proportional = True
         end
         object Bevel1: TBevel
           Left = 0
