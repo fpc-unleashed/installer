@@ -35,17 +35,20 @@ Install dir defaults: `C:\unleashed\` on Windows, `$HOME/unleashed/` on Linux.
 
 ## Linux host requirements
 
-The native compile and the IDE GTK2 build need a working toolchain on the host:
+The native compile and the GTK3 build of the IDE need a working toolchain on the host:
 
 ```sh
 # Debian / Ubuntu / Mint
-sudo apt install -y curl build-essential libgtk2.0-dev xdg-utils
+sudo apt install -y curl build-essential libgtk-3-dev xdg-utils
 
 # Fedora
-sudo dnf install -y curl make gcc binutils gtk2-devel xdg-utils
+sudo dnf install -y curl make gcc binutils glibc-devel gtk3-devel xdg-utils
+
+# openSUSE
+sudo zypper --non-interactive install curl make gcc binutils glibc-devel gtk3-devel xdg-utils
 
 # Arch / Manjaro
-sudo pacman -S --needed curl base-devel gtk2 xdg-utils
+sudo pacman -S --needed curl base-devel gtk3 xdg-utils
 ```
 
 Tested baseline: glibc 2.28+ (Ubuntu 18.04+, Debian 10+, Fedora 29+).
