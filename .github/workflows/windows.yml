@@ -15,12 +15,12 @@ jobs:
       - name: Checkout installer
         uses: actions/checkout@v4
 
-      - name: Download FPC Unleashed nightly bundle
+      - name: Download compiler nightly bundle
         shell: cmd
         run: |
-          curl -L -o fpc-bundle.zip https://github.com/fpc-unleashed/freepascal/releases/download/nightly/windows-bundle.zip
+          curl -L -o fpc-bundle.zip https://github.com/unleashedpascal/freepascal/releases/download/nightly/windows-bundle.zip
 
-      - name: Extract FPC Unleashed to C:\fpc
+      - name: Extract compiler to C:\fpc
         shell: cmd
         run: |
           "C:\Program Files\7-Zip\7z.exe" x -bd -y fpc-bundle.zip -oC:\ >nul
@@ -31,7 +31,7 @@ jobs:
         run: |
           $target = "x86_64-win64"
           $cfg = "C:\fpc\bin\$target\fpc.cfg"
-          $lines = @("# FPC Unleashed minimal config")
+          $lines = @("# Unleashed Pascal minimal config")
           foreach ($d in Get-ChildItem -Path "C:\fpc\units\$target" -Directory) {
             $lines += "-Fu$($d.FullName)"
           }
@@ -44,12 +44,12 @@ jobs:
           C:\fpc\bin\x86_64-win64\ppcx64.exe -viq C:\hello.pas
           C:\hello.exe
 
-      - name: Download Lazarus Unleashed nightly bundle
+      - name: Download IDE nightly bundle
         shell: cmd
         run: |
-          curl -L -o laz-bundle.zip https://github.com/fpc-unleashed/lazarus/releases/download/nightly/windows-bundle.zip
+          curl -L -o laz-bundle.zip https://github.com/unleashedpascal/lazarus/releases/download/nightly/windows-bundle.zip
 
-      - name: Extract Lazarus Unleashed to C:\laz
+      - name: Extract IDE to C:\laz
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path C:\laz | Out-Null

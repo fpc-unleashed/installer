@@ -8,8 +8,8 @@ on:
         type: boolean
         default: false
   schedule:
-    # Run after the Lazarus Unleashed nightly so both FPC and Lazarus
-    # bundles are fresh (FPC: 00:00 UTC, Lazarus: 01:00 UTC).
+    # Run after the IDE nightly so both compiler and IDE
+    # bundles are fresh (compiler: 00:00 UTC, IDE: 01:00 UTC).
     - cron: '0 2 * * *'
 
 jobs:
@@ -98,7 +98,7 @@ jobs:
           rev=$(grep -oP '<RevisionNr Value="\K[0-9]+'     src/installer.lpi || echo 0)
           ver="${maj}.${min}.${rev}.${GITHUB_RUN_NUMBER}"
           {
-            echo "Unleashed Installer nightly build"
+            echo "Unleashed Pascal Installer nightly build"
             echo
             echo "Generated from commit: $GITHUB_SHA"
             echo "Build time: $ts"
@@ -113,7 +113,7 @@ jobs:
           gh release create nightly \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Unleashed Installer nightly" \
+            --title "Unleashed Pascal Installer nightly" \
             --notes-file release-body.txt \
             --prerelease \
             installer_win64_x86_64.exe \
