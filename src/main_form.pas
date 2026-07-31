@@ -14,8 +14,8 @@ uses
 
 const
   GH_OWNER     = 'unleashedpascal';
-  REPO_FPC     = 'freepascal';
-  REPO_LAZARUS = 'lazarus';
+  REPO_FPC     = 'compiler';
+  REPO_LAZARUS = 'ide';
 
 type
   TMainForm = class(TForm)
@@ -1231,12 +1231,12 @@ end;
 
 procedure TMainForm.MenuRepoFreepascalClick(Sender: TObject);
 begin
-  OpenURL('https://github.com/unleashedpascal/freepascal');
+  OpenURL('https://github.com/unleashedpascal/compiler');
 end;
 
 procedure TMainForm.MenuRepoLazarusClick(Sender: TObject);
 begin
-  OpenURL('https://github.com/unleashedpascal/lazarus');
+  OpenURL('https://github.com/unleashedpascal/ide');
 end;
 
 procedure TMainForm.MenuRepoInstallerClick(Sender: TObject);
@@ -1246,7 +1246,7 @@ end;
 
 procedure TMainForm.MenuHelpDocsClick(Sender: TObject);
 begin
-  OpenURL('https://github.com/unleashedpascal/freepascal/blob/main/unleashed/docs/README.md');
+  OpenURL('https://github.com/unleashedpascal/compiler/blob/main/unleashed/docs/README.md');
 end;
 
 procedure TMainForm.MenuHelpAboutClick(Sender: TObject);

@@ -219,7 +219,7 @@ const
   // include file x86_64.inc'. The i386-only bootstrap is the one the
   // diagnostic scripts proved to work end-to-end.
   BOOTSTRAP_URL =
-    'https://github.com/unleashedpascal/freepascal/releases/download/bootstrappers-v1/fpc-3.2.2-i386-win32-portable.zip';
+    'https://github.com/unleashedpascal/compiler/releases/download/bootstrappers-v1/fpc-3.2.2-i386-win32-portable.zip';
   BOOTSTRAP_SHA =
     '0DFB6E34EC1FB1E89B5EAEA90E3A514B1F37867AE91989FA18143750EB39BF30';
 {$endif}
@@ -231,7 +231,7 @@ const
   // restore +x on bin/* and lib/fpc/3.2.2/ppc* after extract.
   // Layout inside the zip (no wrapper dir): bin/, lib/, man/, share/.
   BOOTSTRAP_URL =
-    'https://github.com/unleashedpascal/freepascal/releases/download/bootstrappers-v1/fpc-3.2.2-x86_64-linux-portable.zip';
+    'https://github.com/unleashedpascal/compiler/releases/download/bootstrappers-v1/fpc-3.2.2-x86_64-linux-portable.zip';
   BOOTSTRAP_SHA =
     'C6072EE3E47DB6280E16347BAF4B2637B3A09FC2AB8D14B50F69C06579F55B02';
 {$endif}
@@ -282,34 +282,34 @@ const
   // them, but -a/-al/-as/-Xe switch to external assembling and expect
   // as.exe next to the compiler; same layout as the upstream installer.
   BINW64_URL =
-    'https://github.com/unleashedpascal/freepascal/releases/download/bootstrappers-v1/binutils-2.28-x86_64-win64.zip';
+    'https://github.com/unleashedpascal/compiler/releases/download/bootstrappers-v1/binutils-2.28-x86_64-win64.zip';
   BINW64_SHA =
     'AE7C0D747C55EBB1760F8B4304BFA89BE78151594F5A21B5612DE252FE879E5A';
 {$endif}
 
   // codeload accepts branch name, tag, full or short SHA in <ref>
   FPC_SOURCE_URL_PREFIX =
-    'https://codeload.github.com/unleashedpascal/freepascal/zip/';
+    'https://codeload.github.com/unleashedpascal/compiler/zip/';
   LAZARUS_SOURCE_URL_PREFIX =
-    'https://codeload.github.com/unleashedpascal/lazarus/zip/';
+    'https://codeload.github.com/unleashedpascal/ide/zip/';
 
   // Cross-toolchain mirrors hosted on the FPC bootstrap release.
   // _BIN: cross-binutils (Win32 PE producing Linux ELF). _LIB: glibc
   // runtime + Ubuntu 18.04 shared objects for full LCL widget-set.
   CROSS_LINUX64_BIN_URL =
-    'https://github.com/unleashedpascal/freepascal/releases/download/bootstrappers-v1/Linux_AMD64_Linux_V241.zip';
+    'https://github.com/unleashedpascal/compiler/releases/download/bootstrappers-v1/Linux_AMD64_Linux_V241.zip';
   CROSS_LINUX64_BIN_SHA =
     'BE7F575C4383C98F4A14D22CD939C58C9D8A458B8E3FC2125348ECA5E9826733';
   CROSS_LINUX64_LIB_URL =
-    'https://github.com/unleashedpascal/freepascal/releases/download/bootstrappers-v1/Linux_AMD64_Ubuntu_1804.zip';
+    'https://github.com/unleashedpascal/compiler/releases/download/bootstrappers-v1/Linux_AMD64_Ubuntu_1804.zip';
   CROSS_LINUX64_LIB_SHA =
     '674B1CB4A21E0CE7000B848CB75E201CD2E317C8E71833C76D9EAD05FD7DF221';
   CROSS_LINUX32_BIN_URL =
-    'https://github.com/unleashedpascal/freepascal/releases/download/bootstrappers-v1/Linux_i386_Linux_V241.zip';
+    'https://github.com/unleashedpascal/compiler/releases/download/bootstrappers-v1/Linux_i386_Linux_V241.zip';
   CROSS_LINUX32_BIN_SHA =
     '119459D71FB54ECBA5760BDE0D96AA4455C16C7AC9A5F8CC3E2C0CC02B8E48E3';
   CROSS_LINUX32_LIB_URL =
-    'https://github.com/unleashedpascal/freepascal/releases/download/bootstrappers-v1/Linux_i386_Ubuntu_1804.zip';
+    'https://github.com/unleashedpascal/compiler/releases/download/bootstrappers-v1/Linux_i386_Ubuntu_1804.zip';
   CROSS_LINUX32_LIB_SHA =
     'A09F3168FFCBBF21AD15A3FD0A6A88C0DD4123FA6FF47B18C63701A7A05728EA';
 
@@ -321,11 +321,11 @@ const
   // extracted in place. Sources only -- lazbuild rebuilds .lpk into
   // .ppu against the freshly-built host RTL.
   COMPONENTS_FWHEX_URL =
-    'https://github.com/unleashedpascal/freepascal/releases/download/components-v1/FWHexView_2.0.16.zip';
+    'https://github.com/unleashedpascal/compiler/releases/download/components-v1/FWHexView_2.0.16.zip';
   COMPONENTS_FWHEX_SHA =
     'B6CDF3A768811F557AA17C45A6F321FEBF0419B3280FA6EEE3BBBE2BB515D3F8';
   COMPONENTS_CPUVIEW_URL =
-    'https://github.com/unleashedpascal/freepascal/releases/download/components-v1/CPUView_1.0_20260711_8fa24fa.zip';
+    'https://github.com/unleashedpascal/compiler/releases/download/components-v1/CPUView_1.0_20260711_8fa24fa.zip';
   COMPONENTS_CPUVIEW_SHA =
     '890C80E4C031D588B3E93BEAB9F850FCB4D840E154F8CFE123531D1395887F7B';
   // ToggleDisplayAffinity 1.0 design-time IDE plugin (Windows-only logic;
@@ -333,7 +333,7 @@ const
   // dependency split. Only fetched + registered when the user ticks the
   // Toggle Display Affinity checkbox on a Windows host.
   COMPONENTS_TOGGLE_URL =
-    'https://github.com/unleashedpascal/freepascal/releases/download/components-v1/ToggleDisplayAffinity.zip';
+    'https://github.com/unleashedpascal/compiler/releases/download/components-v1/ToggleDisplayAffinity.zip';
   COMPONENTS_TOGGLE_SHA =
     '7EA739C994FD725FBD30EFBE216DD97732A64BC26D41EB53B03759441DB80E1E';
   // MetaDarkStyle 0.9 dark IDE theme. Cross-platform (LCL-based). Ships
@@ -349,12 +349,12 @@ const
   // because that link redirects through rotating mirrors, which makes the
   // payload unpinnable and lets an error page arrive as a 200.
   DOCS_CHM_URL =
-    'https://github.com/unleashedpascal/freepascal/releases/download/components-v1/doc-chm-fpc3.2.4-laz4.8-0.zip';
+    'https://github.com/unleashedpascal/compiler/releases/download/components-v1/doc-chm-fpc3.2.4-laz4.8-0.zip';
   DOCS_CHM_SHA =
     'E48DEA99C5AF62D3D1746479739F6A53874D726577203802550D90B24B013884';
 
   COMPONENTS_METADARK_URL =
-    'https://github.com/unleashedpascal/freepascal/releases/download/components-v1/MetaDarkStyle_0.9.zip';
+    'https://github.com/unleashedpascal/compiler/releases/download/components-v1/MetaDarkStyle_0.9.zip';
   COMPONENTS_METADARK_SHA =
     '1E889E0B0C8BF49703C728C39F92C114B67E963B8226D46B2120696C99EED536';
 
@@ -404,7 +404,7 @@ const
 
 const
   // baked minimal Lazarus environmentoptions.xml. Version 112 / Lazarus
-  // 4.99 matches the current main of unleashedpascal/lazarus.
+  // 4.99 matches the current main of unleashedpascal/ide.
   // ActiveDesktop="default docked" makes the IDE start in single-window
   // dock layout (anchordockingdsgn handles the runtime when the package
   // is installed - which we do via lazbuild --add-package).
@@ -863,7 +863,7 @@ begin
 end;
 
 // after extract, codeload leaves a single top-level dir like
-// "freepascal-abc123def..." containing the actual source. find that one
+// "compiler-abc123def..." containing the actual source. find that one
 // directory in ParentDir; return '' if not exactly one dir there.
 function FindOnlyTopDir(const ParentDir: string): string;
 var
@@ -917,7 +917,7 @@ begin
   end;
   DeleteFile(ZipFile);
 
-  // codeload top dir is "freepascal-<sha>"; rename it to "fpcsrc"
+  // codeload top dir is "compiler-<sha>"; rename it to "fpcsrc"
   var ExtractedTopDir := FindOnlyTopDir(TempParent);
   if ExtractedTopDir = '' then begin
     FErrorMsg := 'unexpected source archive layout (no single top dir)';

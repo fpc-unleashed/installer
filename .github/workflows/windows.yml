@@ -18,7 +18,7 @@ jobs:
       - name: Download compiler nightly bundle
         shell: cmd
         run: |
-          curl -L -o fpc-bundle.zip https://github.com/unleashedpascal/freepascal/releases/download/nightly/windows-bundle.zip
+          curl -L -o fpc-bundle.zip https://github.com/unleashedpascal/compiler/releases/download/nightly/windows-bundle.zip
 
       - name: Extract compiler to C:\fpc
         shell: cmd
@@ -47,7 +47,7 @@ jobs:
       - name: Download IDE nightly bundle
         shell: cmd
         run: |
-          curl -L -o laz-bundle.zip https://github.com/unleashedpascal/lazarus/releases/download/nightly/windows-bundle.zip
+          curl -L -o laz-bundle.zip https://github.com/unleashedpascal/ide/releases/download/nightly/windows-bundle.zip
 
       - name: Extract IDE to C:\laz
         shell: powershell
