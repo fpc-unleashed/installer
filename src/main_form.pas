@@ -1254,11 +1254,14 @@ begin
   ShowAbout(Self, Self.Caption);
 end;
 
-// first match wins; ordered most-severe to least so "Error: warning" renders red
+// first match wins; ordered most-severe to least so "Error: warning" renders red.
+// the colon is part of the marker: without it every path holding a unit like
+// ParseError.pas turns the compile line red. make announces its own failures
+// with a '***' marker and no colon at all.
 function ColorForLine(const s: string): TColor;
 begin
-  if (Pos('Error', s) > 0) or (Pos('Fatal', s) > 0) or (Pos('FAILED', s) > 0) or (Pos('failed:', s) > 0) then Result := clRed
-  else if Pos('Warning', s) > 0 then Result := clOlive
+  if (Pos('Error:', s) > 0) or (Pos('Fatal:', s) > 0) or (Pos('*** ', s) > 0) or (Pos('FAILED', s) > 0) or (Pos('failed:', s) > 0) then Result := clRed
+  else if Pos('Warning:', s) > 0 then Result := clOlive
   else if (Pos('===', s) > 0) or (Pos(' ---', s) > 0) then Result := clNavy
   else if (Pos('Compiling ', s) > 0) or (Pos('Linking ', s) > 0) or (Pos('Installing ', s) > 0) then Result := TColor($008000) // dark green
   else if Pos('make[', s) > 0 then Result := clGray
