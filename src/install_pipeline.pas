@@ -132,6 +132,7 @@ type
     procedure SetStage(s: TInstallStage);
     procedure OnMakeLine(const Line: string);
     function ResolveLogPath: string;
+    procedure logHostFpcEnv;
     function StepBootstrap: Boolean;
     function StepDownloadFpcSource: Boolean;
     function StepBuildFpcNative: Boolean;
@@ -933,6 +934,20 @@ begin
   Result := True;
 end;
 
+// one-shot dump of the inherited env vars that point FPC at another
+// install. proc_util strips them from every child, so this is purely a
+// breadcrumb for bug reports: a build that pulls units out of a foreign
+// directory is otherwise impossible to explain from the make output.
+procedure TInstallThread.logHostFpcEnv;
+const
+  FPC_SEARCH_VARS: array[0..4] of string = ('FPCDIR', 'PPC_CONFIG_PATH', 'WIN32UNITS', 'WIN64UNITS', 'LINUXUNITS');
+begin
+  for var name in FPC_SEARCH_VARS do begin
+    var value := GetEnvironmentVariable(name);
+    if value <> '' then Log('  NOTE: host env has '+name+'='+value+' (dropped for child builds)');
+  end;
+end;
+
 // run make with the given args from the source dir. On Windows the
 // bootstrap zip ships its own make.exe + binutils (as.exe, ld.exe,
 // ar.exe), so we point make at the bootstrap copy and prepend the
@@ -1056,8 +1071,8 @@ begin
   // Wrap bin/fpc so that ANY invocation (shell, Lazarus IDE,
   // makefiles) gets PPC_CONFIG_PATH set automatically. Defends
   // against stale ~/.fpc.cfg without needing user action. No-op on
-  // Windows (config-search order there favors the compiler-relative
-  // fpc.cfg already).
+  // Windows, where fpc.exe is the real driver binary; our own child
+  // processes get PPC_CONFIG_PATH from proc_util instead.
   InstallFpcWrapper;
 
   Log('--- Native FPC ready: ' + HostFpcBinDir + 'ppcx64' + ExeExt + ' ---');
@@ -2764,16 +2779,22 @@ begin
     on E: Exception do
       Log('  WARN: could not append -FD to fpc.cfg: ' + E.Message);
   end;
-  // FPC's config-file search prefers ~/.fpc.cfg over <compiler-dir>/fpc.cfg
-  // if BOTH exist (compiler-relative is the last-resort fallback, not the
-  // first hit). A user with any prior FPC experiment leaves a ~/.fpc.cfg
-  // behind, and its stale -Fu paths win over the portable fpc.cfg we
-  // just generated -> "Can't find unit system" on every subsequent compile.
+{$endif}
+  // FPC's config-file search prefers a user-level fpc.cfg over the one next
+  // to the compiler (~/.fpc.cfg on Linux, %USERPROFILE%\fpc.cfg and
+  // %ALLUSERSPROFILE%\fpc.cfg on Windows) - compiler-relative is the
+  // last-resort fallback, not the first hit. A user with any prior FPC
+  // experiment leaves one behind, and its stale -Fu paths win over the
+  // portable fpc.cfg we just generated -> foreign .ppu files pulled into
+  // the build ("Can't find unit system", or a generic that fails to
+  // specialize because its recorded token stream is from another compiler).
   // Override the search by pointing PPC_CONFIG_PATH at our cfg dir;
   // ApplyEnvWithPathPrefix copies it into every child make / lazbuild.
   var ConfigDir := ExcludeTrailingPathDelimiter(HostFpcBinDir);
-  c_setenv('PPC_CONFIG_PATH', PChar(ConfigDir), 1);
+  fpcConfigDir := ConfigDir;
   Log('  PPC_CONFIG_PATH = ' + ConfigDir);
+{$ifdef LINUX}
+  c_setenv('PPC_CONFIG_PATH', PChar(ConfigDir), 1);
   // Warn if the user has ~/.fpc.cfg; our pipeline is now safe (overridden
   // via env), but `fpc` invoked manually from a shell after install will
   // still hit it unless the user removes/renames it.
@@ -2783,6 +2804,17 @@ begin
     Log('  NOTE: it shadows portable fpc.cfg for plain `fpc` shell use.');
     Log('  NOTE: rename or delete it if you want this install to be the default.');
   end;
+{$endif}
+{$ifdef WINDOWS}
+  // Same warning for the two Windows spots, both searched before the
+  // compiler dir.
+  for var Shadow in [IncludeTrailingPathDelimiter(GetEnvironmentVariable('USERPROFILE')) + 'fpc.cfg',
+                     IncludeTrailingPathDelimiter(GetEnvironmentVariable('ALLUSERSPROFILE')) + 'fpc.cfg'] do
+    if FileExists(Shadow) then begin
+      Log('  NOTE: user-level fpc.cfg detected at ' + Shadow);
+      Log('  NOTE: it shadows portable fpc.cfg for plain `fpc` shell use.');
+      Log('  NOTE: rename or delete it if you want this install to be the default.');
+    end;
 {$endif}
   // Dump the unit-search-path lines so we can visually verify the
   // template resolved %basepath% correctly. -Fu lines that don't
@@ -3012,6 +3044,7 @@ begin
     var hasCrossLinux32 := DirectoryExists(HostFpcUnitsDir + 'i386-linux');
     var hasBootstrap    := FileExists(IncludeTrailingPathDelimiter(BootstrapBinDir) +
                                       BootstrapPpName + ExeExt);
+    logHostFpcEnv;
     Log(Format('current state: fpc=%s laz=%s cross386=%s wasm=%s ' +
                'linux64=%s linux32=%s win64=%s bootstrap=%s', [BoolToStr(hasFpcExe, True), BoolToStr(hasLazExe, True),
        BoolToStr(hasCrossW32, True), BoolToStr(hasCrossWasm, True), BoolToStr(hasCrossLinux64, True), BoolToStr(hasCrossLinux32, True),

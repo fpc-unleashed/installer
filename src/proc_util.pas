@@ -18,15 +18,15 @@ function RunSilent(const Exe: string; const Args: array of string; const WorkDir
 // run with stdout+stderr captured line-by-line into OnLine. ExtraPath is prepended to child PATH ('' to inherit)
 function RunStream(const Exe: string; const Args: array of string; const WorkDir: string; const ExtraPath: string; OnLine: TLineCallback): Integer;
 
+var
+  // dir holding the fpc.cfg we generated; forced into every child as
+  // PPC_CONFIG_PATH so a user-level fpc.cfg can not outrank it
+  fpcConfigDir: string = '';
+
 implementation
 
 uses
   process;
-
-{$ifdef LINUX}
-// live env read via libc; FPC RTL freezes envp at startup so setenv() done in-process is invisible to GetEnvironmentString
-function libc_getenv(name: PChar): PChar; cdecl; external 'c' name 'getenv';
-{$endif}
 
 const
   READ_BUF = 4096;
@@ -61,6 +61,16 @@ begin
 end;
 {$endif}
 
+// vars from an earlier FPC install on the host that redirect the compiler at foreign units or a foreign config:
+// FPCDIR feeds the built-in <dir>/units/<target>/rtl fallback, <TARGET>UNITS extends the unit path, PPC_CONFIG_PATH
+// picks the fpc.cfg. FPCDIR and <TARGET>UNITS apply even when the right fpc.cfg loads (only -n disables them, and
+// make-driven fpc calls don't pass it), so pinning the cfg alone is not enough. Left in place they silently mix a
+// stranger's .ppu into our build (token replay then fails mid-generic with a bogus parse error).
+function redirectsFpcSearch(const name: string): Boolean;
+begin
+  result := (name = 'FPCDIR') or (name = 'PPC_CONFIG_PATH') or (name = 'WIN32UNITS') or (name = 'WIN64UNITS') or (name = 'LINUXUNITS');
+end;
+
 // copy parent env, optionally prepend Prefix to PATH, strip MAKEFLAGS/MFLAGS (would poison child `make`)
 procedure ApplyEnvWithPathPrefix(P: TProcess; const Prefix: string);
 begin
@@ -72,9 +82,7 @@ begin
     if eqPos < 2 then Continue;
     var name := UpperCase(Copy(envLine, 1, eqPos-1));
     if (name = 'MAKEFLAGS') or (name = 'MFLAGS') then Continue;
-{$ifdef LINUX}
-    if name = 'PPC_CONFIG_PATH' then Continue; // re-injected via libc_getenv below
-{$endif}
+    if redirectsFpcSearch(name) then Continue; // ours is re-injected below
     if name = 'PATH' then begin
       // PathSeparator: ';' on Windows, ':' on Unix
       var parentpath := Copy(envLine, 6, MaxInt);
@@ -90,11 +98,10 @@ begin
   // belt + suspenders: force MAKEFLAGS/MFLAGS empty regardless of parent env
   P.Environment.Add('MAKEFLAGS=');
   P.Environment.Add('MFLAGS=');
-{$ifdef LINUX}
-  // PPC_CONFIG_PATH set in our process via libc setenv (overrides stale ~/.fpc.cfg); RTL can't see it
-  var ppc := libc_getenv('PPC_CONFIG_PATH');
-  if (ppc <> nil) and (ppc^ <> #0) then P.Environment.Add('PPC_CONFIG_PATH='+string(ppc));
-{$endif}
+  // pin the config search to our own fpc.cfg; FPC reaches a user-level one
+  // first otherwise. Empty until the cfg is generated - that window only
+  // spans the FPC build, whose makefiles pass every path explicitly.
+  if fpcConfigDir <> '' then P.Environment.Add('PPC_CONFIG_PATH='+fpcConfigDir);
 end;
 
 // flush completed lines (split on LF; trailing partial stays in Buf)
