@@ -133,6 +133,7 @@ type
     procedure OnMakeLine(const Line: string);
     function ResolveLogPath: string;
     procedure logHostFpcEnv;
+    function makeCfgOpt: string;
     function StepBootstrap: Boolean;
     function StepDownloadFpcSource: Boolean;
     function StepBuildFpcNative: Boolean;
@@ -946,6 +947,25 @@ begin
     var value := GetEnvironmentVariable(name);
     if value <> '' then Log('  NOTE: host env has '+name+'='+value+' (dropped for child builds)');
   end;
+end;
+
+// `-n @<cfg>` for every fpc a makefile spawns. One flag does what the env pin
+// needs three vars for: it drops the config search AND the built-in FPCDIR /
+// <TARGET>UNITS unit paths. Empty when the path holds a space - make splits OPT
+// on whitespace, and quoting through make into fpc is not portable; the
+// PPC_CONFIG_PATH pin covers that case on its own.
+function TInstallThread.makeCfgOpt: string;
+begin
+  result := '';
+  var cfg := HostFpcBinDir + 'fpc.cfg';
+  if not FileExists(cfg) then Exit;
+  if Pos(' ', cfg) > 0 then begin
+    // 8.3 aliasing is off on most volumes these days, so this often fails
+    var shortCfg := ExtractShortPathName(cfg);
+    if (shortCfg = '') or (Pos(' ', shortCfg) > 0) then Exit;
+    cfg := shortCfg;
+  end;
+  result := '-n @'+cfg;
 end;
 
 // run make with the given args from the source dir. On Windows the
@@ -2208,15 +2228,25 @@ begin
 {$endif}
   ForceDirectories(LazarusPcp);
 
+  // the makefile spawns fpc itself, so our own -Fu/-n flags never reach it;
+  // OPT is the only channel into those calls
+  var CfgOpt: TStringArray := [];
+  var CfgFlag := makeCfgOpt;
+  if CfgFlag <> '' then CfgOpt := ['OPT=' + CfgFlag];
+
   Log('--- Building Lazarus IDE ---');
   Log('  source dir: ' + LazarusDir);
   Log('  PP:         ' + FpcExe);
+  if CfgFlag <> '' then
+    Log('  OPT:        ' + CfgFlag)
+  else
+    Log('  OPT:        none (cfg path has a space; PPC_CONFIG_PATH still pins it)');
 
   // 1. build lazbuild + LCL + minimum prereqs that the upcoming
   //    --add-package calls will need to compile each package against.
   SetStage(isLazMakelazbuild);
   Progress(-1, 'make lazbuild (LCL + lazbuild, ~3 min)');
-  var ExitCode := RunStream(MakeExe, ['lazbuild', 'PP=' + FpcExe], LazarusDir, PathPrefix, @OnMakeLine);
+  var ExitCode := RunStream(MakeExe, ['lazbuild', 'PP=' + FpcExe] + CfgOpt, LazarusDir, PathPrefix, @OnMakeLine);
   if ExitCode <> 0 then begin
     FErrorMsg := 'lazbuild bootstrap failed (make exit=' + IntToStr(ExitCode) + ')';
     Log('  ' + FErrorMsg);
